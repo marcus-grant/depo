@@ -1,0 +1,13 @@
+<!-- templates/item-created.html -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Item Created</title>
+</head>
+<body>
+    <h1>Item Successfully Created!</h1>
+    <p>Your shortcode is: <strong>{{ shortcode }}</strong></p>
+    <p>You can access your item at: <a href="{% url 'item-detail' shortcode=shortcode %}">{{ request.build_absolute_uri }}</a></p>
+</body>
+</html>
