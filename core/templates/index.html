@@ -9,10 +9,13 @@
     <br>
     <br>
     <h2>Create Shortcode:</h2>
-    <form action="/create" method="post">
-      <label for="content">URL:</label>
-      <input type="url" id="content" name="content" required>
-      <br>
-      <input type="submit" value="Submit">
+    {% if error %}
+      <p style="color: red;">{{ error }}</p>
+    {% endif %}
+    {% include 'includes/shortcode-form.html' %}
+    {% if shortcode %}
+      <p>Your shortcode is: <strong>{{ short_id }}</strong></p>
+    <p>You can access details at: <a href="{% url 'shortcode_details' shortcode=shortcode %}/{{ short_id }}/details">{{ request.build_absolute_uri }}</a></p>
+    {% endif %}
   </body>
 </html>

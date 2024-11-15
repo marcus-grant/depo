@@ -1,0 +1,23 @@
+<!-- templates/item_detail.html -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Item Detail</title>
+</head>
+<body>
+    <h1>Item Detail</h1>
+    <p>Item Type: {{ shortcode.get_item_type_display }}</p>
+
+    {% if item.ctype == 'url' %}
+        <p>Target URL: <a href="{{ shortcode.url }}">{{ item.target_url }}</a></p>
+    {% elif item.ctype == 'image' %}
+        <p>Image:</p>
+        <img src="{{ shortcode.content_file.url }}" alt="Image Item">
+    {% endif %}
+
+    <p>Created At: {{ item.btime }}</p>
+    <!-- <p>Last Accessed At: {{ item.atime }}</p> -->
+</body>
+</html>
+
