@@ -1,31 +1,30 @@
 from django.shortcuts import render
+from django.http import HttpRequest
 
-from core.models import Shortcode, ShortcodeManager
-from core.shortcode import hash_b32, SHORTCODE_MIN_LEN
+from core.models import Shortcode
+# from core.shortcode import hash_b32, SHORTCODE_MIN_LEN
 
 
 # Create your views here.
-def web_index(request):
-    if request.method == "POST":
+def web_index(req: HttpRequest):
+    if req.method == "POST":
         try:
-            content = request.POST.get("content")
-            shortcode, short_id = ShortcodeManager.gen_shortcode(content)
+            content = req.POST.get("content")
+            shortcode = Shortcode.generate(content)
         except Exception as e:
-            return render(request, "index.html", {"error": e})
+            return render(req, "index.html", {"error": e})
         # TODO: Implement created and error
-        return render(
-            request, "index.html", {"shortcode": shortcode, "short_id": short_id}
-        )
+        return render(req, "index.html", {"shortcode": shortcode})
     else:
-        return render(request, "index.html")
+        return render(req, "index.html")
 
 
-def shortcode_details(request, shortcode):
+def shortcode_details(request, short_id: str):
     # TODO: Implement too short shortcode
     # if len(shortcode) < SHORTCODE_MIN_LEN:
     #     return render(request)
     try:
-        item = Shortcode.objects.get(id=shortcode)
-    except Shortcode.DoesNotExist:
-        return render(request, "404.html", {"shortcode": shortcode})
-    return render(request, "shortcode-detail.html", {"item": item})
+        shortcode = Shortcode.lookup_shortcode(short_id)
+    except Exception as e:
+        return render(request, "404.html", {"short_id": short_id, "error": e})
+    return render(request, "shortcode-details.html", {"shortcode": shortcode})

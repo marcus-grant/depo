@@ -7,16 +7,17 @@
 </head>
 <body>
     <h1>Item Detail</h1>
-    <p>Item Type: {{ shortcode.get_item_type_display }}</p>
+    <p>Item Type: {{ shortcode.ctype }}</p>
 
-    {% if item.ctype == 'url' %}
-        <p>Target URL: <a href="{{ shortcode.url }}">{{ item.target_url }}</a></p>
-    {% elif item.ctype == 'image' %}
+    {% if shortcode.ctype == 'url' %}
+        <p>Redirect URL: <a href="{{ shortcode.url }}">{{ shortcode.url }}</a></p>
+    {% elif shortcode.ctype == 'image' %}
         <p>Image:</p>
         <img src="{{ shortcode.content_file.url }}" alt="Image Item">
     {% endif %}
 
-    <p>Created At: {{ item.btime }}</p>
+    <p>Created At: {{ shortcode.btime }}</p>
+    <p>Updated At: {{ shortcode.mtime }}</p>
     <!-- <p>Last Accessed At: {{ item.atime }}</p> -->
 </body>
 </html>

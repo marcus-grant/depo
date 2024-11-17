@@ -5,6 +5,7 @@ from typing import Optional, Tuple
 from .shortcode import hash_b32, SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
 
 
+# TODO: Shortcode isn't the right noun here, the property short_id is the real shortcode
 # Create your models here.
 class Shortcode(models.Model):
     CONTENT_TYPES = [
@@ -19,6 +20,10 @@ class Shortcode(models.Model):
     btime = models.DateTimeField(auto_now_add=True)
     mtime = models.DateTimeField(auto_now=True)
 
+    @property
+    def short_id(self) -> str:
+        return self.id[: self.min_shortcode_len()]
+
     def min_shortcode_len(self, min_len: int = SHORTCODE_MIN_LEN) -> int:
         for length in range(min_len, SHORTCODE_MAX_LEN):
             candidate_code = self.id[:length]
@@ -31,19 +36,41 @@ class Shortcode(models.Model):
                 raise ValueError(f"No shortcode item of id: {id} found")
         return SHORTCODE_MAX_LEN
 
+    # TODO: Good memoization candidate
+    @classmethod
+    def lookup_shortcode(cls, id_part: str) -> Optional["Shortcode"]:
+        filter = cls.objects.filter
+        fargs = {"id__startswith": id_part}
+        return filter(**fargs).order_by("btime").first()
 
-class ShortcodeManager(models.Manager):
-    def lookup_shortcode(self, id_part: str) -> Optional[Shortcode]:
-        shortcode = self.filter(id__startswith=id_part).order_by("btime").first()
+    @classmethod
+    def generate(cls, content: str) -> "Shortcode":
+        id = hash_b32(content)
+        shortcode = cls.lookup_shortcode(id)
         if shortcode:
             return shortcode
-        return None
-
-    def gen_shortcode(self, content: str) -> Tuple[Shortcode, str]:
-        id = hash_b32(content)
-        shortcode = self.lookup_shortcode(id)
-        if shortcode:
-            return shortcode, id[: shortcode.min_shortcode_len()]
-        shortcode = Shortcode(id=id, ctype="url", url=content)
+        shortcode = cls(id=id, ctype="url", url=content)
         shortcode.save()
-        return shortcode, id[: shortcode.min_shortcode_len()]
+        return shortcode
+
+
+# class ShortcodeManager(models.Manager):
+#     @staticmethod
+#     def lookup_shortcode(id_part: str) -> Optional[Shortcode]:
+#         return (
+#             Shortcode.objects.filter(id__startswith=id_part).order_by("btime").first()
+#         )
+#
+#     @staticmethod
+#     def gen_shortcode(content: str) -> Shortcode:
+#         """Generator for a shortcode entity.
+#         Primarily exists to standardize the hashing and encoding of content while
+#         ensuring idempotency of the shortcode.
+#         """
+#         id = hash_b32(content)
+#         shortcode = ShortcodeManager.lookup_shortcode(id)
+#         if shortcode:
+#             return shortcode
+#         shortcode = Shortcode(id=id, ctype="url", url=content)
+#         shortcode.save()
+#         return shortcode
