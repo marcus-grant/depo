@@ -1,13 +1,12 @@
 from functools import partial
 from django.db import models
-from typing import Optional, Tuple
+from typing import Optional, Union
 
 from .shortcode import hash_b32, SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
 
 
-# TODO: Shortcode isn't the right noun here, the property short_id is the real shortcode
 # Create your models here.
-class Shortcode(models.Model):
+class Item(models.Model):
     CONTENT_TYPES = [
         ("url", "URL"),
         ("txt", "Text"),
@@ -20,15 +19,16 @@ class Shortcode(models.Model):
     btime = models.DateTimeField(auto_now_add=True)
     mtime = models.DateTimeField(auto_now=True)
 
+    # NOTE: Good memoization candidate
     @property
-    def short_id(self) -> str:
+    def shortcode(self) -> str:
         return self.id[: self.min_shortcode_len()]
 
     def min_shortcode_len(self, min_len: int = SHORTCODE_MIN_LEN) -> int:
         for length in range(min_len, SHORTCODE_MAX_LEN):
             candidate_code = self.id[:length]
             # Does this candidate code uniquely identify the item?
-            matches = Shortcode.objects.filter(id__startswith=candidate_code)
+            matches = Item.objects.filter(id__startswith=candidate_code)
             if matches.count() == 1:
                 return length
             # If no matches, something is wrong
@@ -36,41 +36,22 @@ class Shortcode(models.Model):
                 raise ValueError(f"No shortcode item of id: {id} found")
         return SHORTCODE_MAX_LEN
 
-    # TODO: Good memoization candidate
+    # NOTE: Good memoization candidate
     @classmethod
-    def lookup_shortcode(cls, id_part: str) -> Optional["Shortcode"]:
+    def lookup_shortcode_item(cls, id_part: str) -> Optional["Item"]:
         filter = cls.objects.filter
         fargs = {"id__startswith": id_part}
         return filter(**fargs).order_by("btime").first()
 
     @classmethod
-    def generate(cls, content: str) -> "Shortcode":
+    def ensure(cls, content: Union[str, bytes]) -> "Item":
+        """Ensure that a shortcode item hashed to the given content exists.
+        If it exists, just use the lookup to retrieve its model instance.
+        If not, then create a new Item instance and return."""
         id = hash_b32(content)
-        shortcode = cls.lookup_shortcode(id)
-        if shortcode:
-            return shortcode
-        shortcode = cls(id=id, ctype="url", url=content)
-        shortcode.save()
-        return shortcode
-
-
-# class ShortcodeManager(models.Manager):
-#     @staticmethod
-#     def lookup_shortcode(id_part: str) -> Optional[Shortcode]:
-#         return (
-#             Shortcode.objects.filter(id__startswith=id_part).order_by("btime").first()
-#         )
-#
-#     @staticmethod
-#     def gen_shortcode(content: str) -> Shortcode:
-#         """Generator for a shortcode entity.
-#         Primarily exists to standardize the hashing and encoding of content while
-#         ensuring idempotency of the shortcode.
-#         """
-#         id = hash_b32(content)
-#         shortcode = ShortcodeManager.lookup_shortcode(id)
-#         if shortcode:
-#             return shortcode
-#         shortcode = Shortcode(id=id, ctype="url", url=content)
-#         shortcode.save()
-#         return shortcode
+        item = cls.lookup_shortcode_item(id)
+        if item:
+            return item
+        item = cls(id=id, ctype="url", url=content)
+        item.save()
+        return item

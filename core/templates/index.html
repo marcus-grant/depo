@@ -13,9 +13,11 @@
       <p style="color: red;">{{ error }}</p>
     {% endif %}
     {% include 'includes/shortcode-form.html' %}
-    {% if shortcode %}
-      <p>Your shortcode is: <strong>{{ shortcode.short_id }}</strong></p>
-      <p>You can access details at: <a href="./{{ shortcode.short_id }}/details">{{ request.build_absolute_uri }}</a></p>
+    {% if item %}
+      <p>Your shortcode is: <strong>{{ item.shortcode }}</strong></p>
+      <p>You can access details at: <a href="./{{ item.shortcode }}/details">
+        {{ request.build_absolute_uri }}{{ item.shortcode }}/details
+      </a></p>
     {% endif %}
   </body>
 </html>
