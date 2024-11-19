@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponseBadRequest
 
 from core.models import Item
 # from core.shortcode import hash_b32, SHORTCODE_MIN_LEN
@@ -10,7 +10,8 @@ def web_index(req: HttpRequest):
     if req.method == "POST":
         content = req.POST.get("content")
         if not content:
-            return render(req, "index.html", {"error": "Content is required"})
+            props = {"error": "Content is required"}
+            return HttpResponseBadRequest(render(req, "index.html", props))
         try:
             item = Item.ensure(content)
         except Exception as e:

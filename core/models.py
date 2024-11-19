@@ -20,6 +20,7 @@ class Item(models.Model):
     mtime = models.DateTimeField(auto_now=True)
 
     # NOTE: Good memoization candidate
+    # Consider using the @cached_property decorator
     @property
     def shortcode(self) -> str:
         return self.id[: self.min_shortcode_len()]
