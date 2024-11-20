@@ -1,8 +1,15 @@
 from django.shortcuts import render
-from django.http import HttpRequest, HttpResponseBadRequest
+from django.http import HttpRequest, HttpResponseBadRequest  # , Http404
+from django.template.loader import render_to_string
 
 from core.models import Item
 # from core.shortcode import hash_b32, SHORTCODE_MIN_LEN
+
+
+# TODO: Properly handle 404s with context containing shortcode
+# def handler_404(request, exception=None):
+#     ctx = {"shortcode": request.GET.get("shortcode", "unknown")}
+#     return render(request, "404.html", ctx, status=404)
 
 
 # Create your views here.
@@ -23,13 +30,9 @@ def web_index(req: HttpRequest):
 
 
 def shortcode_details(request, shortcode: str):
-    # TODO: Implement too short shortcode
-    # if len(shortcode) < SHORTCODE_MIN_LEN:
-    #     return render(request)
-    try:
-        item = Item.lookup_shortcode_item(shortcode)
-    except Exception as e:
-        props = {"shortcode": shortcode, "error": e}
-        return render(request, "404.html", props)
-    props = {"shortcode": shortcode, "item": item}
-    return render(request, "shortcode-details.html", props)
+    item = Item.lookup_shortcode_item(shortcode)
+    # TODO: Figure out how to handle custom 404s
+    # if not item:
+    #     raise Http404
+    ctx = {"item": item}
+    return render(request, "shortcode-details.html", ctx)
