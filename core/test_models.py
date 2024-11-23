@@ -125,114 +125,72 @@ class ItemEnsureTest(TestCase):
     GOOG_H32 = "RGY6JE5M99DVYMWA5032GVYC"
     CONT_B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
+    def test_idempotency(self):
+        """Test ensure is idempotent, doesnt create duplicate items in backend.
+        This also tests that other fields are assigned correctly and the same."""
+        # Call ensure first time
+        code1 = self.GOOG_H32[:SHORTCODE_MIN_LEN]
+        hash1 = self.GOOG_H32[SHORTCODE_MIN_LEN:]
+        args1 = {"code": code1, "hash": hash1, "ctype": "url", "url": self.GOOG_URL}
+        item1 = Item.objects.create(**args1)
+        self.assertEqual(item1.code + item1.hash, self.GOOG_H32)
+        self.assertEqual(item1.url, self.GOOG_URL)
+
+        # Call ensure second time
+        item2 = Item.ensure(self.GOOG_URL)
+        # Compare id url and shortcodes of both items
+        self.assertEqual(item2.code, item1.code)
+        self.assertEqual(item2.hash, item1.hash)
+        self.assertEqual(item2.url, item1.url)
+
+        # Ensure only one item was created in the backend
+        self.assertEqual(Item.objects.count(), 1)
+
     def test_fields_assigned(self):
-        # """Test ensure assigns fields correctly."""
-        # item = Item.ensure(self.GOOG_URL)
-        ## Create timestamp to compare with Item's btime & mtime fields
-        # now = datetime.now(timezone.utc)
-        # self.assertEqual(item.id, self.GOOG_H32)
-        # self.assertEqual(item.url, self.GOOG_URL)
-        # self.assertEqual(item.ctype, "url")
-        # self.assertLessEqual((now - item.btime).total_seconds(), 10)
-        # self.assertLessEqual((now - item.mtime).total_seconds(), 10)
-        pass
+        """Test ensure assigns fields correctly."""
+        item = Item.ensure(self.GOOG_URL)
+        # Create timestamp to compare with Item's btime & mtime fields
+        now = datetime.now(timezone.utc)
+        self.assertEqual(item.code + item.hash, self.GOOG_H32)
+        self.assertEqual(item.url, self.GOOG_URL)
+        self.assertEqual(item.ctype, "url")
+        self.assertLessEqual((now - item.btime).total_seconds(), 10)
+        self.assertLessEqual((now - item.mtime).total_seconds(), 10)
 
     def test_creates(self):
-        # """Assert that ensure creates an item if none of that hash exists."""
-        ## First assert no items exist
-        # self.assertFalse(Item.objects.exists())
-        ## Use ensure to create an item
-        # Item.ensure(self.GOOG_URL)
-        ## Assert that the item was created
-        # self.assertEqual(Item.objects.count(), 1)
-        pass
+        """Assert that ensure creates an item if none of that hash exists."""
+        # First assert no items exist
+        self.assertFalse(Item.objects.exists())
+        # Use ensure to create an item
+        Item.ensure(self.GOOG_URL)
+        # Assert that the item was created
+        self.assertEqual(Item.objects.count(), 1)
 
-    def test_idempotency(self):
-        # """Test ensure is idempotent, doesnt create duplicate items in backend.
-        # This also tests that other fields are assigned correctly and the same."""
-        # # Call ensure first time
-        # item1 = Item.ensure(self.GOOG_URL)
-        # self.assertEqual(item1.id, self.GOOG_H32)
-        # self.assertEqual(item1.url, self.GOOG_URL)
-
-        # # Call ensure second time
-        # item2 = Item.ensure(self.GOOG_URL)
-        # # Compare id url and shortcodes of both items
-        # self.assertEqual(item2.id, item1.id)
-        # self.assertEqual(item2.url, item1.url)
-        # self.assertEqual(item2.shortcode, item1.shortcode)
-
-        # # Ensure only one item was created in the backend
-        # self.assertEqual(Item.objects.count(), 1)
-        pass
-
-
-class TestShortcodeProp(TestCase):
-    COUNT_B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
-    PREFIX = COUNT_B32[:SHORTCODE_MIN_LEN]
-    ID0 = f"{PREFIX}0000"
-    ID1 = f"{PREFIX}0001"
-    ID2 = f"{PREFIX}0002"
-    ID3 = f"{PREFIX}0003"
-    ID4 = f"{PREFIX}0004"
-    IDS = [ID0, ID1, ID2, ID3, ID4]
-    EX0 = PREFIX
-    EX1 = f"{PREFIX}0"
-    EX2 = f"{PREFIX}00"
-    EX3 = f"{PREFIX}000"
-    EX4 = f"{PREFIX}0004"
-    EXS = [EX0, EX1, EX2, EX3, EX4]
-    pass
-
-    # def test_collision(self):
-    #     """Test that min_shortcode_len returns the correct length."""
-    #     # Loop through expected ids and shortcodes to test min_shortcode_len
-    #     for i, id in enumerate(self.IDS):
-    #         # Indicate to test runner which iteration failed
-    #         with self.subTest(i=i, id=id, expect=self.EXS[i]):
-    #             expect = self.EXS[i]
-    #             url = f"https://example{i}.com"
-    #             item = Item.objects.create(id=id, ctype="url", url=url)
-    #             if i == 1:
-    #                 breakpoint()
-    #                 # pass
-    #             self.assertEqual(item.shortcode, expect)
-
-    # def test_ensure_creates
-    # @patch("core.models.hash_b32")
-    # def test_with_shortcode_collision(self, mock_h32):
-    #     """Test ensure handles prefix collisions by increasing shortcode len."""
-    #     # Make the mock return same value everytime for content hashes
-    #     prefix = self.CONT_B32[:SHORTCODE_MIN_LEN]
-    #     id1 = f"{prefix}0000"
-    #     id2 = f"{prefix}0001"
-    #     id3 = f"{prefix}0002"
-    #     id4 = f"{prefix}0003"
-    #     id5 = f"{prefix}0004"
-    #     mock_h32.return_value = [id1, id2, id3, id4, id5]
-    #     # Create expected shortcodes for ids based on order of creation
-    #     exp1 = prefix
-    #     exp2 = f"{prefix}0"
-    #     exp3 = f"{prefix}00"
-    #     exp4 = f"{prefix}000"
-    #     exp5 = f"{prefix}0004"
-
-    #     # Ensure all those items are created w/ that sequence of ids
-    #     item1 = Item.ensure("Hello, World!")
-    #     item2 = Item.ensure("FooBar")
-    #     item3 = Item.ensure("FooBarBaz")
-    #     item4 = Item.ensure("DEADBEEF")
-    #     item5 = Item.ensure("C0FFEE")
-
-    #     # Call ensure for first time with any content
-    #     # and assert its id is the mocked return
-    #     item1 = Item.ensure("Hello, World!")
-    #     self.assertEqual(item1.id, self.CONT_B32)
-
-    #     # Call ensure again on different content and same as mock return
-    #     item2 = Item.ensure("FooBar")
-    #     self.assertEqual(item2.id, self.CONT_B32)
-
-    #     # Now check that the later shortcode property has one more digit
-    #     self.assertEqual(item1.shortcode, item1.id[:SHORTCODE_MIN_LEN])
-    #     self.assertEqual(item2.shortcode, item2.id[: SHORTCODE_MIN_LEN + 1])
+    def test_shortcode_collision(self):
+        COUNT_B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+        PREFIX = COUNT_B32[:SHORTCODE_MIN_LEN]
+        HASH1, EX1 = f"{PREFIX}000", f"{PREFIX}"
+        HASH2, EX2 = f"{PREFIX}001", f"{PREFIX}0"
+        HASH3, EX3 = f"{PREFIX}002", f"{PREFIX}00"
+        HASH4, EX4 = f"{PREFIX}003", f"{PREFIX}003"
+        HASH5, EX5 = f"{PREFIX}004", f"{PREFIX}004"
+        HASHES = [HASH1, HASH2, HASH3, HASH4, HASH5]
+        EXS = [EX1, EX2, EX3, EX4, EX5]
+        with patch("core.models.hash_b32") as mock_h32:
+            for i, hash in enumerate(HASHES):
+                mock_h32.return_value = hash
+                with self.subTest(i=i, hash=hash, expect=EXS[i]):
+                    content = f"https://example{i}.com"
+                    item = Item.ensure(content)
+                    self.assertEqual(item.code, EXS[i])
+                    hash_rem = hash[len(EXS[i]) :]
+                    self.assertEqual(item.hash, hash_rem)
+                    self.assertEqual(item.url, content)
+        # Finally assert that non collision works normally
+        content = "https://google.com"
+        full_hash = "RGY6JE5M99DVYMWA5032GVYC"
+        exp_code = full_hash[:SHORTCODE_MIN_LEN]
+        exp_hash = full_hash[SHORTCODE_MIN_LEN:]
+        item = Item.ensure(content)
+        self.assertEqual(item.code, exp_code)
+        self.assertEqual(item.hash, exp_hash)

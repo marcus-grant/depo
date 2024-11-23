@@ -43,25 +43,48 @@ class Item(models.Model):
     # Will also analyze strs to determine if urls or text
     @classmethod
     def ensure(cls, content: Union[str, bytes]) -> "Item":
-        """Ensure that a shortcode item hashed to the given content exists.
-        If it exists, just use the lookup to retrieve its model instance.
-        If not, then create a new Item instance and return."""
-        hash = hash_b32(content)
-        item = cls.search_shortcode(hash)
-        if item:
-            return item
-        item = cls(id=id, ctype="url", url=content)
-        item.save()
-        return item
+        """
+        Ensure that a shortcode item hashed to the given content exists.
+        If it exists, retrieve its model instance.
+        If not, create a new Item instance and return it.
 
-    # def min_shortcode_len(self, min_len: int = SHORTCODE_MIN_LEN) -> int:
-    #     for length in range(min_len, SHORTCODE_MAX_LEN):
-    #         candidate_code = self.id[:length]
-    #         # Does this candidate code uniquely identify the item?
-    #         matches = Item.objects.filter(id__startswith=candidate_code)
-    #         if matches.count() == 1:
-    #             return length
-    #         # If no matches, something is wrong
-    #         elif matches.count() == 0:
-    #             raise ValueError(f"No shortcode item of id: {id} found")
-    #     return SHORTCODE_MAX_LEN
+        Args:
+            content (Union[str, bytes]): The content to hash and ensure existence.
+
+        Returns:
+            Item: The existing or newly created Item.
+        """
+        # Generate all possible code prefixes from SHORTCODE_MIN_LEN to the length of full_hash
+        full_hash = hash_b32(content)
+        likely_lens = range(SHORTCODE_MIN_LEN, len(full_hash) + 1)
+        likely_codes = [full_hash[:length] for length in likely_lens]
+
+        # Fetch all existing items with codes that are prefixes of full_hash
+        select = cls.objects.filter
+        current_items = select(code__in=likely_codes).only("code", "hash")
+
+        # Create a set for faster lookup
+        current_codes = {item.code: item.hash for item in current_items}
+
+        # Iterate through possible codes to find the shortest unique one
+        for code in likely_codes:
+            hash_rem = full_hash[len(code) :]  # Remaining hash after code
+            existing_hash = current_codes.get(code)
+
+            if existing_hash is None:
+                # Code is unique; create and return the new item
+                fields = {
+                    "code": code,
+                    "hash": hash_rem,
+                    "ctype": "url",  # Default to 'url' for now
+                    "url": content if isinstance(content, str) else None,
+                }
+                new_item = cls(**fields)
+                new_item.save()
+                return new_item
+            elif existing_hash == hash_rem:
+                # Exact match found; return the existing item
+                return cls.objects.get(code=code)
+
+        # If all possible prefixes are taken, raise an exception
+        raise ValueError("Unable to generate a unique shortcode with the given hash.")
