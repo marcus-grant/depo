@@ -30,7 +30,7 @@ def web_index(req: HttpRequest):
 
 
 def shortcode_details(request, shortcode: str):
-    item = Item.lookup_shortcode_item(shortcode)
+    item = Item.search_shortcode(shortcode)
     # TODO: Figure out how to handle custom 404s
     # if not item:
     #     raise Http404

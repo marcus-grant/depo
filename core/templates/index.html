@@ -14,8 +14,8 @@
     {% endif %}
     {% include 'includes/shortcode-form.html' %}
     {% if item %}
-      <p>Your shortcode is: <strong>{{ item.shortcode }}</strong></p>
-      <p>You can access details at: <a href="./{{ item.shortcode }}/details">
+      <p>Your shortcode is: <strong>{{ item.code }}</strong></p>
+      <p>You can access details at: <a href="./{{ item.code }}/details">
         {{ request.build_absolute_uri }}{{ item.shortcode }}/details
       </a></p>
     {% endif %}

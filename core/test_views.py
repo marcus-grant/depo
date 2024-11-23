@@ -43,7 +43,7 @@ class WebIndexViewTest(TestCase):
 
 class ShortcodeDetailsViewTest(TestCase):
     def setUp(self):
-        self.item = Item.ensure("https://www.google.com")
+        self.item = Item.ensure("https://google.com")
 
     # TODO: Need to figure out how to deal with 404
     # def test_non_existent_shortcode(self):
@@ -57,7 +57,7 @@ class ShortcodeDetailsViewTest(TestCase):
 
     def test_valid_shortcode_renders_details(self):
         """Test valid shortcode form request renders details page content"""
-        shortcode = self.item.shortcode
+        shortcode = self.item.code
         resp = self.client.get(reverse("shortcode_details", args=[shortcode]))
         self.assertEqual(resp.status_code, 200)
         self.assertTemplateUsed(resp, "shortcode-details.html")
