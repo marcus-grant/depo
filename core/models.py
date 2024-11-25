@@ -1,7 +1,10 @@
 from django.db import models
-from typing import Optional, Union
+from typing import Optional, Union, TYPE_CHECKING
 
 from .shortcode import hash_b32, SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
+
+if TYPE_CHECKING:
+    from .models import LinkItem
 
 
 # Create your models here.
@@ -15,7 +18,6 @@ class Item(models.Model):
     code = models.CharField(primary_key=True, max_length=SHORTCODE_MAX_LEN)
     hash = models.CharField(max_length=SHORTCODE_MAX_LEN)  # Remaining hash minus code
     ctype = models.CharField(max_length=3, choices=CONTENT_TYPES)
-    url = models.URLField(max_length=192, blank=True, null=True)
     btime = models.DateTimeField(auto_now_add=True)
     mtime = models.DateTimeField(auto_now=True)
     # TODO: Refactor mtime to ctime because like POSIX, ctime is metadata change
@@ -88,3 +90,44 @@ class Item(models.Model):
 
         # If all possible prefixes are taken, raise an exception
         raise ValueError("Unable to generate a unique shortcode with the given hash.")
+
+    # TODO: Add other content types in Union
+    def get_child(self) -> Union["Item", "LinkItem"]:
+        if hasattr(self, "LinkItem"):
+            return self.linkitem  # type: ignore
+        return self
+
+
+class LinkItem(Item):
+    url = models.URLField(max_length=255)
+
+
+# NOTE: Unique item creation
+# # Existing hashing and code generation logic...
+#        # After determining that the code is unique:
+#        if ctype == 'url':
+#            new_item = URLItem(
+#                code=code,
+#                hash=hash_rem,
+#                ctype=ctype,
+#                url=content if isinstance(content, str) else None,
+#            )
+#        elif ctype == 'txt':
+#            new_item = TextItem(
+#                code=code,
+#                hash=hash_rem,
+#                ctype=ctype,
+#                text=content.decode('utf-8') if isinstance(content, bytes) else content,
+#            )
+#        elif ctype == 'pic':
+#            new_item = PictureItem(
+#                code=code,
+#                hash=hash_rem,
+#                ctype=ctype,
+#                image=content,  # Assuming content is an uploaded file
+#            )
+#        else:
+#            raise ValueError("Invalid content type.")
+#        new_item.save()
+#        return new_item
+#
