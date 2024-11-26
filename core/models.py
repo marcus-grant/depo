@@ -1,10 +1,12 @@
 from django.db import models
-from typing import Optional, Union, TYPE_CHECKING
+from typing import Optional, Union, Literal, TYPE_CHECKING
 
 from .shortcode import hash_b32, SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
 
 if TYPE_CHECKING:
     from .models import LinkItem
+
+CTYPE = Literal["url", "txt", "pic"]
 
 
 # Create your models here.
@@ -44,7 +46,7 @@ class Item(models.Model):
     # Implicit will use magic bytes encoded to b32 to determine content type if bytes
     # Will also analyze strs to determine if urls or text
     @classmethod
-    def ensure(cls, content: Union[str, bytes]) -> "Item":
+    def ensure(cls, content: Union[str, bytes], ctype: CTYPE = "url") -> "Item":
         """
         Ensure that a shortcode item hashed to the given content exists.
         If it exists, retrieve its model instance.
@@ -56,6 +58,10 @@ class Item(models.Model):
         Returns:
             Item: The existing or newly created Item.
         """
+        # First validate the ctype
+        if ctype not in dict(cls.CONTENT_TYPES):
+            raise TypeError(f"Invalid ctype in Item.ensure: {ctype}.")
+
         # Generate all possible code prefixes from SHORTCODE_MIN_LEN to the length of full_hash
         full_hash = hash_b32(content)
         likely_lens = range(SHORTCODE_MIN_LEN, len(full_hash) + 1)
@@ -68,6 +74,7 @@ class Item(models.Model):
         # Create a set for faster lookup
         current_codes = {item.code: item.hash for item in current_items}
 
+        # TODO: Pull functionality into own function/method
         # Iterate through possible codes to find the shortest unique one
         for code in likely_codes:
             hash_rem = full_hash[len(code) :]  # Remaining hash after code
@@ -78,8 +85,7 @@ class Item(models.Model):
                 fields = {
                     "code": code,
                     "hash": hash_rem,
-                    "ctype": "url",  # Default to 'url' for now
-                    "url": content if isinstance(content, str) else None,
+                    "ctype": ctype,
                 }
                 new_item = cls(**fields)
                 new_item.save()
@@ -93,13 +99,30 @@ class Item(models.Model):
 
     # TODO: Add other content types in Union
     def get_child(self) -> Union["Item", "LinkItem"]:
-        if hasattr(self, "LinkItem"):
-            return self.linkitem  # type: ignore
-        return self
+        child = None
+        for field in self._meta.fields:
+            if field.name == "url":
+                child = getattr(self, field.name)
+                break
+        return child or self
 
 
 class LinkItem(Item):
     url = models.URLField(max_length=255)
+
+    @classmethod
+    def ensure(
+        cls, content: Union[str, bytes], ctype: Optional[str] = None
+    ) -> "LinkItem":
+        if isinstance(content, bytes):
+            raise TypeError("Content must be a string to create a LinkItem.")
+        if ctype != "url":
+            msg = "Warning: LinkItem.ensure called with "
+            print(f"{msg}ctype={ctype}. Defaulting to 'url'.")
+        item = super().ensure(content, "url")
+        # Get or create LinkItem associated with this Item
+        link_item, _ = cls.objects.get_or_create(pk=item.pk, defaults={"url": content})
+        return link_item
 
 
 # NOTE: Unique item creation

@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.db import models
 from unittest.mock import patch
 
-from .models import Item
+from .models import Item, LinkItem
 from .shortcode import SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
 
 
@@ -19,7 +19,6 @@ class ItemSchemaTest(TestCase):
             "code": models.CharField,
             "hash": models.CharField,
             "ctype": models.CharField,
-            "url": models.URLField,
             "btime": models.DateTimeField,
             "mtime": models.DateTimeField,
         }
@@ -58,13 +57,6 @@ class ItemSchemaTest(TestCase):
         for choice in actual_choices:
             self.assertIn(choice, expect_choices)
 
-    def test_url_field_constraints(self):
-        """Test that the url field has the expected constraints & atrributes"""
-        url_field = Item._meta.get_field("url")
-        self.assertEqual(getattr(url_field, "max_length", None), 192)
-        self.assertTrue(getattr(url_field, "blank", False))
-        self.assertTrue(getattr(url_field, "null", True))
-
     def test_btime_field_constraints(self):
         """Test that the btime field has the expected constraints & atrributes"""
         btime_field = Item._meta.get_field("btime")
@@ -76,7 +68,43 @@ class ItemSchemaTest(TestCase):
         self.assertTrue(getattr(mtime_field, "auto_now", False))
 
 
-class ItemSearchShortcodeTest(TestCase):
+class LinkItemSchemaTest(TestCase):
+    def test_url_field_constraints(self):
+        """Test that the url field has the expected constraints & atrributes"""
+        url_field = LinkItem._meta.get_field("url")
+        self.assertEqual(getattr(url_field, "max_length", None), 255)
+        self.assertFalse(getattr(url_field, "blank", True))
+        self.assertFalse(getattr(url_field, "null", True))
+
+    def test_fieldname_types(self):
+        """Test that the LinkItem entity has the expected fields"""
+        fields = LinkItem._meta.get_fields()
+        field_names = [field.name for field in fields]
+        expect = {
+            "item_ptr": models.OneToOneField,
+            "url": models.URLField,
+        }
+
+        for expect_name, expect_type in expect.items():
+            with self.subTest(field_name=expect_name):
+                self.assertIn(expect_name, field_names)
+                field = LinkItem._meta.get_field(expect_name)
+                self.assertIsInstance(field, expect_type)
+
+    def test_access_parent_fields(self):
+        """Test that LinkItem can access parent fields"""
+        # Create a LinkItem
+        f = {"code": "G00G", "hash": "L3", "ctype": "url", "url": "https://google.com"}
+        LinkItem.objects.create(**f)
+        # Retrieve all fields from both parent and child of model instance
+        item = LinkItem.objects.first()
+        item_fields = item.__dict__.keys()
+        expect = {"code", "hash", "ctype", "btime", "mtime", "url"}
+        for field in expect:
+            with self.subTest(field_name=field):
+                self.assertIn(field, item_fields)
+
+
     def test_success(self):
         """Test search_shortcode returns the correct item."""
         # Create an item to search for
