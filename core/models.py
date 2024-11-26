@@ -6,7 +6,7 @@ from .shortcode import hash_b32, SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
 if TYPE_CHECKING:
     from .models import LinkItem
 
-CTYPE = Literal["url", "txt", "pic"]
+CTYPE = Literal["url", "txt", "pic", "xyz"]
 
 
 # Create your models here.
@@ -15,6 +15,7 @@ class Item(models.Model):
         ("url", "URL"),
         ("txt", "Text"),
         ("pic", "Picture"),
+        ("xyz", "Mock type, DNE"),
     ]
 
     code = models.CharField(primary_key=True, max_length=SHORTCODE_MAX_LEN)
@@ -42,6 +43,9 @@ class Item(models.Model):
         except cls.DoesNotExist:
             return None
 
+    # TODO: Move out shortcode len logic to other method
+    # TODO: Add either extra method usage of get_or_create of the model instance
+    # TODO: Make content the only required parameter, add kwargs to signature with validation
     # NOTE: Add explicit and implicit ctype detection later
     # Implicit will use magic bytes encoded to b32 to determine content type if bytes
     # Will also analyze strs to determine if urls or text
@@ -98,13 +102,14 @@ class Item(models.Model):
         raise ValueError("Unable to generate a unique shortcode with the given hash.")
 
     # TODO: Add other content types in Union
+    # TODO: Doesn't return the child instance fix
     def get_child(self) -> Union["Item", "LinkItem"]:
-        child = None
-        for field in self._meta.fields:
-            if field.name == "url":
-                child = getattr(self, field.name)
-                break
-        return child or self
+        for rel in self._meta.get_fields():
+            if isinstance(rel, models.OneToOneRel) and rel.parent_link:
+                child = getattr(self, rel.get_accessor_name(), None)
+                if child:
+                    return child
+        return self
 
 
 class LinkItem(Item):
@@ -112,14 +117,14 @@ class LinkItem(Item):
 
     @classmethod
     def ensure(
-        cls, content: Union[str, bytes], ctype: Optional[str] = None
+        cls, content: Union[str, bytes], ctype: Optional[str] = "url"
     ) -> "LinkItem":
         if isinstance(content, bytes):
             raise TypeError("Content must be a string to create a LinkItem.")
         if ctype != "url":
             msg = "Warning: LinkItem.ensure called with "
             print(f"{msg}ctype={ctype}. Defaulting to 'url'.")
-        item = super().ensure(content, "url")
+        item = Item.ensure(content, ctype="url")
         # Get or create LinkItem associated with this Item
         link_item, _ = cls.objects.get_or_create(pk=item.pk, defaults={"url": content})
         return link_item

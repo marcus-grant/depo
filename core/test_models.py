@@ -6,7 +6,11 @@ from unittest.mock import patch
 from .models import Item, LinkItem
 from .shortcode import SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
 
-# TODO: Move below code into appropriate TestClasses
+# TODO: Create Separate Item & LinkItem SchemaTest classes
+
+###
+# # Item (Parent class) Tests
+###
 
 
 class ItemSchemaTest(TestCase):
@@ -70,6 +74,33 @@ class ItemSchemaTest(TestCase):
         self.assertTrue(getattr(mtime_field, "auto_now", False))
 
 
+class ItemGetChildTest(TestCase):
+    def test_returns_subclass(self):
+        """Test that Item.get_child returns the correct subclass"""
+        url = "https://google.com"
+        link_item = LinkItem.ensure(url)
+        item = Item.objects.get(pk=link_item.pk)
+        child = item.get_child()
+        self.assertIsInstance(child, LinkItem)
+        self.assertEqual(child.pk, link_item.pk)
+        self.assertEqual(getattr(child, "url", None), link_item.url)
+
+    def test_returns_item_when_no_subclass(self):
+        """Test Item.get_child returns self if no subclass exists"""
+        item = Item.objects.create(code="F00BAR", hash="BAZ", ctype="xyz")
+        child = item.get_child()
+        self.assertEqual(child, item)
+        self.assertEqual(child.pk, item.pk)
+        self.assertEqual(child.ctype, "xyz")
+
+
+class ItemEnsureTest(TestCase):
+    def test_raises_with_invalid_type(self):
+        """Test that ensure raises TypeError with invalid ctype."""
+        with self.assertRaises(TypeError):
+            Item.ensure("https://google.com", ctype="invalid")  # type: ignore
+
+
 class LinkItemSchemaTest(TestCase):
     def test_url_field_constraints(self):
         """Test that the url field has the expected constraints & atrributes"""
@@ -107,8 +138,8 @@ class LinkItemSchemaTest(TestCase):
                 self.assertIn(field, item_fields)
 
 
+# TODO: Add tests for the base Item class
 class LinkItemSearchShortcodeTest(TestCase):
-    # TODO: Find out why this isn't working and get_child retrieves an Item
     def test_success(self):
         """Test search_shortcode returns the correct item."""
         # Create an item to search for
@@ -187,10 +218,12 @@ class LinkItemEnsureTest(TestCase):
         # Compare id url and shortcodes of both items
         self.assertEqual(item2.code, item1.code)
         self.assertEqual(item2.hash, item1.hash)
+        self.assertEqual(item1.pk, item2.pk)
         self.assertEqual(item2.url, item1.url)
 
         # Ensure only one item was created in the backend
         self.assertEqual(Item.objects.count(), 1)
+        self.assertEqual(LinkItem.objects.count(), 1)
 
     def test_fields_assigned(self):
         """Test ensure assigns fields correctly."""
@@ -199,7 +232,7 @@ class LinkItemEnsureTest(TestCase):
         now = datetime.now(timezone.utc)
         self.assertEqual(item.code + item.hash, self.GOOG_H32)
         # TODO: Why are urls empty?
-        # self.assertEqual(item.url, self.GOOG_URL)
+        self.assertEqual(item.url, self.GOOG_URL)
         self.assertEqual(item.ctype, "url")
         self.assertLessEqual((now - item.btime).total_seconds(), 10)
         self.assertLessEqual((now - item.mtime).total_seconds(), 10)
@@ -242,3 +275,58 @@ class LinkItemEnsureTest(TestCase):
         item = Item.ensure(content)
         self.assertEqual(item.code, exp_code)
         self.assertEqual(item.hash, exp_hash)
+
+    def test_raises_on_bad_content(self):
+        """Test ensure raises an exception when given bad content."""
+        with self.assertRaises(TypeError):
+            LinkItem.ensure(b"foobar")
+
+
+# TODO: Implement these suggestions:
+# 9. Improve Test Readability and Maintainability
+# Suggestion:
+# Use Test Data Factories:
+# Consider using a library like factory_boy to create test data.
+# This can make your tests cleaner and more maintainable.
+# Example with factory_boy:
+# import factory
+# from .models import Item, LinkItem
+#
+# class ItemFactory(factory.django.DjangoModelFactory):
+#     class Meta:
+#         model = Item
+#
+#     code = factory.Faker('bothify', text='??????')
+#     hash = factory.Faker('bothify', text='######')
+#     ctype = 'url'
+#
+# class LinkItemFactory(ItemFactory):
+#     class Meta:
+#         model = LinkItem
+#
+#     url = factory.Faker('url')
+# Use Factories in Tests:
+# class LinkItemEnsureTest(TestCase):
+#     def test_linkitem_ensure_creates(self):
+#         """Test that LinkItem.ensure creates a LinkItem correctly."""
+#         url = "https://example.com"
+#         link_item = LinkItem.ensure(url)
+#         self.assertEqual(link_item.url, url)
+#         # Use factories to create additional instances if needed
+# 10. Follow Best Practices in Django Testing
+# Suggestion:
+# Use setUpTestData for Class-Level Data:
+# If you have data that doesn't change between tests, use @classmethod and setUpTestData to create it once per test class.
+# Example:
+# class ItemEnsureTest(TestCase):
+#     @classmethod
+#     def setUpTestData(cls):
+#         cls.GOOG_URL = "https://google.com"
+#         cls.link_item = LinkItem.ensure(cls.GOOG_URL)
+#
+#     def test_idempotency(self):
+#         """Test ensure is idempotent."""
+#         link_item2 = LinkItem.ensure(self.GOOG_URL)
+#         self.assertEqual(self.link_item.pk, link_item2.pk)
+# Avoid Hardcoding Timestamps:
+# Instead of comparing timestamps to datetime.now(), use assertIsNotNone or check relative differences.
