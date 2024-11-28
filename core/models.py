@@ -1,7 +1,7 @@
 from django.db import models
 from typing import Optional, Union, Literal, TYPE_CHECKING
 
-from core.shortcode import hash_b32, SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
+from core.util.shortcode import hash_b32, SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
 
 if TYPE_CHECKING:
     from core.link.models import LinkItem

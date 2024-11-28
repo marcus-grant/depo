@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from core.models import Item
 from core.link.models import LinkItem
-from core.shortcode import SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
+from core.util.shortcode import SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
 
 
 class LinkItemSchemaTest(TestCase):

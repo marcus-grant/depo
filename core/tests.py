@@ -5,7 +5,7 @@ from django.db import models
 from django.test import TestCase
 from django.urls import reverse
 
-from core.shortcode import hash_b32, SHORTCODE_MIN_LEN, SHORTCODE_MAX_LEN
+from core.util.shortcode import hash_b32, SHORTCODE_MIN_LEN, SHORTCODE_MAX_LEN
 from core.models import Item
 from core.link.models import LinkItem
 

@@ -2,7 +2,7 @@ from django.test import TestCase
 import random
 from unittest.mock import patch
 
-from core.shortcode import (
+from core.util.shortcode import (
     hash_std,
     validate_b32_encode,
     encode_b32_hex,
@@ -180,7 +180,7 @@ class Base32HexEncodeTest(TestCase):
         self.assertEqual(encode_b32_hex(TFacts.PAD4_B), TFacts.PAD4_32H)
 
     def test_validate_called(self):
-        with patch("core.shortcode.validate_b32_encode") as mock_fn:
+        with patch("core.util.shortcode.validate_b32_encode") as mock_fn:
             mock_fn.side_effect = (
                 lambda x: x if isinstance(x, bytes) else x.encode("utf-8")
             )
@@ -336,14 +336,14 @@ class DecodeB32Test(TestCase):
             decode_b32("hello", strict=True)
 
     def test_calls_validate_with_strict_and_hexdecode(self):
-        with patch("core.shortcode.validate_b32_decode") as mock_valid:
-            with patch("core.shortcode.decode_b32_hex") as mock_decode:
+        with patch("core.util.shortcode.validate_b32_decode") as mock_valid:
+            with patch("core.util.shortcode.decode_b32_hex") as mock_decode:
                 mock_valid.side_effect = lambda x, _: x
                 decode_b32("foobar")
                 mock_valid.assert_called_once_with("foobar", False)
                 mock_decode.assert_called_once_with("foobar")
-        with patch("core.shortcode.validate_b32_decode") as mock_valid:
-            with patch("core.shortcode.decode_b32_hex") as mock_decode:
+        with patch("core.util.shortcode.validate_b32_decode") as mock_valid:
+            with patch("core.util.shortcode.decode_b32_hex") as mock_decode:
                 mock_valid.side_effect = lambda x, _: x
                 decode_b32("foobar", strict=True)
                 mock_valid.assert_called_once_with("foobar", True)
