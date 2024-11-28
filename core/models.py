@@ -7,6 +7,7 @@ if TYPE_CHECKING:
     from .models import LinkItem
 
 CTYPE = Literal["url", "txt", "pic", "xyz"]
+Content = Union[str, bytes]
 
 
 # Create your models here.
@@ -50,7 +51,7 @@ class Item(models.Model):
     # Implicit will use magic bytes encoded to b32 to determine content type if bytes
     # Will also analyze strs to determine if urls or text
     @classmethod
-    def ensure(cls, content: Union[str, bytes], ctype: CTYPE = "url") -> "Item":
+    def ensure(cls, content: Content, ctype: CTYPE = "url") -> "Item":
         """
         Ensure that a shortcode item hashed to the given content exists.
         If it exists, retrieve its model instance.
@@ -63,7 +64,7 @@ class Item(models.Model):
             Item: The existing or newly created Item.
         """
         # First validate the ctype
-        if ctype not in dict(cls.CONTENT_TYPES):
+        if ctype not in dict(Item.CONTENT_TYPES):
             raise TypeError(f"Invalid ctype in Item.ensure: {ctype}.")
 
         # Generate all possible code prefixes from SHORTCODE_MIN_LEN to the length of full_hash
@@ -72,7 +73,7 @@ class Item(models.Model):
         likely_codes = [full_hash[:length] for length in likely_lens]
 
         # Fetch all existing items with codes that are prefixes of full_hash
-        select = cls.objects.filter
+        select = Item.objects.filter
         current_items = select(code__in=likely_codes).only("code", "hash")
 
         # Create a set for faster lookup
@@ -91,12 +92,12 @@ class Item(models.Model):
                     "hash": hash_rem,
                     "ctype": ctype,
                 }
-                new_item = cls(**fields)
+                new_item = Item(**fields)
                 new_item.save()
                 return new_item
             elif existing_hash == hash_rem:
                 # Exact match found; return the existing item
-                return cls.objects.get(code=code)
+                return Item.objects.get(code=code)
 
         # If all possible prefixes are taken, raise an exception
         raise ValueError("Unable to generate a unique shortcode with the given hash.")
@@ -112,21 +113,24 @@ class Item(models.Model):
         return self
 
 
-class LinkItem(Item):
+class LinkItem(models.Model):
+    item = models.OneToOneField(Item, primary_key=True, on_delete=models.CASCADE)
     url = models.URLField(max_length=255)
 
     @classmethod
-    def ensure(
-        cls, content: Union[str, bytes], ctype: Optional[str] = "url"
-    ) -> "LinkItem":
+    def ensure(cls, content: Content, ctype: Optional[str] = "url") -> "LinkItem":
         if isinstance(content, bytes):
             raise TypeError("Content must be a string to create a LinkItem.")
         if ctype != "url":
-            msg = "Warning: LinkItem.ensure called with "
-            print(f"{msg}ctype={ctype}. Defaulting to 'url'.")
+            print(
+                f"Warning: LinkItem.ensure called with ctype={ctype}. Defaulting to 'url'."
+            )
+
+        # Ensure the parent Item exists
         item = Item.ensure(content, ctype="url")
-        # Get or create LinkItem associated with this Item
-        link_item, _ = cls.objects.get_or_create(pk=item.pk, defaults={"url": content})
+
+        # Get or create the LinkItem instance
+        link_item, _ = cls.objects.get_or_create(item=item, defaults={"url": content})
         return link_item
 
 

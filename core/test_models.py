@@ -208,18 +208,18 @@ class LinkItemEnsureTest(TestCase):
         # Call ensure first time
         code1 = self.GOOG_H32[:SHORTCODE_MIN_LEN]
         hash1 = self.GOOG_H32[SHORTCODE_MIN_LEN:]
-        args1 = {"code": code1, "hash": hash1, "ctype": "url", "url": self.GOOG_URL}
-        item1 = LinkItem.objects.create(**args1)
-        self.assertEqual(item1.code + item1.hash, self.GOOG_H32)
-        self.assertEqual(item1.url, self.GOOG_URL)
+        item1 = Item.objects.create(code=code1, hash=hash1, ctype="url")
+        link1 = LinkItem.objects.create(item=item1, url=self.GOOG_URL)
+        self.assertEqual(link1.item.code + link1.item.hash, self.GOOG_H32)
+        self.assertEqual(link1.url, self.GOOG_URL)
 
         # Call ensure second time
-        item2 = LinkItem.ensure(self.GOOG_URL)
-        # Compare id url and shortcodes of both items
-        self.assertEqual(item2.code, item1.code)
-        self.assertEqual(item2.hash, item1.hash)
-        self.assertEqual(item1.pk, item2.pk)
-        self.assertEqual(item2.url, item1.url)
+        link2 = LinkItem.ensure(content=self.GOOG_URL)
+        # Compare id, url, and shortcodes of both items
+        self.assertEqual(link2.item.code, link1.item.code)
+        self.assertEqual(link2.item.hash, link1.item.hash)
+        self.assertEqual(link2.pk, link1.pk)
+        self.assertEqual(link2.url, link1.url)
 
         # Ensure only one item was created in the backend
         self.assertEqual(Item.objects.count(), 1)
@@ -230,12 +230,12 @@ class LinkItemEnsureTest(TestCase):
         item = LinkItem.ensure(self.GOOG_URL)
         # Create timestamp to compare with Item's btime & mtime fields
         now = datetime.now(timezone.utc)
-        self.assertEqual(item.code + item.hash, self.GOOG_H32)
+        self.assertEqual(item.item.code + item.item.hash, self.GOOG_H32)
         # TODO: Why are urls empty?
         self.assertEqual(item.url, self.GOOG_URL)
-        self.assertEqual(item.ctype, "url")
-        self.assertLessEqual((now - item.btime).total_seconds(), 10)
-        self.assertLessEqual((now - item.mtime).total_seconds(), 10)
+        self.assertEqual(item.item.ctype, "url")
+        self.assertLessEqual((now - item.item.btime).total_seconds(), 1)
+        self.assertLessEqual((now - item.item.mtime).total_seconds(), 1)
 
     def test_creates(self):
         """Assert that ensure creates an item if none of that hash exists."""
@@ -246,6 +246,8 @@ class LinkItemEnsureTest(TestCase):
         # Assert that the item was created
         self.assertEqual(Item.objects.count(), 1)
 
+    # NOTE: This test should only be run in Item,
+    # this & other subtypes should just assert ensure is called correctly
     def test_shortcode_collision(self):
         COUNT_B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
         PREFIX = COUNT_B32[:SHORTCODE_MIN_LEN]
@@ -262,9 +264,9 @@ class LinkItemEnsureTest(TestCase):
                 with self.subTest(i=i, hash=hash, expect=EXS[i]):
                     content = f"https://example{i}.com"
                     item = LinkItem.ensure(content)
-                    self.assertEqual(item.code, EXS[i])
+                    self.assertEqual(item.item.code, EXS[i])
                     hash_rem = hash[len(EXS[i]) :]
-                    self.assertEqual(item.hash, hash_rem)
+                    self.assertEqual(item.item.hash, hash_rem)
                     # TODO: Again, why are urls empty?
                     # self.assertEqual(item.url, content)
         # Finally assert that non collision works normally
