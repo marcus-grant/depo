@@ -10,7 +10,8 @@ CTYPE = Literal["url", "txt", "pic", "xyz"]
 Content = Union[str, bytes]
 
 
-# Create your models here.
+# TODO: Add 'context' method to all item based models
+# Will be used to pass into views/templates to standardize data shape to to use
 class Item(models.Model):
     CONTENT_TYPES = [
         ("url", "URL"),
@@ -103,10 +104,10 @@ class Item(models.Model):
         raise ValueError("Unable to generate a unique shortcode with the given hash.")
 
     # TODO: Add other content types in Union
-    # TODO: Doesn't return the child instance fix
+    # TODO: Rename since it's composition and not inheritance
     def get_child(self) -> Union["Item", "LinkItem"]:
         for rel in self._meta.get_fields():
-            if isinstance(rel, models.OneToOneRel) and rel.parent_link:
+            if isinstance(rel, models.OneToOneRel):
                 child = getattr(self, rel.get_accessor_name(), None)
                 if child:
                     return child

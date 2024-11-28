@@ -120,6 +120,7 @@ class ItemGetChildTest(TestCase):
         child = item.get_child()
         self.assertIsInstance(child, LinkItem)
         self.assertEqual(child.pk, link_item.pk)
+        self.assertTrue(getattr(child, "item", None))
         self.assertEqual(getattr(child, "url", None), link_item.url)
 
     def test_returns_item_when_no_subclass(self):
@@ -128,7 +129,7 @@ class ItemGetChildTest(TestCase):
         child = item.get_child()
         self.assertEqual(child, item)
         self.assertEqual(child.pk, item.pk)
-        self.assertEqual(child.ctype, "xyz")
+        self.assertEqual(getattr(child, "ctype", None), "xyz")
 
 
 class ItemEnsureTest(TestCase):
