@@ -133,6 +133,77 @@ class ItemGetChildTest(TestCase):
 
 
 class ItemEnsureTest(TestCase):
+    GOOG_URL = "https://google.com"
+    GOOG_H32 = "RGY6JE5M99DVYMWA5032GVYC"
+    CONT_B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+
+    def test_creates(self):
+        """Assert that ensure creates an item if none of that hash exists."""
+        # First assert no items exist
+        self.assertFalse(Item.objects.exists())
+        # Use ensure to create an item
+        Item.ensure(self.GOOG_URL)
+        # Assert that the item was created
+        self.assertEqual(Item.objects.count(), 1)
+
+    def test_fields_assigned(self):
+        """Test ensure assigns fields correctly."""
+        item = Item.ensure(self.GOOG_URL)
+        # Create timestamp to compare with Item's btime & mtime fields
+        now = datetime.now(timezone.utc)
+        self.assertEqual(item.code + item.hash, self.GOOG_H32)
+        self.assertEqual(item.ctype, "url")
+        self.assertLessEqual((now - item.btime).total_seconds(), 1)
+        self.assertLessEqual((now - item.mtime).total_seconds(), 1)
+
+    def test_idempotency(self):
+        """Test ensure is idempotent, doesnt create duplicate items in backend."""
+        # Call ensure first time
+        code1 = self.GOOG_H32[:SHORTCODE_MIN_LEN]
+        hash1 = self.GOOG_H32[SHORTCODE_MIN_LEN:]
+        item1 = Item.objects.create(code=code1, hash=hash1, ctype="xyz")
+        self.assertEqual(item1.code + item1.hash, self.GOOG_H32)
+        # Call ensure second time
+        item2 = Item.ensure(self.GOOG_URL)
+        # Compare id, url, and shortcodes of both items
+        self.assertEqual(item2.code, item1.code)
+        self.assertEqual(item2.hash, item1.hash)
+        self.assertEqual(item2.pk, item1.pk)
+        # Ensure only one item was created in the backend
+        self.assertEqual(Item.objects.count(), 1)
+
+    def test_shortcode_collision(self):
+        """Assert that codes starting at the same prefix are unique by
+        adding more hash characters."""
+        COUNT_B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+        PREFIX = COUNT_B32[:SHORTCODE_MIN_LEN]
+        HASH1, EX1 = f"{PREFIX}000", f"{PREFIX}"
+        HASH2, EX2 = f"{PREFIX}001", f"{PREFIX}0"
+        HASH3, EX3 = f"{PREFIX}002", f"{PREFIX}00"
+        HASH4, EX4 = f"{PREFIX}003", f"{PREFIX}003"
+        HASH5, EX5 = f"{PREFIX}004", f"{PREFIX}004"
+        HASHES = [HASH1, HASH2, HASH3, HASH4, HASH5]
+        EXS = [EX1, EX2, EX3, EX4, EX5]
+        # Patch hash_b32 to return these values
+        # Without patching it's really hard to find collisions to test
+        with patch("core.models.hash_b32") as mock_h32:
+            for i, hash in enumerate(HASHES):
+                mock_h32.return_value = hash
+                with self.subTest(i=i, hash=hash, expect=EXS[i]):
+                    content = f"https://example{i}.com"
+                    item = Item.ensure(content, ctype="xyz")
+                    self.assertEqual(item.code, EXS[i])
+                    self.assertEqual(item.hash, hash[len(EXS[i]) :])
+
+        # Finally assert that non collision works normally
+        content = "https://google.com"
+        full_hash = "RGY6JE5M99DVYMWA5032GVYC"
+        exp_code = full_hash[:SHORTCODE_MIN_LEN]
+        exp_hash = full_hash[SHORTCODE_MIN_LEN:]
+        item = Item.ensure(content, ctype="url")
+        self.assertEqual(item.code, exp_code)
+        self.assertEqual(item.hash, exp_hash)
+
     def test_raises_with_invalid_type(self):
         """Test that ensure raises TypeError with invalid ctype."""
         with self.assertRaises(TypeError):
@@ -183,6 +254,26 @@ class LinkItemEnsureTest(TestCase):
     GOOG_H32 = "RGY6JE5M99DVYMWA5032GVYC"
     CONT_B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
+    def test_creates(self):
+        """Assert that ensure creates a LinkItem if none of that hash exists."""
+        # First assert no items exist
+        self.assertFalse(LinkItem.objects.exists())
+        # Use ensure to create a LinkItem
+        LinkItem.ensure(self.GOOG_URL)
+        self.assertEqual(LinkItem.objects.count(), 1)
+        self.assertEqual(Item.objects.count(), 1)
+
+    def test_fields_assigned(self):
+        """Test ensure assigns fields correctly."""
+        item = LinkItem.ensure(self.GOOG_URL)
+        # Create timestamp to compare with Item's btime & mtime fields
+        now = datetime.now(timezone.utc)
+        self.assertEqual(item.item.code + item.item.hash, self.GOOG_H32)
+        self.assertEqual(item.url, self.GOOG_URL)
+        self.assertEqual(item.item.ctype, "url")
+        self.assertLessEqual((now - item.item.btime).total_seconds(), 1)
+        self.assertLessEqual((now - item.item.mtime).total_seconds(), 1)
+
     def test_idempotency(self):
         """Test ensure is idempotent, doesnt create duplicate items in backend.
         This also tests that other fields are assigned correctly and the same."""
@@ -205,36 +296,6 @@ class LinkItemEnsureTest(TestCase):
         # Ensure only one item was created in the backend
         self.assertEqual(Item.objects.count(), 1)
         self.assertEqual(LinkItem.objects.count(), 1)
-
-    def test_fields_assigned(self):
-        """Test ensure assigns fields correctly."""
-        item = LinkItem.ensure(self.GOOG_URL)
-        # Create timestamp to compare with Item's btime & mtime fields
-        now = datetime.now(timezone.utc)
-        self.assertEqual(item.item.code + item.item.hash, self.GOOG_H32)
-        self.assertEqual(item.url, self.GOOG_URL)
-        self.assertEqual(item.item.ctype, "url")
-        self.assertLessEqual((now - item.item.btime).total_seconds(), 1)
-        self.assertLessEqual((now - item.item.mtime).total_seconds(), 1)
-
-    # NOTE: This needs a separate test in Item
-    def test_creates_item(self):
-        """Assert that ensure creates an item if none of that hash exists."""
-        # First assert no items exist
-        self.assertFalse(Item.objects.exists())
-        # Use ensure to create an item
-        Item.ensure(self.GOOG_URL)
-        # Assert that the item was created
-        self.assertEqual(Item.objects.count(), 1)
-
-    def test_creates(self):
-        """Assert that ensure creates a LinkItem if none of that hash exists."""
-        # First assert no items exist
-        self.assertFalse(LinkItem.objects.exists())
-        # Use ensure to create a LinkItem
-        LinkItem.ensure(self.GOOG_URL)
-        self.assertEqual(LinkItem.objects.count(), 1)
-        self.assertEqual(Item.objects.count(), 1)
 
     # NOTE: This test should only be run in Item,
     # this & other subtypes should just assert ensure is called correctly
