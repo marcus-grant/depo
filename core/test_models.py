@@ -74,6 +74,43 @@ class ItemSchemaTest(TestCase):
         self.assertTrue(getattr(mtime_field, "auto_now", False))
 
 
+class ItemSearchShortcodeTest(TestCase):
+    def test_success(self):
+        """Test search_shortcode returns the correct item."""
+        # Create an item to search for
+        Item.objects.create(code="123456", hash="ABC", ctype="xyz")
+        Item.objects.create(code="123456Z", hash="ABC", ctype="xyz")
+        Item.objects.create(code="ZZZZZZ", hash="ABC", ctype="xyz")
+
+        # Search for the item
+        found_item1 = Item.search_shortcode("123456")
+        found_item2 = Item.search_shortcode("123456Z")
+        found_item3 = Item.search_shortcode("ZZZZZZ")
+
+        # Ensure the item was found
+        if not found_item1:
+            raise Exception("Item 123456 not found")
+        if not found_item2:
+            raise Exception("Item 123456Z not found")
+        if not found_item3:
+            raise Exception("Item ZZZZZZ not found")
+
+        # Assert that the item was found
+        self.assertEqual(found_item1.code, "123456")
+        self.assertEqual(found_item2.code, "123456Z")
+        self.assertEqual(found_item3.code, "ZZZZZZ")
+        self.assertEqual(found_item1.hash, found_item2.hash)
+        self.assertEqual(found_item3.hash, found_item1.hash)
+        self.assertEqual(found_item3.hash, "ABC")
+
+    def test_failure(self):
+        """Test search_shortcode returns None when item not found."""
+        # Search for an item that doesn't exist
+        found_item = Item.search_shortcode("D0ESN0T3X1ST")
+        # Assert that the item was not found
+        self.assertIsNone(found_item)
+
+
 class ItemGetChildTest(TestCase):
     def test_returns_subclass(self):
         """Test that Item.get_child returns the correct subclass"""
@@ -138,63 +175,6 @@ class LinkItemSchemaTest(TestCase):
                 self.assertIn(field, item_fields)
 
 
-# TODO: Add tests for the base Item class
-class LinkItemSearchShortcodeTest(TestCase):
-    def test_success(self):
-        """Test search_shortcode returns the correct item."""
-        # Create an item to search for
-        url1 = "https://example1.com"
-        url2 = "https://example2.com"
-        url3 = "https://example3.com"
-        LinkItem.objects.create(code="123456", hash="ABC", url=url1)
-        LinkItem.objects.create(code="123456Z", hash="ABC", url=url2)
-        LinkItem.objects.create(code="ZZZZZZ", hash="ABC", url=url3)
-
-        # Search for the item
-        found_item1 = Item.search_shortcode("123456")
-        found_item2 = Item.search_shortcode("123456Z")
-        found_item3 = Item.search_shortcode("ZZZZZZ")
-
-        # Ensure the item was found
-        if not found_item1:
-            raise Exception("Item 123456 not found")
-        if not found_item2:
-            raise Exception("Item 123456Z not found")
-        if not found_item3:
-            raise Exception("Item ZZZZZZ not found")
-
-        # Get the LinkItem child
-        found_item1 = found_item1.get_child()
-        found_item2 = found_item2.get_child()
-        found_item3 = found_item3.get_child()
-
-        # Raise if not an instance of LinkItem
-        if not isinstance(found_item1, LinkItem):
-            raise Exception("Item 123456 is not a LinkItem")
-        if not isinstance(found_item2, LinkItem):
-            raise Exception("Item 123456Z is not a LinkItem")
-        if not isinstance(found_item3, LinkItem):
-            raise Exception("Item ZZZZZZ is not a LinkItem")
-
-        # Assert that the item was found
-        self.assertEqual(found_item1.code, "123456")
-        self.assertEqual(found_item2.code, "123456Z")
-        self.assertEqual(found_item3.code, "ZZZZZZ")
-        self.assertEqual(found_item1.hash, found_item2.hash)
-        self.assertEqual(found_item3.hash, found_item1.hash)
-        self.assertEqual(found_item3.hash, "ABC")
-        self.assertEqual(found_item1.url, url1)
-        self.assertEqual(found_item2.url, url2)
-        self.assertEqual(found_item3.url, url3)
-
-    def test_failure(self):
-        """Test search_shortcode returns None when item not found."""
-        # Search for an item that doesn't exist
-        found_item = Item.search_shortcode("D0ESN0T3X1ST")
-        # Assert that the item was not found
-        self.assertIsNone(found_item)
-
-
 # TODO: Create similar class for Item.ensure
 class LinkItemEnsureTest(TestCase):
     # Known hash_b32 values for different content
@@ -231,19 +211,28 @@ class LinkItemEnsureTest(TestCase):
         # Create timestamp to compare with Item's btime & mtime fields
         now = datetime.now(timezone.utc)
         self.assertEqual(item.item.code + item.item.hash, self.GOOG_H32)
-        # TODO: Why are urls empty?
         self.assertEqual(item.url, self.GOOG_URL)
         self.assertEqual(item.item.ctype, "url")
         self.assertLessEqual((now - item.item.btime).total_seconds(), 1)
         self.assertLessEqual((now - item.item.mtime).total_seconds(), 1)
 
-    def test_creates(self):
+    # NOTE: This needs a separate test in Item
+    def test_creates_item(self):
         """Assert that ensure creates an item if none of that hash exists."""
         # First assert no items exist
         self.assertFalse(Item.objects.exists())
         # Use ensure to create an item
         Item.ensure(self.GOOG_URL)
         # Assert that the item was created
+        self.assertEqual(Item.objects.count(), 1)
+
+    def test_creates(self):
+        """Assert that ensure creates a LinkItem if none of that hash exists."""
+        # First assert no items exist
+        self.assertFalse(LinkItem.objects.exists())
+        # Use ensure to create a LinkItem
+        LinkItem.ensure(self.GOOG_URL)
+        self.assertEqual(LinkItem.objects.count(), 1)
         self.assertEqual(Item.objects.count(), 1)
 
     # NOTE: This test should only be run in Item,
@@ -268,7 +257,7 @@ class LinkItemEnsureTest(TestCase):
                     hash_rem = hash[len(EXS[i]) :]
                     self.assertEqual(item.item.hash, hash_rem)
                     # TODO: Again, why are urls empty?
-                    # self.assertEqual(item.url, content)
+                    self.assertEqual(item.url, content)
         # Finally assert that non collision works normally
         content = "https://google.com"
         full_hash = "RGY6JE5M99DVYMWA5032GVYC"
