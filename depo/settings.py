@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Add your apps here
     "core.apps.CoreConfig",
+    # "core.link", # Is this needed?
 ]
 
 MIDDLEWARE = [
