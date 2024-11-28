@@ -3,7 +3,7 @@ from django.http import HttpRequest, HttpResponseBadRequest  # , Http404
 from django.template.loader import render_to_string
 
 from core.models import Item
-# from core.shortcode import hash_b32, SHORTCODE_MIN_LEN
+from core.link.models import LinkItem
 
 
 # TODO: Properly handle 404s with context containing shortcode
@@ -31,8 +31,13 @@ def web_index(req: HttpRequest):
 
 def shortcode_details(request, shortcode: str):
     item = Item.search_shortcode(shortcode)
+    if not item:
+        raise ValueError(f"Item with shortcode '{shortcode}' not found.")
     # TODO: Figure out how to handle custom 404s
     # if not item:
     #     raise Http404
-    ctx = {"item": item}
+    # TODO: Change to handle new context methods
+    # TODO: Fix get_child and maybe consider having subitems handle search themselves
+    link = item.get_child()
+    ctx = {"item": item, "link": link}
     return render(request, "shortcode-details.html", ctx)

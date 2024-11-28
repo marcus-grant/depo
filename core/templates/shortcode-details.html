@@ -11,10 +11,10 @@
     <p>Item Type: {{ item.ctype }}</p>
 
     {% if item.ctype == 'url' %}
-    <p>Redirect URL: <a href="{{ item.url }}">{{ item.url }}</a></p>
+    <p>Redirect URL: <a href="{{ link.url }}">{{ link.url }}</a></p>
     {% elif item.ctype == 'image' %}
     <p>Image:</p>
-    <img src="{{ item.url }}" alt="Image Item">
+    <img src="{{ pic.url }}" alt="Image Item">
     {% endif %}
 
     <p>Created At: {{ item.btime }}</p>
