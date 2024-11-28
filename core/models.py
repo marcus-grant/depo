@@ -1,10 +1,10 @@
 from django.db import models
 from typing import Optional, Union, Literal, TYPE_CHECKING
 
-from .shortcode import hash_b32, SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
+from core.shortcode import hash_b32, SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
 
 if TYPE_CHECKING:
-    from .models import LinkItem
+    from core.link.models import LinkItem
 
 CTYPE = Literal["url", "txt", "pic", "xyz"]
 Content = Union[str, bytes]
@@ -112,24 +112,3 @@ class Item(models.Model):
                 if child:
                     return child
         return self
-
-
-class LinkItem(models.Model):
-    item = models.OneToOneField(Item, primary_key=True, on_delete=models.CASCADE)
-    url = models.URLField(max_length=255)
-
-    @classmethod
-    def ensure(cls, content: Content, ctype: Optional[str] = "url") -> "LinkItem":
-        if isinstance(content, bytes):
-            raise TypeError("Content must be a string to create a LinkItem.")
-        if ctype != "url":
-            print(
-                f"Warning: LinkItem.ensure called with ctype={ctype}. Defaulting to 'url'."
-            )
-
-        # Ensure the parent Item exists
-        item = Item.ensure(content, ctype="url")
-
-        # Get or create the LinkItem instance
-        link_item, _ = cls.objects.get_or_create(item=item, defaults={"url": content})
-        return link_item
