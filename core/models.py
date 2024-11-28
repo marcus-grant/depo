@@ -14,10 +14,10 @@ Content = Union[str, bytes]
 # Will be used to pass into views/templates to standardize data shape to to use
 class Item(models.Model):
     CONTENT_TYPES = [
+        ("xyz", "Mock type, DNE"),
         ("url", "URL"),
         ("txt", "Text"),
         ("pic", "Picture"),
-        ("xyz", "Mock type, DNE"),
     ]
 
     code = models.CharField(primary_key=True, max_length=SHORTCODE_MAX_LEN)
@@ -133,34 +133,3 @@ class LinkItem(models.Model):
         # Get or create the LinkItem instance
         link_item, _ = cls.objects.get_or_create(item=item, defaults={"url": content})
         return link_item
-
-
-# NOTE: Unique item creation
-# # Existing hashing and code generation logic...
-#        # After determining that the code is unique:
-#        if ctype == 'url':
-#            new_item = URLItem(
-#                code=code,
-#                hash=hash_rem,
-#                ctype=ctype,
-#                url=content if isinstance(content, str) else None,
-#            )
-#        elif ctype == 'txt':
-#            new_item = TextItem(
-#                code=code,
-#                hash=hash_rem,
-#                ctype=ctype,
-#                text=content.decode('utf-8') if isinstance(content, bytes) else content,
-#            )
-#        elif ctype == 'pic':
-#            new_item = PictureItem(
-#                code=code,
-#                hash=hash_rem,
-#                ctype=ctype,
-#                image=content,  # Assuming content is an uploaded file
-#            )
-#        else:
-#            raise ValueError("Invalid content type.")
-#        new_item.save()
-#        return new_item
-#

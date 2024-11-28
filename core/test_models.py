@@ -6,8 +6,6 @@ from unittest.mock import patch
 from .models import Item, LinkItem
 from .shortcode import SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
 
-# TODO: Create Separate Item & LinkItem SchemaTest classes
-
 ###
 # # Item (Parent class) Tests
 ###
@@ -51,6 +49,7 @@ class ItemSchemaTest(TestCase):
     def test_ctypes_field_constraints(self):
         """Test that the ctype field has the expected constraints & atrributes"""
         expect_choices = [
+            ("xyz", "Mock type, DNE"),
             ("url", "URL"),
             ("txt", "Text"),
             ("pic", "Picture"),
@@ -210,6 +209,11 @@ class ItemEnsureTest(TestCase):
             Item.ensure("https://google.com", ctype="invalid")  # type: ignore
 
 
+###
+# # Item (Parent class) Tests
+###
+
+
 class LinkItemSchemaTest(TestCase):
     def test_url_field_constraints(self):
         """Test that the url field has the expected constraints & atrributes"""
@@ -223,7 +227,7 @@ class LinkItemSchemaTest(TestCase):
         fields = LinkItem._meta.get_fields()
         field_names = [field.name for field in fields]
         expect = {
-            "item_ptr": models.OneToOneField,
+            "item": models.OneToOneField,
             "url": models.URLField,
         }
 
@@ -233,21 +237,44 @@ class LinkItemSchemaTest(TestCase):
                 field = LinkItem._meta.get_field(expect_name)
                 self.assertIsInstance(field, expect_type)
 
-    def test_access_parent_fields(self):
-        """Test that LinkItem can access parent fields"""
-        # Create a LinkItem
-        f = {"code": "G00G", "hash": "L3", "ctype": "url", "url": "https://google.com"}
-        LinkItem.objects.create(**f)
+    def test_access_item_fields(self):
+        """Test that LinkItem can access "parent" "item" fields"""
+        # Create a LinkItem and its parent Item
+        item_args = {"code": "G00G", "hash": "L3", "ctype": "url"}
+        item = Item.objects.create(**item_args)
+        link_args = {"item": item, "url": "https://google.com"}
+        link = LinkItem.objects.create(**link_args)
+
         # Retrieve all fields from both parent and child of model instance
-        item = LinkItem.objects.first()
-        item_fields = item.__dict__.keys()
-        expect = {"code", "hash", "ctype", "btime", "mtime", "url"}
-        for field in expect:
+        retrieved_link = LinkItem.objects.get(pk=link.pk)
+
+        # Define expected fields and their values
+        expect_item = {
+            "code": item_args["code"],
+            "hash": item_args["hash"],
+            "ctype": item_args["ctype"],
+        }
+        expect_link = {"item": item, "url": link_args["url"]}
+
+        # Verify LinkItem fields
+        for field, expect in expect_link.items():
             with self.subTest(field_name=field):
-                self.assertIn(field, item_fields)
+                self.assertEqual(getattr(retrieved_link, field), expect)
+
+        # Access related Item instance
+        for field, expect in expect_item.items():
+            with self.subTest(field_name=field):
+                self.assertEqual(getattr(retrieved_link.item, field), expect)
+
+        # Verify 'btime' and 'mtime' fields are accessible
+        self.assertIsNotNone(getattr(retrieved_link.item, "btime", None))
+        self.assertIsNotNone(getattr(retrieved_link.item, "mtime", None))
+
+        # Verify hash combines correctly
+        full_hash = retrieved_link.item.code + retrieved_link.item.hash
+        self.assertEqual(full_hash, "G00GL3")
 
 
-# TODO: Create similar class for Item.ensure
 class LinkItemEnsureTest(TestCase):
     # Known hash_b32 values for different content
     GOOG_URL = "https://google.com"
@@ -297,9 +324,51 @@ class LinkItemEnsureTest(TestCase):
         self.assertEqual(Item.objects.count(), 1)
         self.assertEqual(LinkItem.objects.count(), 1)
 
-    # NOTE: This test should only be run in Item,
-    # this & other subtypes should just assert ensure is called correctly
-    def test_shortcode_collision(self):
+    @patch("core.models.Item.ensure")
+    def test_existing_item(self, mock_item_ensure):
+        """Test that LinkItem.ensure uses existing Item when code collision occurs"""
+        # Setup mock to return an existing Item
+        existing_item = Item(code="G00G", hash="L3", ctype="url")
+        existing_item.save()  # Ensure the Item is saved to the database
+        mock_item_ensure.return_value = existing_item
+
+        # Define content that would result in a hash collision
+        content = "https://example.com"
+
+        # Call LinkItem.ensure
+        link_item = LinkItem.ensure(content)
+
+        # Assert Item.ensure was called once with correct arguments
+        mock_item_ensure.assert_called_once_with(content, ctype="url")
+
+        # Verify that LinkItem is linked to the existing Item
+        self.assertEqual(link_item.item, existing_item)
+        self.assertEqual(link_item.url, content)
+
+    @patch("core.models.Item.ensure")
+    def test_new_item_creation(self, mock_item_ensure):
+        """Test that LinkItem.ensure creates a new Item when no collision occurs"""
+        # Setup mock to create and return a new Item
+        new_item = Item(code="G00G", hash="L3", ctype="url")
+        new_item.save()  # Save the Item to the database to satisfy foreign key constraints
+        mock_item_ensure.return_value = new_item
+
+        # Define content that would result in no hash collision
+        content = "https://newexample.com"
+
+        # Call LinkItem.ensure
+        link_item = LinkItem.ensure(content)
+
+        # Assert Item.ensure was called once with correct arguments
+        mock_item_ensure.assert_called_once_with(content, ctype="url")
+
+        # Verify that LinkItem is linked to the new Item
+        self.assertEqual(link_item.item, new_item)
+        self.assertEqual(link_item.url, content)
+
+    @patch("core.models.hash_b32")
+    def test_shortcode_collision(self, mock_h32):
+        """Test shortcode collision handling in Item.ensure via LinkItem.ensure"""
         COUNT_B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
         PREFIX = COUNT_B32[:SHORTCODE_MIN_LEN]
         HASH1, EX1 = f"{PREFIX}000", f"{PREFIX}"
@@ -309,25 +378,32 @@ class LinkItemEnsureTest(TestCase):
         HASH5, EX5 = f"{PREFIX}004", f"{PREFIX}004"
         HASHES = [HASH1, HASH2, HASH3, HASH4, HASH5]
         EXS = [EX1, EX2, EX3, EX4, EX5]
-        with patch("core.models.hash_b32") as mock_h32:
-            for i, hash in enumerate(HASHES):
-                mock_h32.return_value = hash
-                with self.subTest(i=i, hash=hash, expect=EXS[i]):
+
+        with patch("core.models.Item.ensure") as mock_item_ensure:
+            for i, hash_val in enumerate(HASHES):
+                mock_h32.return_value = hash_val
+
+                # Setup Item.ensure to return a new Item with the expected code and hash
+                expected_code = EXS[i]
+                expected_hash = hash_val[len(expected_code) :]
+                new_item = Item(code=expected_code, hash=expected_hash, ctype="url")
+                new_item.save()  # Save the Item to the database
+                mock_item_ensure.return_value = new_item
+
+                with self.subTest(i=i, hash=hash_val, expect=EXS[i]):
                     content = f"https://example{i}.com"
-                    item = LinkItem.ensure(content)
-                    self.assertEqual(item.item.code, EXS[i])
-                    hash_rem = hash[len(EXS[i]) :]
-                    self.assertEqual(item.item.hash, hash_rem)
-                    # TODO: Again, why are urls empty?
-                    self.assertEqual(item.url, content)
-        # Finally assert that non collision works normally
-        content = "https://google.com"
-        full_hash = "RGY6JE5M99DVYMWA5032GVYC"
-        exp_code = full_hash[:SHORTCODE_MIN_LEN]
-        exp_hash = full_hash[SHORTCODE_MIN_LEN:]
-        item = Item.ensure(content)
-        self.assertEqual(item.code, exp_code)
-        self.assertEqual(item.hash, exp_hash)
+                    link_item = LinkItem.ensure(content)
+
+                    # Assert that Item.ensure was called correctly
+                    mock_item_ensure.assert_called_with(content, ctype="url")
+
+                    # Verify that the LinkItem's item fields are correctly assigned
+                    self.assertEqual(link_item.item.code, EXS[i])
+                    hash_rem = hash_val[len(EXS[i]) :]
+                    self.assertEqual(link_item.item.hash, hash_rem)
+
+                    # Verify that the LinkItem's url field is correctly assigned
+                    self.assertEqual(link_item.url, content)
 
     def test_raises_on_bad_content(self):
         """Test ensure raises an exception when given bad content."""
