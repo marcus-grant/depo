@@ -2,16 +2,29 @@
 <!DOCTYPE html>
 <html>
     <head>
+        {% load static %}
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>{% block title %}Depo{% endblock title %}</title>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+        <!-- Custom CSS for Dark Mode -->
+        <link rel="stylesheet" href="{% static 'core/css/base.css' %}">
         {% block head %}{% endblock head %}
     </head>
 <body>
     <header>
         <!-- use jinja % include "your_app/navbar.html" or something to add navbar -->
+        <!-- Use h1 as navbar placeholder for now-->
         <h1>Depo</h1>
+        <div class="navbar-end">
+            <div class="navbar-item">
+                <!-- Optional: Theme Toggle Switch -->
+                <div class="field">
+                    <input type="checkbox" id="theme-toggle" class="switch is-rounded is-small">
+                    <label for="theme-toggle" class="label">Dark Mode</label>
+                </div>
+            </div>
+        </div>
     </header>
 
     <main>
@@ -26,6 +39,36 @@
 
     <!-- Footer goes here -->
 
+    <!-- JavaScript for Dark Mode Toggle (Optional) -->
+    <script>
+        // Optional: If you want to add a toggle switch for users to switch themes
+        document.addEventListener('DOMContentLoaded', () => {
+          const toggleSwitch = document.getElementById('theme-toggle');
+          if (toggleSwitch) {
+              toggleSwitch.addEventListener('change', () => {
+                  if (toggleSwitch.checked) {
+                      document.documentElement.setAttribute('data-theme', 'dark');
+                      localStorage.setItem('theme', 'dark');
+                  } else {
+                      document.documentElement.setAttribute('data-theme', 'light');
+                      localStorage.setItem('theme', 'light');
+                  }
+              });
+
+              // Check for saved user preference
+              const savedTheme = localStorage.getItem('theme');
+              if (savedTheme) {
+                  document.documentElement.setAttribute('data-theme', savedTheme);
+                  toggleSwitch.checked = savedTheme === 'dark';
+              } else {
+                  // Default to system preference
+                  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+                  toggleSwitch.checked = prefersDark;
+              }
+          }
+        });
+    </script>
     <!-- Additional scripts can be added by child templates -->
     {% block scripts %}{% endblock scripts %}
 </body>
