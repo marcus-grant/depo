@@ -1,7 +1,12 @@
 from django.db import models
-from typing import Optional
+from typing import Optional, TypedDict
 
-from core.models import Item, Content
+from core.models import Item, Content, ItemContext
+
+
+class LinkItemContext(TypedDict):
+    item: ItemContext
+    url: str
 
 
 class LinkItem(models.Model):
@@ -21,5 +26,12 @@ class LinkItem(models.Model):
         item = Item.ensure(content, ctype="url")
 
         # Get or create the LinkItem instance
-        link_item, _ = cls.objects.get_or_create(item=item, defaults={"url": content})
+        args = {"item": item, "url": content}
+        link_item, created = cls.objects.get_or_create(**args)
+        if created:
+            link_item.save()
         return link_item
+
+    def context(self) -> LinkItemContext:
+        item = self.item.context()
+        return {"item": item, "url": self.url}

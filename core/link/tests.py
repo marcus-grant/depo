@@ -205,6 +205,45 @@ class LinkItemEnsureTest(TestCase):
             LinkItem.ensure(b"foobar")
 
 
+class LinkItemContextTest(TestCase):
+    def test_context(self):
+        """Test that LinkItem.context returns the expected dictionary."""
+        # Create a LinkItem instance
+        item = Item(code="G00G", hash="L3", ctype="url")
+        item.save()
+        link_item = LinkItem(item=item, url="https://google.com")
+        link_item.save()
+        now = f"{datetime.now(timezone.utc):%Y-%m-%dT%H:%M}"
+        link_ctx = link_item.context()
+        # Define the expected context dictionary
+        expect = {
+            "item": {
+                "code": "G00G",
+                "hash": "G00GL3",
+                "ctype": "url",
+                "btime": item.btime.isoformat(),
+                "mtime": item.mtime.isoformat(),
+            },
+            "url": "https://google.com",
+        }
+        # Verify keys
+        self.assertIn("url", link_ctx)
+        self.assertIn("item", link_ctx)
+        self.assertIn("code", link_ctx["item"])
+        self.assertIn("hash", link_ctx["item"])
+        self.assertIn("ctype", link_ctx["item"])
+        self.assertIn("btime", link_ctx["item"])
+        self.assertIn("mtime", link_ctx["item"])
+
+        # Verify values
+        self.assertEqual(link_ctx, expect["url"])
+        self.assertEqual(link_ctx["item"]["code"], expect["item"]["code"])
+        self.assertEqual(link_ctx["item"]["hash"], expect["item"]["hash"])
+        self.assertEqual(link_ctx["item"]["ctype"], expect["item"]["ctype"])
+        self.assertEqual(link_ctx["item"]["btime"], expect["item"]["btime"])
+        self.assertEqual(link_ctx["item"]["btime"], expect["item"]["btime"])
+
+
 # TODO: Implement these suggestions:
 # 9. Improve Test Readability and Maintainability
 # Suggestion:

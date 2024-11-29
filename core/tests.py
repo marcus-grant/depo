@@ -6,8 +6,10 @@ from django.test import TestCase
 from django.urls import reverse
 
 from core.util.shortcode import hash_b32, SHORTCODE_MIN_LEN, SHORTCODE_MAX_LEN
-from core.models import Item
+from core.models import Item, ItemContext
 from core.link.models import LinkItem
+
+### Model tests ###
 
 
 class ItemSchemaTest(TestCase):
@@ -208,6 +210,29 @@ class ItemEnsureTest(TestCase):
             Item.ensure("https://google.com", ctype="invalid")  # type: ignore
 
 
+class ItemContextTest(TestCase):
+    def test_context(self):
+        """Test that the context method returns the expected dictionary."""
+        item = Item.objects.create(code="F00BAR", hash="BAZ", ctype="xyz")
+        now = f"{datetime.now(timezone.utc):%Y-%m-%dT%H:%M}"
+        ctx = item.context()
+        # Check for all expected keys
+        self.assertIn("code", ctx)
+        self.assertIn("hash", ctx)
+        self.assertIn("ctype", ctx)
+        self.assertIn("btime", ctx)
+        self.assertIn("mtime", ctx)
+        # Check for expected values
+        self.assertEqual(ctx["code"], "F00BAR")
+        self.assertEqual(ctx["hash"], "F00BARBAZ")
+        self.assertEqual(ctx["ctype"], "xyz")
+        self.assertIn(now, ctx["btime"])
+        self.assertIn(now, ctx["mtime"])
+
+
+### View Tests ###
+
+
 class WebIndexViewTest(TestCase):
     def test_get_request_renders_index(self):
         """Test root GET request renders index.html"""
@@ -263,6 +288,9 @@ class ShortcodeDetailsViewTest(TestCase):
         self.assertTemplateUsed(resp, "shortcode-details.html")
         self.assertContains(resp, shortcode)
         self.assertContains(resp, self.link.url)
+
+
+### Template Tests ###
 
 
 # TODO: Test the redirection of the shortcode using URLs

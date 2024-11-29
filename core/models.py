@@ -1,5 +1,5 @@
 from django.db import models
-from typing import Optional, Union, Literal, TYPE_CHECKING
+from typing import Optional, Union, Literal, TypedDict, TYPE_CHECKING
 
 from core.util.shortcode import hash_b32, SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
 
@@ -8,6 +8,24 @@ if TYPE_CHECKING:
 
 CTYPE = Literal["url", "txt", "pic", "xyz"]
 Content = Union[str, bytes]
+
+
+# TODO: Consider making timestamps their own TypedDict
+# class TStampContext(TypedDict):
+#     iso: str
+#     year: int
+#     month: int
+#     day: int
+#     min: int
+#     sec: int
+
+
+class ItemContext(TypedDict):
+    code: str
+    hash: str
+    ctype: CTYPE
+    btime: str
+    mtime: str
 
 
 # TODO: Add 'context' method to all item based models
@@ -112,3 +130,12 @@ class Item(models.Model):
                 if child:
                     return child
         return self
+
+    def context(self) -> ItemContext:
+        return {
+            "code": self.code,
+            "hash": self.code + self.hash,
+            "ctype": self.ctype,
+            "btime": self.btime.isoformat(),
+            "mtime": self.mtime.isoformat(),
+        }
