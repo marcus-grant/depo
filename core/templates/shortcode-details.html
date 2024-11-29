@@ -9,16 +9,16 @@
     <h1>Item Detail</h1>
     <p>Shortcode: {{ item.code }}</p>
     <p>Item Type: {{ item.ctype }}</p>
+    <p>Created At: {{ item.btime }}</p>
+    <p>Updated At: {{ item.mtime }}</p>
 
     {% if item.ctype == 'url' %}
-    <p>Redirect URL: <a href="{{ link.url }}">{{ link.url }}</a></p>
+    <p>Redirect URL: <a href="{{ url }}">{{ url }}</a></p>
     {% elif item.ctype == 'image' %}
     <p>Image:</p>
     <img src="{{ pic.url }}" alt="Image Item">
     {% endif %}
 
-    <p>Created At: {{ item.btime }}</p>
-    <p>Updated At: {{ item.mtime }}</p>
     <!-- <p>Last Accessed At: {{ item.atime }}</p> -->
   </body>
 </html>

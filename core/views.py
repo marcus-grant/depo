@@ -20,7 +20,8 @@ def web_index(req: HttpRequest):
             props = {"error": "Content is required"}
             return HttpResponseBadRequest(render(req, "index.html", props))
         try:
-            item = Item.ensure(content)
+            link = LinkItem.ensure(content)
+            item = link.item
         except Exception as e:
             return render(req, "index.html", {"error": e})
         # TODO: Implement created and error
@@ -39,5 +40,5 @@ def shortcode_details(request, shortcode: str):
     # TODO: Change to handle new context methods
     # TODO: Fix get_child and maybe consider having subitems handle search themselves
     link = item.get_child()
-    ctx = {"item": item, "link": link}
+    ctx = link.context()
     return render(request, "shortcode-details.html", ctx)
