@@ -1,25 +1,35 @@
-<!-- templates/item_detail.html -->
+<!-- START templates/item_detail.html -->
 
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Item Detail</title>
-  </head>
-  <body>
-    <h1>Item Detail</h1>
-    <p>Shortcode: {{ item.code }}</p>
-    <p>Item Type: {{ item.ctype }}</p>
-    <p>Created At: {{ item.btime }}</p>
-    <p>Updated At: {{ item.mtime }}</p>
+{% extends "base.html" %}
+{% load static %}
 
-    {% if item.ctype == 'url' %}
-    <p>Redirect URL: <a href="{{ url }}">{{ url }}</a></p>
-    {% elif item.ctype == 'image' %}
-    <p>Image:</p>
-    <img src="{{ pic.url }}" alt="Image Item">
-    {% endif %}
+{% block title %}Details on {{ item.code }}{% endblock title %}
 
-    <!-- <p>Last Accessed At: {{ item.atime }}</p> -->
-  </body>
-</html>
+{% block head %}
+<!-- Example custom styles -->
+<!-- style> img { max-width: 100%; } </style -->
+<!-- Example static css include -->
+<!-- link rel="stylesheet" href="{% static 'your_app/css/custom.css' %}" -->
+{% endblock head %}
 
+{% block content %}
+<h1>Item Detail</h1>
+<p>Shortcode: {{ item.code }}</p>
+<p>Item Type: {{ item.ctype }}</p>
+<p>Created At: {{ item.btime }}</p>
+<p>Updated At: {{ item.mtime }}</p>
+
+  {% if item.ctype == 'url' %}
+<p>Redirect URL: <a href="{{ url }}">{{ url }}</a></p>
+  {% elif item.ctype == 'image' %}
+<p>Image:</p>
+<img src="{{ pic.url }}" alt="Image Item">
+  {% endif %}
+{% endblock content %}
+
+{% block scripts %}
+<!-- Example custom scripts -->
+<!-- script src="{% static 'your_app/js/custom.js' %}"></script -->
+{% endblock scripts %}
+
+<!-- END templates/item_detail.html -->

@@ -1,0 +1,33 @@
+<!-- START core/templates/base.html -->
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{% block title %}Depo{% endblock title %}</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+        {% block head %}{% endblock head %}
+    </head>
+<body>
+    <header>
+        <!-- use jinja % include "your_app/navbar.html" or something to add navbar -->
+        <h1>Depo</h1>
+    </header>
+
+    <main>
+        <section class="section">
+            <div class="container">
+                {% block content %}
+                <!-- Default content can go here -->
+                {% endblock content %}
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer goes here -->
+
+    <!-- Additional scripts can be added by child templates -->
+    {% block scripts %}{% endblock scripts %}
+</body>
+</html>
+<!-- END core/templates/base.html -->
