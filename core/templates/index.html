@@ -1,23 +1,44 @@
-<!-- templates/index.html -->
-<!DOCTYPE html>
-<html>
-  <head>
-      <title>Depo</title>
-  </head>
-  <body>
-    <h1>Depo Shortcode Index</h1>
-    <br>
-    <br>
-    <h2>Create Shortcode:</h2>
-    {% if error %}
-      <p style="color: red;">{{ error }}</p>
-    {% endif %}
-    {% include 'includes/shortcode-form.html' %}
-    {% if item %}
-      <p>Your shortcode is: <strong>{{ item.code }}</strong></p>
-      <p>You can access details at: <a href="./{{ item.code }}/details">
-        {{ request.build_absolute_uri }}{{ item.code }}/details
-      </a></p>
-    {% endif %}
-  </body>
-</html>
+<!-- START templates/index.html -->
+<!-- START Extends base.html -->
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Depo{% endblock title %}
+{% block head %}
+<!-- Example custom styles -->
+<!-- style> img { max-width: 100%; } </style -->
+<!-- Example static css include -->
+<!-- link rel="stylesheet" href="{% static 'your_app/css/custom.css' %}" -->
+{% endblock head %}
+
+{% block content %}
+<h1>Depo Shortcode Index</h1>
+<br>
+<br>
+<h2>Create Shortcode:</h2>
+
+  {% if error %}
+  <p style="color: red;">{{ error }}</p>
+  {% endif %}
+
+  {% include 'includes/shortcode-form.html' %}
+
+  {% if item %}
+<p>Your shortcode is: <strong>{{ item.code }}</strong></p>
+<p>You can access details at: 
+  <a href="./{{ item.code }}/details">
+    {{ request.build_absolute_uri }}{{ item.code }}/details
+  </a>
+</p>
+  {% endif %}
+
+{% endblock content %}
+
+
+{% block scripts %}
+<!-- Example custom scripts -->
+<!-- script src="{% static 'your_app/js/custom.js' %}"></script -->
+{% endblock scripts %}
+
+<!-- END Extends base.html -->
+<!-- END templates/index.html -->

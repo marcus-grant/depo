@@ -236,7 +236,7 @@ class LinkItemContextTest(TestCase):
         self.assertIn("mtime", link_ctx["item"])
 
         # Verify values
-        self.assertEqual(link_ctx, expect["url"])
+        self.assertEqual(link_ctx["url"], expect["url"])
         self.assertEqual(link_ctx["item"]["code"], expect["item"]["code"])
         self.assertEqual(link_ctx["item"]["hash"], expect["item"]["hash"])
         self.assertEqual(link_ctx["item"]["ctype"], expect["item"]["ctype"])
