@@ -240,7 +240,7 @@ class WebIndexViewTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertTemplateUsed(resp, "index.html")
         self.assertNotContains(resp, "error")
-        self.assertNotContains(resp, "item")
+        self.assertNotContains(resp, "shortcode is: <strong>")
 
     def test_root_post_request_creates_item(self):
         """Test root POST request creates an item"""

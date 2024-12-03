@@ -1,5 +1,7 @@
 # Custom
 test.bin
+static/*
+staticfiles/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

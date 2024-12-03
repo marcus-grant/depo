@@ -12,7 +12,7 @@ from core.link.models import LinkItem
 #     return render(request, "404.html", ctx, status=404)
 
 
-# Create your views here.
+# TODO: Split into separate functions
 def web_index(req: HttpRequest):
     if req.method == "POST":
         content = req.POST.get("content")
