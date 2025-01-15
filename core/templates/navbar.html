@@ -1,0 +1,20 @@
+<!-- START core/templates/navbar.html -->
+<nav class="navbar is-spaced" role="navigation" aria-label="main navigation">
+  <div class="navbar-brand">
+    <!-- Include any sitewide branding, logos, site name, etc. here -->
+    <a href="{% url 'web_index' %}" class="navbar-item">
+      <h1 class="navbar-item">Depo</h1>
+    </a>
+  </div>
+
+  <div class="navbar-end">
+    <div class="navbar-item">
+      <!-- Theme/Dark-mode toggle switch -->
+      <div class="field">
+        <input type="checkbox" id="theme-toggle" class="switch is-rounded is-small">
+        <label for="theme-toggle" class="label">Lite/Dark Mode</label>
+      </div>
+    </div>
+  </div>
+</nav>
+<!-- END core/templates/navbar.html -->

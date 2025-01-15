@@ -13,18 +13,7 @@
     </head>
 <body>
     <header>
-        <!-- use jinja % include "your_app/navbar.html" or something to add navbar -->
-        <!-- Use h1 as navbar placeholder for now-->
-        <h1>Depo</h1>
-        <div class="navbar-end">
-            <div class="navbar-item">
-                <!-- Optional: Theme Toggle Switch -->
-                <div class="field">
-                    <input type="checkbox" id="theme-toggle" class="switch is-rounded is-small">
-                    <label for="theme-toggle" class="label">Dark Mode</label>
-                </div>
-            </div>
-        </div>
+      {% include 'navbar.html' %}
     </header>
 
     <main>
