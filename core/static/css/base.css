@@ -22,6 +22,7 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
+    background-color: var(--bg-color); /* Ensure theme bg-color applied */
 }
 
 body {
@@ -38,8 +39,8 @@ main {
 }
 
 /* Navbar and Footer styles */
-.navbar.is-primary {
-    background-color: var(--navbar-background) !important;
+.navbar {
+    background-color: var(--navbar-background);
 }
 
 .footer {
