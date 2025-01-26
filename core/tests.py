@@ -2,8 +2,11 @@
 from datetime import datetime, timezone
 from unittest.mock import patch
 from django.db import models
-from django.test import TestCase
+from django.test import TestCase, Client
 from django.urls import reverse
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.conf import settings
+import os
 
 from core.util.shortcode import hash_b32, SHORTCODE_MIN_LEN, SHORTCODE_MAX_LEN
 from core.models import Item, ItemContext
@@ -290,6 +293,47 @@ class ShortcodeDetailsViewTest(TestCase):
         self.assertContains(resp, self.link.url)
 
 
+class ImageUploadTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.upload_url = reverse("upload")
+
+    def test_upload_image(self):
+        # Create a mock image file
+        image_path = os.path.join(settings.BASE_DIR, "test_image.gif")
+
+        # Ensure you have a test image at the specified path. You can create a simple blank image for testing.
+        # TODO: Make a better test sequence, ideally JPEG
+        with open(image_path, "wb") as f:
+            f.write(
+                b"\x47\x49\x46\x38\x39\x61\x02\x00"
+                b"\x01\x00\x80\x00\x00\x00\x00\x00"
+                b"\xff\xff\xff\x21\xf9\x04\x00\x00"
+                b"\x00\x00\x00\x2c\x00\x00\x00\x00"
+                b"\x02\x00\x01\x00\x00\x02\x02\x4c"
+                b"\x01\x00\x3b"
+            )  # This is a simple 2x1 GIF image
+
+        with open(image_path, "rb") as img:
+            uploaded = SimpleUploadedFile(
+                name="test_image.gif", content=img.read(), content_type="image/jpeg"
+            )
+
+            # Post the image to the upload URL
+            response = self.client.post(
+                self.upload_url, {"image": uploaded}, follow=True
+            )
+
+        # Assert that the response is successful (status code 200 or redirect)
+        self.assertEqual(response.status_code, 200)
+
+        # Additional assertions can be added here, such as checking if the image was saved
+
+        # Clean up the test image file
+        # TODO: Move this to a teardown method
+        os.remove(image_path)
+
+
 ### Template Tests ###
 
 
@@ -310,53 +354,3 @@ class TemplateTagsTest(TestCase):
         self.assertContains(resp, 'type="submit"')
         # Check for the confirmation link unique to POST
         self.assertContains(resp, "/details")
-
-
-# TODO: Implement these suggestions:
-# 9. Improve Test Readability and Maintainability
-# Suggestion:
-# Use Test Data Factories:
-# Consider using a library like factory_boy to create test data.
-# This can make your tests cleaner and more maintainable.
-# Example with factory_boy:
-# import factory
-# from .models import Item, LinkItem
-#
-# class ItemFactory(factory.django.DjangoModelFactory):
-#     class Meta:
-#         model = Item
-#
-#     code = factory.Faker('bothify', text='??????')
-#     hash = factory.Faker('bothify', text='######')
-#     ctype = 'url'
-#
-# class LinkItemFactory(ItemFactory):
-#     class Meta:
-#         model = LinkItem
-#
-#     url = factory.Faker('url')
-# Use Factories in Tests:
-# class LinkItemEnsureTest(TestCase):
-#     def test_linkitem_ensure_creates(self):
-#         """Test that LinkItem.ensure creates a LinkItem correctly."""
-#         url = "https://example.com"
-#         link_item = LinkItem.ensure(url)
-#         self.assertEqual(link_item.url, url)
-#         # Use factories to create additional instances if needed
-# 10. Follow Best Practices in Django Testing
-# Suggestion:
-# Use setUpTestData for Class-Level Data:
-# If you have data that doesn't change between tests, use @classmethod and setUpTestData to create it once per test class.
-# Example:
-# class ItemEnsureTest(TestCase):
-#     @classmethod
-#     def setUpTestData(cls):
-#         cls.GOOG_URL = "https://google.com"
-#         cls.link_item = LinkItem.ensure(cls.GOOG_URL)
-#
-#     def test_idempotency(self):
-#         """Test ensure is idempotent."""
-#         link_item2 = LinkItem.ensure(self.GOOG_URL)
-#         self.assertEqual(self.link_item.pk, link_item2.pk)
-# Avoid Hardcoding Timestamps:
-# Instead of comparing timestamps to datetime.now(), use assertIsNotNone or check relative differences.

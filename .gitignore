@@ -1,7 +1,15 @@
 # Custom
-test.bin
+
+# Static content
 static/*
 staticfiles/*
+
+# Test artifacts
+test.bin
+*test_image.gif
+*test_image.jpeg
+*test_image.jpg
+*test_image.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
