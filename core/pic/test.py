@@ -1,5 +1,6 @@
 # core/pic/test.py
 
+from datetime import datetime
 from django.test import TestCase
 from django.db import models
 from django.utils import timezone
@@ -116,3 +117,29 @@ class PicItemEnsureTest(TestCase):
 
         self.assertEqual(PicItem.objects.count(), 1)  # No new PicItem created
         self.assertEqual(pic_item_new, pic_item_existing)
+
+
+class PicItemContextTest(TestCase):
+    def test_correct_return_schema(self):
+        """Returns expected dictionary structure"""
+        # Arrange: Item instance
+        item = Item.objects.create(code="P1C1", hash="HASH1", ctype="pic")
+
+        # Act: Create pic then get context from it
+        pic = PicItem.objects.create(item=item, format="jpg", size=1024)
+        ctx = pic.context()
+
+        # Assert: Check the structure and contents of the context
+        expected_context = {
+            "item": {
+                "code": "P1C1",
+                "hash": "P1C1HASH1",
+                "ctype": "pic",
+                "btime": item.btime.isoformat(),
+                "mtime": item.mtime.isoformat(),
+            },
+            "size": 1024,
+            "format": "jpg",
+        }
+
+        self.assertEqual(ctx, expected_context)

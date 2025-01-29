@@ -2,6 +2,7 @@
 
 from django.db import models
 from django.core.exceptions import ValidationError
+from typing import Dict
 
 from core.models import Item
 
@@ -66,6 +67,15 @@ class PicItem(models.Model):
             pic_item.save()
 
         return pic_item
+
+    def context(self) -> Dict:
+        """Return standardized dict representation of PicItem."""
+        # Temporarily incomplete dict to simulate failure
+        return {
+            "item": self.item.context(),
+            "format": self.format,
+            "size": self.size,
+        }
 
     # def __str__(self): -> str:
     #     return f"PicItem(code={self.item.code},format={self.format},size={self.size})"
