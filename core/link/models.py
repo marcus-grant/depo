@@ -18,9 +18,8 @@ class LinkItem(models.Model):
         if isinstance(content, bytes):
             raise TypeError("Content must be a string to create a LinkItem.")
         if ctype != "url":
-            print(
-                f"Warning: LinkItem.ensure called with ctype={ctype}. Defaulting to 'url'."
-            )
+            msg = "Warning: LinkItem.ensure called with"
+            print(f"{msg} ctype={ctype}. Defaulting to 'url'.")
 
         # Ensure the parent Item exists
         item = Item.ensure(content, ctype="url")

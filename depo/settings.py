@@ -39,8 +39,10 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # Add your apps here
-    "core.apps.CoreConfig",
-    # "core.link", # Is this needed?
+    # "core.apps.CoreConfig",  # TODO: This or just 'core'?
+    "core",
+    "core.link",  # TODO: Is this needed?
+    "core.pic",
 ]
 
 MIDDLEWARE = [
