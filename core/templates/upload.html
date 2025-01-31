@@ -1,0 +1,15 @@
+<!-- your_app/templates/upload.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Image</title>
+</head>
+<body>
+    <h1>Upload an Image</h1>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="file" name="image" accept=".jpg,.jpeg,.png,.gif" required>
+        <button type="submit">Upload</button>
+    </form>
+</body>
+</html>

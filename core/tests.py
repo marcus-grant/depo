@@ -293,45 +293,19 @@ class ShortcodeDetailsViewTest(TestCase):
         self.assertContains(resp, self.link.url)
 
 
-class ImageUploadTests(TestCase):
+class UploadViewTests(TestCase):
     def setUp(self):
         self.client = Client()
         self.upload_url = reverse("upload")
 
-    def test_upload_image(self):
-        # Create a mock image file
-        image_path = os.path.join(settings.BASE_DIR, "test_image.gif")
-
-        # Ensure you have a test image at the specified path. You can create a simple blank image for testing.
-        # TODO: Make a better test sequence, ideally JPEG
-        with open(image_path, "wb") as f:
-            f.write(
-                b"\x47\x49\x46\x38\x39\x61\x02\x00"
-                b"\x01\x00\x80\x00\x00\x00\x00\x00"
-                b"\xff\xff\xff\x21\xf9\x04\x00\x00"
-                b"\x00\x00\x00\x2c\x00\x00\x00\x00"
-                b"\x02\x00\x01\x00\x00\x02\x02\x4c"
-                b"\x01\x00\x3b"
-            )  # This is a simple 2x1 GIF image
-
-        with open(image_path, "rb") as img:
-            uploaded = SimpleUploadedFile(
-                name="test_image.gif", content=img.read(), content_type="image/jpeg"
-            )
-
-            # Post the image to the upload URL
-            response = self.client.post(
-                self.upload_url, {"image": uploaded}, follow=True
-            )
-
-        # Assert that the response is successful (status code 200 or redirect)
+    def test_upload_page_accessible_via_get(self):
+        response = self.client.get(self.upload_url)
         self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "upload.html")
 
-        # Additional assertions can be added here, such as checking if the image was saved
-
-        # Clean up the test image file
-        # TODO: Move this to a teardown method
-        os.remove(image_path)
+    def test_upload_page_contains_file_input(self):
+        response = self.client.get(self.upload_url)
+        self.assertContains(response, '<input type="file"')
 
 
 ### Template Tests ###

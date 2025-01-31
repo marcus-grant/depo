@@ -42,3 +42,7 @@ def shortcode_details(request, shortcode: str):
     link = item.get_child()
     ctx = link.context()
     return render(request, "shortcode-details.html", ctx)
+
+
+def upload_view(request):
+    return render(request, "upload.html")
