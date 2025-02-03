@@ -1,15 +1,21 @@
+from django.conf import settings
 from django.shortcuts import render
-from django.http import HttpRequest, HttpResponseBadRequest  # , Http404
+from django.http import HttpRequest, HttpResponseBadRequest, HttpResponse  # , Http404
 from django.template.loader import render_to_string
 
 from core.models import Item
 from core.link.models import LinkItem
+from core.pic.models import PicItem
 
 
+# TODO: Read picture byte stream as chunks instead
 # TODO: Properly handle 404s with context containing shortcode
 # def handler_404(request, exception=None):
 #     ctx = {"shortcode": request.GET.get("shortcode", "unknown")}
 #     return render(request, "404.html", ctx, status=404)
+# TODO: Figure out how to handle custom 404s in all major views
+# if not item:
+#     raise Http404
 
 
 # TODO: Split into separate functions
@@ -34,9 +40,6 @@ def shortcode_details(request, shortcode: str):
     item = Item.search_shortcode(shortcode)
     if not item:
         raise ValueError(f"Item with shortcode '{shortcode}' not found.")
-    # TODO: Figure out how to handle custom 404s
-    # if not item:
-    #     raise Http404
     # TODO: Change to handle new context methods
     # TODO: Fix get_child and maybe consider having subitems handle search themselves
     link = item.get_child()
@@ -45,4 +48,15 @@ def shortcode_details(request, shortcode: str):
 
 
 def upload_view(request):
+    if request.method == "POST":
+        pic_file = request.FILES.get("image")
+        if pic_file:
+            pic_item = PicItem.ensure(pic_file.read())  # Ensure PicItem
+            filename = f"{pic_item.item.code}.{pic_item.format}"
+            with open(settings.UPLOAD_DIR / filename, "wb") as f:
+                f.write(pic_file.read())  # Write uploaded pic file to disk
+            return HttpResponse("File uploaded successfully", status=200)
+        return HttpResponse("No file uploaded", status=400)
+
+    # Failure case
     return render(request, "upload.html")

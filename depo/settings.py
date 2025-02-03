@@ -31,6 +31,10 @@ ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 # Application definition
 
+# Custom Vars
+UPLOAD_DIR = BASE_DIR / "uploads"
+
+# Default Django Vars
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",

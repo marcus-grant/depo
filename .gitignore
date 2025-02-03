@@ -4,6 +4,12 @@
 static/*
 staticfiles/*
 
+# Server uploads dir & its testing replacement
+./uploads
+uploads/*
+./tmp
+tmp/*
+
 # Test artifacts
 test.bin
 *test_image.gif

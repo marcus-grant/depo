@@ -1,8 +1,8 @@
 # core/tests
 from datetime import datetime, timezone
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from django.db import models
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.conf import settings
@@ -293,7 +293,7 @@ class ShortcodeDetailsViewTest(TestCase):
         self.assertContains(resp, self.link.url)
 
 
-class UploadViewTests(TestCase):
+class UploadViewGETTests(TestCase):
     def setUp(self):
         self.client = Client()
         self.upload_url = reverse("upload")
@@ -306,6 +306,66 @@ class UploadViewTests(TestCase):
     def test_upload_page_contains_file_input(self):
         response = self.client.get(self.upload_url)
         self.assertContains(response, '<input type="file"')
+
+
+@override_settings(UPLOAD_DIR=settings.BASE_DIR / "tmp")
+class UploadViewPostTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.upload_url = reverse("upload")
+        # Ensure temporary upload directory exists
+        if not os.path.exists(settings.UPLOAD_DIR):
+            os.makedirs(settings.UPLOAD_DIR)
+
+    def tearDown(self):
+        # Cleanup: remove all files in the directory
+        for filename in os.listdir(settings.UPLOAD_DIR):
+            file_path = os.path.join(settings.UPLOAD_DIR, filename)
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                os.rmdir(file_path)
+        os.rmdir(settings.UPLOAD_DIR)  # Now remove directory
+
+    @patch("core.pic.models.PicItem.ensure")
+    def test_ensure_call_with_file_content(self, mock_ensure):
+        """Ensure should PicItem.ensure called with contents of uploaded file."""
+        # Arrange: Dummy PicItem instance
+        dummy_pic = MagicMock()
+        dummy_pic.item.code = "DUMYHASH"
+        dummy_pic.format = "png"
+        mock_ensure.return_value = dummy_pic
+        # Arrange: Dummy Image File as sequence of bytes
+        image_content = b"\x89PNG\r\n\x1a\n"
+        args = ("dummy.png", image_content)
+        uploaded_file = SimpleUploadedFile(*args, content_type="image/png")
+
+        # Act: POST the file for the upload view to handle
+        self.client.post(self.upload_url, {"image": uploaded_file})
+
+        # Assert: PicItem.ensure called with exact file contents
+        mock_ensure.assert_called_once_with(image_content)
+
+    @patch("core.pic.models.PicItem.ensure")
+    def test_file_saved_as_hash_filename_fmt_ext(self, mock_ensure):
+        """Test uploaded pic file saved w/ Item.code & PicItem.format filename."""
+        # Arrange: Dummy PicItem
+        dummy_pic = MagicMock()
+        dummy_pic.item.code = "DUMYHASH"
+        dummy_pic.format = "gif"
+        mock_ensure.return_value = dummy_pic
+        # Arrange: Dummy Image File (minimal GIF header bytes)
+        image_content = b"GIF89a"
+        args = ("dummy.gif", image_content)
+        uploaded_file = SimpleUploadedFile(*args, content_type="image/gif")
+
+        # Act: Post image
+        response = self.client.post(self.upload_url, {"image": uploaded_file})
+
+        # Assert: File should be saved to server FS correctly
+        expect_filename = f"{dummy_pic.item.code}.{dummy_pic.format}"
+        expect_filepath = settings.UPLOAD_DIR / expect_filename
+        self.assertTrue(expect_filepath.exists())
 
 
 ### Template Tests ###
