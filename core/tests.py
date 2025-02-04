@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock
 from django.db import models
+from django.http import response
 from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -360,12 +361,33 @@ class UploadViewPostTests(TestCase):
         uploaded_file = SimpleUploadedFile(*args, content_type="image/gif")
 
         # Act: Post image
-        response = self.client.post(self.upload_url, {"image": uploaded_file})
+        self.client.post(self.upload_url, {"image": uploaded_file})
 
         # Assert: File should be saved to server FS correctly
         expect_filename = f"{dummy_pic.item.code}.{dummy_pic.format}"
         expect_filepath = settings.UPLOAD_DIR / expect_filename
         self.assertTrue(expect_filepath.exists())
+
+    @patch("core.pic.models.PicItem.ensure")
+    def test_response_contains_model_details(self, mock_ensure):
+        """Response to upload needs to contain associated model details."""
+        # Arrange: Prepare a dummy PicItem
+        dummy_pic = MagicMock()
+        dummy_pic.item.code = "DETA11SS"
+        dummy_pic.format = "jpg"
+        mock_ensure.return_value = dummy_pic
+        # Arrange: Dummy image file (minimal JPEG header)
+        pic_contents = b"\xff\xd8\xff"
+        args = ("dummy.jpg", pic_contents)
+        uploaded_file = SimpleUploadedFile(*args, content_type="image/jpeg")
+
+        # Act: POST image, capture response
+        resp = self.client.post(self.upload_url, {"image": uploaded_file})
+        resp_txt = resp.content.decode()
+
+        # Assert: Response has file details
+        self.assertIn(dummy_pic.item.code, resp_txt)
+        self.assertIn(dummy_pic.format, resp_txt)
 
 
 ### Template Tests ###

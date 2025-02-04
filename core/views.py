@@ -55,7 +55,7 @@ def upload_view(request):
             filename = f"{pic_item.item.code}.{pic_item.format}"
             with open(settings.UPLOAD_DIR / filename, "wb") as f:
                 f.write(pic_file.read())  # Write uploaded pic file to disk
-            return HttpResponse("File uploaded successfully", status=200)
+            return HttpResponse(f"Uploaded file {filename} successfully!", status=200)
         return HttpResponse("No file uploaded", status=400)
 
     # Failure case
