@@ -425,6 +425,32 @@ class UploadViewPostTests(TestCase):
         self.assertIn("EMPTY", resp.content.decode().upper())
         mock_ensure.assert_not_called()
 
+    @patch("core.pic.models.PicItem.ensure")
+    def test_file_write_error_returns_server_error(self, mock_ensure):
+        """If error occurs during file writing, view should return HTTP 500."""
+        # Arrange: Set up a dummy PicItem so processing proceeds.
+        dummy_pic = MagicMock()
+        dummy_pic.item.code = "ERRHASH"
+        dummy_pic.format = "jpg"
+        mock_ensure.return_value = dummy_pic
+
+        # Create a dummy image file (non-empty).
+        image_content = b"\xff\xd8\xff"  # Minimal JPEG header.
+        uploaded_file = SimpleUploadedFile(
+            "dummy.jpg", image_content, content_type="image/jpeg"
+        )
+
+        # Patch 'open' in the module where it is used so that it raises an OSError.
+        with patch("core.views.open", side_effect=OSError("Disk error")):
+            # Act: POST the file.
+            resp = self.client.post(self.upload_url, {"image": uploaded_file})
+
+        # Assert: Expect HTTP 500 and an error message mentioning file saving.
+        self.assertEqual(resp.status_code, 500)
+        self.assertIn("ERROR", resp.content.decode().upper())
+        self.assertIn("SAV", resp.content.decode().upper())
+        self.assertIn("FILE", resp.content.decode().upper())
+
 
 ### Template Tests ###
 

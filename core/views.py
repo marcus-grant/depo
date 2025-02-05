@@ -17,6 +17,7 @@ from core.pic.models import PicItem
 # TODO: Figure out how to handle custom 404s in all major views
 # if not item:
 #     raise Http404
+# TODO: Centralize all error messages with documented messages/codes
 
 
 # TODO: Split into separate functions
@@ -49,6 +50,7 @@ def shortcode_details(request, shortcode: str):
 
 
 # TODO: Move file byte validation to separate module
+# Should include all upload validations and potentially determining filetype
 def validate_upload_bytes(upload_bytes: bytes) -> Optional[str]:
     if b"\xff\xd8\xff" in upload_bytes:
         return "jpg"
@@ -79,8 +81,11 @@ def upload_view(request):
 
         pic_item = PicItem.ensure(file_data)  # Ensure PicItem
         filename = f"{pic_item.item.code}.{pic_item.format}"
-        with open(settings.UPLOAD_DIR / filename, "wb") as f:
-            f.write(file_data)  # Write uploaded pic file to disk
+        try:
+            with open(settings.UPLOAD_DIR / filename, "wb") as f:
+                f.write(file_data)  # Write uploaded pic file to disk
+        except Exception as e:
+            return HttpResponse(f"Error saving file: {str(e)}", status=500)
         return HttpResponse(f"Uploaded file {filename} successfully!", status=200)
 
     # No file uploaded
