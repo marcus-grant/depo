@@ -2,6 +2,7 @@ from django.conf import settings
 from django.shortcuts import render
 from django.http import HttpRequest, HttpResponseBadRequest, HttpResponse  # , Http404
 from django.template.loader import render_to_string
+from typing import Optional
 
 from core.models import Item
 from core.link.models import LinkItem
@@ -47,16 +48,38 @@ def shortcode_details(request, shortcode: str):
     return render(request, "shortcode-details.html", ctx)
 
 
-def upload_view(request):
-    if request.method == "POST":
-        pic_file = request.FILES.get("image")
-        if pic_file:
-            pic_item = PicItem.ensure(pic_file.read())  # Ensure PicItem
-            filename = f"{pic_item.item.code}.{pic_item.format}"
-            with open(settings.UPLOAD_DIR / filename, "wb") as f:
-                f.write(pic_file.read())  # Write uploaded pic file to disk
-            return HttpResponse(f"Uploaded file {filename} successfully!", status=200)
-        return HttpResponse("No file uploaded", status=400)
+# TODO: Move file byte validation to separate module
+def validate_upload_bytes(upload_bytes: bytes) -> Optional[str]:
+    if b"\xff\xd8\xff" in upload_bytes:
+        return "jpg"
+    if b"\x89PNG\r\n\x1a\n" in upload_bytes:
+        return "png"
+    if b"GIF89a" in upload_bytes or b"GIF87a" in upload_bytes:
+        return "gif"
+    return None
 
-    # Failure case
-    return render(request, "upload.html")
+
+def upload_view(request):
+    if request.method == "GET":
+        return render(request, "upload.html")  # GET case
+
+    if request.method != "POST":  # Neither GET nor POST case, bad method
+        return HttpResponse("Method not allowed", status=405)
+
+    # POST case
+    pic_file = request.FILES.get("image")
+    if pic_file:
+        file_data = pic_file.read()
+        pic_type = validate_upload_bytes(file_data)
+
+        if not pic_type:
+            return HttpResponse("File type not allowed", status=400)
+
+        pic_item = PicItem.ensure(file_data)  # Ensure PicItem
+        filename = f"{pic_item.item.code}.{pic_item.format}"
+        with open(settings.UPLOAD_DIR / filename, "wb") as f:
+            f.write(file_data)  # Write uploaded pic file to disk
+        return HttpResponse(f"Uploaded file {filename} successfully!", status=200)
+
+    # No file uploaded
+    return HttpResponse("No file uploaded", status=400)

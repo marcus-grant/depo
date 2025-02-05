@@ -300,13 +300,13 @@ class UploadViewGETTests(TestCase):
         self.upload_url = reverse("upload")
 
     def test_upload_page_accessible_via_get(self):
-        response = self.client.get(self.upload_url)
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "upload.html")
+        resp = self.client.get(self.upload_url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, "upload.html")
 
     def test_upload_page_contains_file_input(self):
-        response = self.client.get(self.upload_url)
-        self.assertContains(response, '<input type="file"')
+        resp = self.client.get(self.upload_url)
+        self.assertContains(resp, '<input type="file"')
 
 
 @override_settings(UPLOAD_DIR=settings.BASE_DIR / "tmp")
@@ -328,66 +328,87 @@ class UploadViewPostTests(TestCase):
                 os.rmdir(file_path)
         os.rmdir(settings.UPLOAD_DIR)  # Now remove directory
 
+    def mock_ensure_with_dummy_pic(self, mock, code="M0CKHASH", fmt="jpg", size=0):
+        dummy = MagicMock()
+        dummy.item.code = code
+        dummy.format = fmt
+        dummy.size = size
+        mock.return_value = dummy
+        return mock
+
     @patch("core.pic.models.PicItem.ensure")
     def test_ensure_call_with_file_content(self, mock_ensure):
         """Ensure should PicItem.ensure called with contents of uploaded file."""
-        # Arrange: Dummy PicItem instance
-        dummy_pic = MagicMock()
-        dummy_pic.item.code = "DUMYHASH"
-        dummy_pic.format = "png"
-        mock_ensure.return_value = dummy_pic
-        # Arrange: Dummy Image File as sequence of bytes
-        image_content = b"\x89PNG\r\n\x1a\n"
-        args = ("dummy.png", image_content)
+        # Arrange: Dummy PicItem instance & Image file
+        kwargs = {"code": "DUMYHASH", "fmt": "png", "size": 0}
+        mock_ensure = self.mock_ensure_with_dummy_pic(mock_ensure, **kwargs)
+        args = ("dummy.png", b"\x89PNG\r\n\x1a\n")
         uploaded_file = SimpleUploadedFile(*args, content_type="image/png")
-
         # Act: POST the file for the upload view to handle
         self.client.post(self.upload_url, {"image": uploaded_file})
-
         # Assert: PicItem.ensure called with exact file contents
-        mock_ensure.assert_called_once_with(image_content)
+        mock_ensure.assert_called_once_with(b"\x89PNG\r\n\x1a\n")
 
     @patch("core.pic.models.PicItem.ensure")
     def test_file_saved_as_hash_filename_fmt_ext(self, mock_ensure):
         """Test uploaded pic file saved w/ Item.code & PicItem.format filename."""
-        # Arrange: Dummy PicItem
-        dummy_pic = MagicMock()
-        dummy_pic.item.code = "DUMYHASH"
-        dummy_pic.format = "gif"
-        mock_ensure.return_value = dummy_pic
-        # Arrange: Dummy Image File (minimal GIF header bytes)
+        # Arrange: Dummy PicItem & Image file
+        kwargs = {"code": "DUMYHASH", "fmt": "gif", "size": 0}
+        mock_ensure = self.mock_ensure_with_dummy_pic(mock_ensure, **kwargs)
         image_content = b"GIF89a"
         args = ("dummy.gif", image_content)
         uploaded_file = SimpleUploadedFile(*args, content_type="image/gif")
-
         # Act: Post image
         self.client.post(self.upload_url, {"image": uploaded_file})
-
         # Assert: File should be saved to server FS correctly
-        expect_filename = f"{dummy_pic.item.code}.{dummy_pic.format}"
+        expect_filename = f"{mock_ensure().item.code}.{mock_ensure().format}"
         expect_filepath = settings.UPLOAD_DIR / expect_filename
         self.assertTrue(expect_filepath.exists())
 
     @patch("core.pic.models.PicItem.ensure")
     def test_response_contains_model_details(self, mock_ensure):
         """Response to upload needs to contain associated model details."""
-        # Arrange: Prepare a dummy PicItem
-        dummy_pic = MagicMock()
-        dummy_pic.item.code = "DETA11SS"
-        dummy_pic.format = "jpg"
-        mock_ensure.return_value = dummy_pic
-        # Arrange: Dummy image file (minimal JPEG header)
-        pic_contents = b"\xff\xd8\xff"
-        args = ("dummy.jpg", pic_contents)
+        # Arrange: Prepare a dummy PicItem & Image file
+        mock_ensure = self.mock_ensure_with_dummy_pic(mock_ensure)
+        args = ("dummy.jpg", b"\xff\xd8\xff")
         uploaded_file = SimpleUploadedFile(*args, content_type="image/jpeg")
-
         # Act: POST image, capture response
         resp = self.client.post(self.upload_url, {"image": uploaded_file})
         resp_txt = resp.content.decode()
-
         # Assert: Response has file details
-        self.assertIn(dummy_pic.item.code, resp_txt)
-        self.assertIn(dummy_pic.format, resp_txt)
+        self.assertIn(mock_ensure().item.code, resp_txt)
+        self.assertIn(mock_ensure().format, resp_txt)
+
+    @patch("core.pic.models.PicItem.ensure")
+    def test_upload_accepts_allowed_file_types(self, mock_ensure):
+        # Arrange: Prepare a dummy PicItem to simulate normal processing & dummy JPEG
+        mock_ensure = self.mock_ensure_with_dummy_pic(mock_ensure)
+        jpg = b"\xff\xd8\xff"
+        file_jpg = SimpleUploadedFile("t.jpg", jpg, content_type="image/jpeg")
+        png = b"\x89PNG\r\n\x1a\n"
+        file_png = SimpleUploadedFile("t.png", png, content_type="image/png")
+        file_gif = SimpleUploadedFile("t.gif", b"GIF89a", content_type="image/gif")
+        # Act: POST the file.
+        resp_jpg = self.client.post(self.upload_url, {"image": file_jpg})
+        resp_png = self.client.post(self.upload_url, {"image": file_png})
+        resp_gif = self.client.post(self.upload_url, {"image": file_gif})
+        # Assert: Check for HTTP 200 and that processing occurred.
+        self.assertEqual(resp_jpg.status_code, 200)
+        self.assertEqual(resp_png.status_code, 200)
+        self.assertEqual(resp_gif.status_code, 200)
+        self.assertEqual(mock_ensure.call_count, 3)
+
+    @patch("core.pic.models.PicItem.ensure")
+    def test_upload_rejects_disallowed_file_types(self, mock_ensure):
+        # Arrange: Create a dummy text file.
+        x = b"Hello, world!"
+        file_upl = SimpleUploadedFile("invalid.xyz", x, content_type="text/plain")
+        # Act: POST the file.
+        resp = self.client.post(self.upload_url, {"image": file_upl})
+        # Assert: Expect HTTP 400 and that PicItem.ensure is never called.
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("File type not allowed", resp.content.decode())
+        mock_ensure.assert_not_called()
 
 
 ### Template Tests ###
