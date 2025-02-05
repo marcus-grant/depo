@@ -70,8 +70,10 @@ def upload_view(request):
     pic_file = request.FILES.get("image")
     if pic_file:
         file_data = pic_file.read()
-        pic_type = validate_upload_bytes(file_data)
+        if file_data == "" or file_data == b"" or file_data is None:
+            return HttpResponse("Empty file uploaded", status=400)
 
+        pic_type = validate_upload_bytes(file_data)
         if not pic_type:
             return HttpResponse("File type not allowed", status=400)
 

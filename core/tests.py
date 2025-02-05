@@ -410,6 +410,21 @@ class UploadViewPostTests(TestCase):
         self.assertIn("File type not allowed", resp.content.decode())
         mock_ensure.assert_not_called()
 
+    @patch("core.pic.models.PicItem.ensure")
+    def test_empty_file_upload_returns_error(self, mock_ensure):
+        """
+        If the uploaded file is empty, the view should return HTTP 400 and
+        not call PicItem.ensure.
+        """
+        # Arrange: Create an empty file upload.
+        empty_file = SimpleUploadedFile("empty.png", b"", content_type="image/png")
+        # Act: POST the empty file.
+        resp = self.client.post(self.upload_url, {"image": empty_file})
+        # Assert: Expect HTTP 400 and ensure PicItem.ensure is not called.
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("EMPTY", resp.content.decode().upper())
+        mock_ensure.assert_not_called()
+
 
 ### Template Tests ###
 
