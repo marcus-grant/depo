@@ -86,11 +86,16 @@ def upload_view(request):
             with open(settings.UPLOAD_DIR / filename, "wb") as f:
                 f.write(file_data)  # Write uploaded pic file to disk
         except Exception as e:
+<<<<<<< HEAD
             msg = "Error saving file"
             return upload_response(msg, err=True, stat=500, filename=filename)
 
         msg = f"Uploaded file {filename} successfully!"
         return upload_response(msg, stat=200, filename=filename)
+=======
+            return HttpResponse(f"Error saving file: {str(e)}", status=500)
+        return HttpResponse(f"Uploaded file {filename} successfully!", status=200)
+>>>>>>> e239dce06cb08d131230acafee3c9cc4a2a69b12
 
     # No file uploaded
     return upload_response("No file uploaded", stat=400)
