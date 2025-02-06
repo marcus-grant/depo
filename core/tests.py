@@ -328,6 +328,11 @@ class UploadViewPostTests(TestCase):
                 os.rmdir(file_path)
         os.rmdir(settings.UPLOAD_DIR)  # Now remove directory
 
+    # TODO: Add another arrange helper to create the dummy picture file
+    # TODO: Refactor this arrangement helper
+    #           - Better name
+    #           - Take module string instead and return proper mock
+    #           - Take return value param
     def mock_ensure_with_dummy_pic(self, mock, code="M0CKHASH", fmt="jpg", size=0):
         dummy = MagicMock()
         dummy.item.code = code
@@ -450,6 +455,29 @@ class UploadViewPostTests(TestCase):
         self.assertIn("ERROR", resp.content.decode().upper())
         self.assertIn("SAV", resp.content.decode().upper())
         self.assertIn("FILE", resp.content.decode().upper())
+
+    @patch("core.pic.models.PicItem.ensure")
+    def test_successful_upload_returns_custom_headers(self, mock_ensure):
+        # Arrange: Set up a dummy PicItem so that processing works normally.
+        dummy_pic = MagicMock()
+        dummy_pic.item.code = "HEADERHASH"
+        dummy_pic.format = "png"
+        mock_ensure.return_value = dummy_pic
+
+        # Create a dummy PNG file.
+        args = ("test.png", b"\x89PNG\r\n\x1a\n")
+        uploaded_file = SimpleUploadedFile(*args, content_type="image/png")
+
+        # Act: POST the file with Accept header set to text/plain.
+        args = (self.upload_url, {"image": uploaded_file})
+        resp = self.client.post(*args, HTTP_ACCEPT="text/plain")
+
+        # Assert: 200 OK, plain text type, expected filename in header, msg body
+        expected_filename = f"{dummy_pic.item.code}.{dummy_pic.format}"
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "text/plain")
+        self.assertEqual(resp.get("X-Uploaded-Filename"), expected_filename)
+        self.assertIn(expected_filename, resp.content.decode())
 
 
 ### Template Tests ###

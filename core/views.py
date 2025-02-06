@@ -66,27 +66,48 @@ def upload_view(request):
         return render(request, "upload.html")  # GET case
 
     if request.method != "POST":  # Neither GET nor POST case, bad method
-        return HttpResponse("Method not allowed", status=405)
+        return upload_response("Method not allowed", err=True, stat=405)
 
     # POST case
     pic_file = request.FILES.get("image")
     if pic_file:
         file_data = pic_file.read()
         if file_data == "" or file_data == b"" or file_data is None:
-            return HttpResponse("Empty file uploaded", status=400)
+            return upload_response("Empty file uploaded", err=True, stat=400)
 
         pic_type = validate_upload_bytes(file_data)
         if not pic_type:
-            return HttpResponse("File type not allowed", status=400)
+            return upload_response("File type not allowed", err=True, stat=400)
 
         pic_item = PicItem.ensure(file_data)  # Ensure PicItem
+        # TODO: Once ctype/format handling extracted, move file saving with it
         filename = f"{pic_item.item.code}.{pic_item.format}"
         try:
             with open(settings.UPLOAD_DIR / filename, "wb") as f:
                 f.write(file_data)  # Write uploaded pic file to disk
         except Exception as e:
-            return HttpResponse(f"Error saving file: {str(e)}", status=500)
-        return HttpResponse(f"Uploaded file {filename} successfully!", status=200)
+            msg = "Error saving file"
+            return upload_response(msg, err=True, stat=500, filename=filename)
+
+        msg = f"Uploaded file {filename} successfully!"
+        return upload_response(msg, stat=200, filename=filename)
 
     # No file uploaded
-    return HttpResponse("No file uploaded", status=400)
+    return upload_response("No file uploaded", stat=400)
+
+
+# TODO: Consider separating out API & Web Views to own graphs of modules/urls
+# TODO: Test in isolation, have calling view mock test this func
+# TODO: Move headers out to separate module, standardize & document
+# TODO: Status should be a positional arg
+def upload_response(msg, stat, err=False, filename=None):
+    """
+    Returns a plain text HttpResponse and, if the client accepts plain text,
+    attaches additional headers with details.
+    """
+    resp = HttpResponse(msg, status=stat, content_type="text/plain")
+    if filename:
+        resp["X-Uploaded-Filename"] = filename
+    if err:
+        resp["X-Error"] = "true"
+    return resp
