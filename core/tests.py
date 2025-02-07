@@ -479,6 +479,25 @@ class UploadViewPostTests(TestCase):
         self.assertEqual(resp.get("X-Uploaded-Filename"), expected_filename)
         self.assertIn(expected_filename, resp.content.decode())
 
+    @patch("core.pic.models.PicItem.ensure")
+    def test_error_upload_returns_custom_error_headers(self, mock_ensure):
+        # Arrange: Create a file with disallowed content.
+        # For example, a text file instead of an image.
+        uploaded_file = SimpleUploadedFile(
+            "bad.txt", b"Not an image", content_type="text/plain"
+        )
+
+        # Act: POST the file with Accept header set to text/plain.
+        resp = self.client.post(
+            self.upload_url, {"image": uploaded_file}, HTTP_ACCEPT="text/plain"
+        )
+
+        # Assert: Status code, content and error headers, and body
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp["Content-Type"], "text/plain")
+        self.assertEqual(resp.get("X-Error"), "true")
+        self.assertIn("File type not allowed", resp.content.decode())
+
 
 ### Template Tests ###
 
