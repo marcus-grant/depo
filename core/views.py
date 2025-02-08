@@ -51,6 +51,7 @@ def shortcode_details(request, shortcode: str):
 
 # TODO: Move file byte validation to separate module
 # Should include all upload validations and potentially determining filetype
+# TODO: Handle cases where we want text or ie SVG where it's XML text
 def validate_upload_bytes(upload_bytes: bytes) -> Optional[str]:
     if b"\xff\xd8\xff" in upload_bytes:
         return "jpg"
@@ -74,6 +75,10 @@ def upload_view(request):
         file_data = pic_file.read()
         if file_data == "" or file_data == b"" or file_data is None:
             return upload_response("Empty file uploaded", err=True, stat=400)
+
+        if len(file_data) > settings.MAX_UPLOAD_SIZE:
+            msg = f"File size {len(file_data)} exceeds limit of {settings.MAX_UPLOAD_SIZE} bytes"
+            return upload_response(msg, err=True, stat=400)
 
         pic_type = validate_upload_bytes(file_data)
         if not pic_type:

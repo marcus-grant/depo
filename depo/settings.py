@@ -33,6 +33,7 @@ ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 # Custom Vars
 UPLOAD_DIR = BASE_DIR / "uploads"
+MAX_UPLOAD_SIZE = 100 * 10**6  # Default to 100MB
 
 # Default Django Vars
 INSTALLED_APPS = [

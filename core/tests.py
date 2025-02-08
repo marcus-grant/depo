@@ -510,6 +510,23 @@ class UploadViewPostTests(TestCase):
         self.assertEqual(resp.get("X-Error"), "true")
         self.assertIn("File type not allowed", resp.content.decode())
 
+    @override_settings(MAX_UPLOAD_SIZE=100)
+    @patch("core.pic.models.PicItem.ensure")
+    def test_upload_rejects_files_exceeding_max_size(self, mock_ensure):
+        """If upload file exceeds MAX_UPLOAD_SIZE, respond with 400 with message"""
+        # Arrange: Create dummy image file with oversized content length
+        oversized_content = b"A" * 101
+        uploaded_file = SimpleUploadedFile("oversized.jpg", oversized_content)
+
+        # Act: POST file
+        resp = self.client.post(self.upload_url, {"image": uploaded_file})
+
+        # Assert: Expect HTTP 400 error & message about size
+        self.assertEqual(resp.status_code, 400)
+        expect = "File size 101 exceeds limit of 100 bytes"
+        self.assertIn(expect, resp.content.decode())
+        mock_ensure.assert_not_called()
+
 
 ### Template Tests ###
 
