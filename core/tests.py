@@ -527,6 +527,34 @@ class UploadViewPostTests(TestCase):
         self.assertIn(expect, resp.content.decode())
         mock_ensure.assert_not_called()
 
+    @patch("core.pic.models.PicItem.ensure")
+    def test_malicious_filename_is_ignored(self, mock_ensure):
+        """
+        Even if the uploaded file has a malicious filename, the saved file should
+        use the safe, hashed filename from PicItem.ensure.
+        """
+        # Arrange: Setup a dummy PicItem.
+        dummy_pic = MagicMock()
+        dummy_pic.item.code = "SAFEHASH"
+        dummy_pic.format = "png"
+        mock_ensure.return_value = dummy_pic
+
+        # Use a malicious filename.
+        uploaded_file = SimpleUploadedFile(
+            "../../evil.jpg", b"\x89PNG\r\n\x1a\n", content_type="image/png"
+        )
+
+        # Act: POST the file.
+        resp = self.client.post(self.upload_url, {"image": uploaded_file})
+
+        # Assert: The file is saved with the safe hashed filename.
+        expected_filename = f"{dummy_pic.item.code}.{dummy_pic.format}"
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn(expected_filename, resp.content.decode())
+        # Optionally, verify the file exists in the upload directory.
+        file_path = settings.UPLOAD_DIR / expected_filename
+        self.assertTrue(os.path.exists(file_path))
+
 
 ### Template Tests ###
 
