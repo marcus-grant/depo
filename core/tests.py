@@ -308,6 +308,18 @@ class UploadViewGETTests(TestCase):
         resp = self.client.get(self.upload_url)
         self.assertContains(resp, '<input type="file"')
 
+    def test_upload_page_contains_ui_element(self):
+        """Upload page should contain:
+        - File input for file selection.
+        - A div with id="progress" indicating upload progress.
+        - A div with id="preview" to show the pic preview."""
+        resp = self.client.get(self.upload_url)
+        self.assertEqual(resp.status_code, 200)
+        content = resp.content.decode()
+        self.assertIn('<input type="file"', content)
+        self.assertIn('id="progress"', content)
+        self.assertIn('id="preview"', content)
+
 
 @override_settings(UPLOAD_DIR=settings.BASE_DIR / "tmp")
 class UploadViewPostTests(TestCase):
