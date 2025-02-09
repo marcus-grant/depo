@@ -9,7 +9,7 @@ from django.contrib.auth.hashers import make_password, check_password as chkpass
 class User(models.Model):
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=32)
-    pass_hash = models.CharField(max_length=128)
+    pass_hash = models.CharField(max_length=128)  # TODO: Rename?
 
     def set_password(self, pass_plaintext: str):
         """Hash the given raw password & store result"""

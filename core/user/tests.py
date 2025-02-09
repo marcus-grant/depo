@@ -19,3 +19,15 @@ class UserModelTests(TestCase):
         self.assertNotEqual(saved_user.pass_hash, None)
         self.assertNotEqual(saved_user.pass_hash, "")
         self.assertTrue(saved_user.check_password("password"))
+
+    def test_duplicate_username_raises(self):
+        """Any duplicate User.name must raise errors, can't be allowed"""
+        User.objects.create(name="unique_dude", email="unique@dude.lol")
+        with self.assertRaises(IntegrityError):
+            User.objects.create(name="unique_dude", email="unique@dude.lol")
+
+    def test_duplicate_email_raises(self):
+        """Any duplicate User.email must raise errors"""
+        User.objects.create(name="unique@dude", email="unique@dude.lol")
+        with self.assertRaises(IntegrityError):
+            User.objects.create(name="unique_dude", email="unique@dude.lol")
