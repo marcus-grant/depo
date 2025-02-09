@@ -15,3 +15,7 @@ class UserModelTests(TestCase):
         saved_user = User.objects.get(name="tester")
         # Assert: Retrieved user has same email, hashed password & check_password works
         self.assertEqual(saved_user.email, "tester@example.com")
+        self.assertNotEqual(saved_user.pass_hash, "password")
+        self.assertNotEqual(saved_user.pass_hash, None)
+        self.assertNotEqual(saved_user.pass_hash, "")
+        self.assertTrue(saved_user.check_password("password"))
