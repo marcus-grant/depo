@@ -18,6 +18,10 @@ from core.pic.models import PicItem
 # if not item:
 #     raise Http404
 # TODO: Centralize all error messages with documented messages/codes
+# TODO: Add logging
+# TODO: Add file read streaming to reduce RAM usage
+# Also test this properly with gigabyte or larger mock files
+# TODO: Ensure end to end testing exists see TDD cycles 8, 9 and 10
 
 
 # TODO: Split into separate functions
