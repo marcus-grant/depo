@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "core",
     "core.link",  # TODO: Is this needed?
     "core.pic",
+    "core.user",
 ]
 
 MIDDLEWARE = [
