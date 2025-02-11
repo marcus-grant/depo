@@ -1,10 +1,18 @@
 # core/user/tests.py
+from datetime import datetime, UTC
+from django import test
+from django.conf import settings
 from django.db import IntegrityError
 from django.test import TestCase, Client
 from django.urls import reverse
-import json
+import jwt
 
 from core.user.models import User
+
+
+###
+### Models Tests
+###
 
 
 class UserModelTests(TestCase):
@@ -36,7 +44,11 @@ class UserModelTests(TestCase):
             User.objects.create(name="unique_dude", email="unique@dude.lol")
 
 
-# TODO: Should application/json be used? Is it needed? Other than the JWT no other JSON is used.
+###
+### Views Tests
+###
+
+
 class AuthenticationTests(TestCase):
     def setUp(self):
         self.client = Client()
@@ -47,11 +59,32 @@ class AuthenticationTests(TestCase):
 
     def test_valid_login_returns_jwt(self):
         """POSTs to login url w| valid credentials should return a JWT token"""
-        # Arrange: JWT request payload
-        payload = {"email": "test@example.com", "password": "password"}
-        # Act: POST JWT request with to login URL and record response
-        resp = self.client.post(self.login_url, json.dumps(payload), content_type="")
-        # Assert: 200 status, ctype,
+        # Arrange: Credentialed login request
+        creds = {"email": "test@example.com", "password": "password"}
+        # Act: POST JWT request with login URL and record response, extract token
+        resp = self.client.post(self.login_url, creds)
+        token = resp.content.decode("utf-8")
+        decoded = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        # Assert: 200 status, ctype, JWT token contents
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp["Content-Type"], "application/json")
-        self.assertIn("token", json.loads(resp.content))
+        self.assertEqual(resp["Content-Type"], "text/plain")
+        self.assertTrue(token, "The returned token in response body shouldn't be empty")
+        self.assertEqual(resp["X-Auth-Token"], token)
+        self.assertEqual(decoded["name"], "tester")
+        self.assertEqual(decoded["email"], "test@example.com")
+        self.assertTrue(int(decoded["exp"]))
+        self.assertGreater(int(decoded["exp"]), datetime.now(UTC).timestamp())
+
+    # def test_invalid_pass_returns_unauthorized(self):
+    #     """POST to login with bad credentials should return 401 with unauthorized message"""
+    #     # Arrange: Create payload with bad credentials
+    #     payload = {"email": "test@example.com", "password": "wrong-pass"}
+    #     # Act: POST bad payload & record response
+    #     resp = self.client.post(
+    #         self.login_url, json.dumps(payload), content_type="application/json"
+    #     )
+    #     # Assert: 401 code and error message response
+    #     self.assertEqual(resp.status_code, 401)
+    #     self.assertEqual(resp["X-Error"], "true")
+    #     self.assertIn(b"unauthorized", resp.content.lower())
+    #     self.assertIn(b"password", resp.content.lower())
