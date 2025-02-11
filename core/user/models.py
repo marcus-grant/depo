@@ -3,6 +3,7 @@ from django.db import models
 from django.contrib.auth.hashers import make_password, check_password as chkpass
 
 
+# TODO: Add validation function other modules can use to determine if JWT valid (payload, sig, etc.)
 # TODO: Use either django's AbstractBaseUser or User models to get builtin permissions and auth
 # TODO: Add password validation (length, charset, complexity, common word detection)
 # TODO: Implement password salting method & storage

@@ -74,7 +74,13 @@ def upload_view(request):
         return upload_response("Method not allowed", err=True, stat=405)
 
     # POST case
-    pic_file = request.FILES.get("image")
+    # Authorize token first
+    auth_header = request.POST.get("HTTP_AUTHORIZATION")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        msg = "Upload unauthorized, please login first"
+        return upload_response(msg, err=True, stat=401)
+
+    pic_file = request.FILES.get("content")
     if pic_file:
         file_data = pic_file.read()
         if file_data == "" or file_data == b"" or file_data is None:

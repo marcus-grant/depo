@@ -15,6 +15,7 @@ JWT_ALGORITHM = "HS256"
 JWT_EXP_DELTA_SECONDS = 60 * 60  # 1 hour
 
 
+# TODO: User should have a validate func to eval if a given JWT is valid (name,email,exp,signature)
 # TODO: Refactor Http responses should have a helper
 # TODO: Refactor to pull JWT payload formatting into separate function or even util module
 # TODO: Add password validation & potentially UserManager/AbstractUser classes
