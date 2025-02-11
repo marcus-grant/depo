@@ -75,16 +75,29 @@ class AuthenticationTests(TestCase):
         self.assertTrue(int(decoded["exp"]))
         self.assertGreater(int(decoded["exp"]), datetime.now(UTC).timestamp())
 
-    # def test_invalid_pass_returns_unauthorized(self):
-    #     """POST to login with bad credentials should return 401 with unauthorized message"""
-    #     # Arrange: Create payload with bad credentials
-    #     payload = {"email": "test@example.com", "password": "wrong-pass"}
-    #     # Act: POST bad payload & record response
-    #     resp = self.client.post(
-    #         self.login_url, json.dumps(payload), content_type="application/json"
-    #     )
-    #     # Assert: 401 code and error message response
-    #     self.assertEqual(resp.status_code, 401)
-    #     self.assertEqual(resp["X-Error"], "true")
-    #     self.assertIn(b"unauthorized", resp.content.lower())
-    #     self.assertIn(b"password", resp.content.lower())
+    def test_invalid_pass_returns_unauthorized(self):
+        """POST to login with bad credentials should return 401 with unauthorized message"""
+        # Arrange: Create request with bad credentials
+        creds = {"email": "test@example.com", "password": "bad-pass"}
+        # Act: POST bad payload & record response
+        resp = self.client.post(self.login_url, creds, content_type="text/plain")
+        # Assert: 401 code and error message response
+        self.assertEqual(resp.status_code, 401)
+        self.assertEqual(resp["X-Error"], "true")
+        self.assertIn(b"unauthorized", resp.content.lower())
+        self.assertIn(b"password", resp.content.lower())
+        self.assertIn(b"email", resp.content.lower())
+
+    def test_invalid_pass_response_same_invalid_email(self):
+        """POST to login with bad email gives same response as with bad password
+        NOTE: It's more secure to not reveal which credential is wrong."""
+        # Arrange: Create request with bad email & another with bad password
+        cred_bad_email = {"email": "bad@example.com", "password": "password"}
+        cred_bad_pass = {"email": "test@example.com", "password": "bad-pass"}
+        # Act: POST both credentials & record their responses
+        resp_bad_email = self.client.post(self.login_url, cred_bad_email)
+        resp_bad_pass = self.client.post(self.login_url, cred_bad_pass)
+        # Assert: Response data should be the same
+        self.assertEqual(resp_bad_email.status_code, resp_bad_pass.status_code)
+        self.assertEqual(resp_bad_email.content, resp_bad_pass.content)
+        self.assertEqual(resp_bad_email["X-Error"], resp_bad_pass["X-Error"])
