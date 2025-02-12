@@ -30,6 +30,14 @@ class User(models.Model):
         return self.name
 
 
+def unauthorized_response(msg: str) -> HttpResponse:
+    return HttpResponse(
+        msg, content_type="text/plain", status=401, headers={"X-Error": "true"}
+    )
+
+
+# TODO: Figure out how to differentiate between browser & API requests
+#       the browser maybe should be sent to a page showing demanding login
 # TODO: Make this work with roles related to User
 def jwt_required(view_func):
     """
@@ -44,15 +52,15 @@ def jwt_required(view_func):
         # Get the Authorization header from the request.
         auth_header = request.META.get("HTTP_AUTHORIZATION", "")
         if not auth_header.startswith("Bearer "):
-            return HttpResponse("Unauthorized: JWT 'Bearer' token required", status=401)
+            return unauthorized_response("Unauthorized: Bearer JWT token required")
         token = auth_header.split(" ", 1)[1]
         try:  # Decode & verify token
             decoded = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
             request.user_payload = decoded
         except jwt.ExpiredSignatureError:
-            return HttpResponse("Unauthorized: JWT token has expired", status=401)
+            return unauthorized_response("Unauthorized: JWT token has expired")
         except jwt.InvalidTokenError:
-            return HttpResponse("Unauthorized: Invalid JWT token", status=401)
+            return unauthorized_response("Unauthorized: Invalid JWT token")
         return view_func(request, *args, **kwargs)
 
     return _wrapped_view

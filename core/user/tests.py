@@ -167,6 +167,7 @@ class JWTDecoratorTests(TestCase):
         decorated_view = jwt_required(dummy_view)
         resp = decorated_view(request)
         self.assertEqual(resp.status_code, 401)
+        self.assertEqual(resp["X-Error"], "true")
         self.assertIn(b"invalid", resp.content.lower())
 
     def test_expired_token(self):
@@ -182,6 +183,7 @@ class JWTDecoratorTests(TestCase):
         decorated_view = jwt_required(dummy_view)
         resp = decorated_view(request)
         self.assertEqual(resp.status_code, 401)
+        self.assertEqual(resp["X-Error"], "true")
         self.assertIn(b"expire", resp.content.lower())
 
     def test_with_malformed_header(self):
@@ -189,4 +191,5 @@ class JWTDecoratorTests(TestCase):
         decorated_view = jwt_required(dummy_view)
         resp = decorated_view(request)
         self.assertEqual(resp.status_code, 401)
+        self.assertEqual(resp["X-Error"], "true")
         self.assertIn(b"unauthorized", resp.content.lower())
