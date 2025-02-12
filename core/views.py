@@ -5,6 +5,7 @@ from django.template.loader import render_to_string
 from typing import Optional
 
 from core.models import Item
+from core.user.models import jwt_required
 from core.link.models import LinkItem
 from core.pic.models import PicItem
 
@@ -66,20 +67,8 @@ def validate_upload_bytes(upload_bytes: bytes) -> Optional[str]:
     return None
 
 
-def upload_view(request):
-    if request.method == "GET":
-        return render(request, "upload.html")  # GET case
-
-    if request.method != "POST":  # Neither GET nor POST case, bad method
-        return upload_response("Method not allowed", err=True, stat=405)
-
-    # POST case
-    # Authorize token first
-    auth_header = request.POST.get("HTTP_AUTHORIZATION")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        msg = "Upload unauthorized, please login first"
-        return upload_response(msg, err=True, stat=401)
-
+@jwt_required
+def upload_view_post(request):
     pic_file = request.FILES.get("content")
     if pic_file:
         file_data = pic_file.read()
@@ -95,7 +84,6 @@ def upload_view(request):
             return upload_response("File type not allowed", err=True, stat=400)
 
         pic_item = PicItem.ensure(file_data)  # Ensure PicItem
-        # TODO: Once ctype/format handling extracted, move file saving with it
         filename = f"{pic_item.item.code}.{pic_item.format}"
         try:
             with open(settings.UPLOAD_DIR / filename, "wb") as f:
@@ -109,6 +97,15 @@ def upload_view(request):
 
     # No file uploaded
     return upload_response("No file uploaded", stat=400)
+
+
+def upload_view(request):
+    method = request.method
+    if method == "GET":
+        return render(request, "upload.html")  # GET case
+    if method == "POST":
+        return upload_view_post(request)
+    return upload_response(f"Method ({method}) not allowed", err=True, stat=405)
 
 
 # TODO: Consider separating out API & Web Views to own graphs of modules/urls

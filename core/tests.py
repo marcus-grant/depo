@@ -383,10 +383,11 @@ class UploadViewPostTests(TestCase):
         return SimpleUploadedFile(fname, fcontent, content_type=ctype)
 
     def client_file_upload(self, file, auth=True):
-        heads = {"content": file}
+        data = {"content": file}
+        headers = {}
         if auth:
-            heads["HTTP_AUTHORIZATION"] = self.auth_bearer
-        return self.client.post(self.upload_url, heads)
+            headers["HTTP_AUTHORIZATION"] = self.auth_bearer
+        return self.client.post(self.upload_url, data, **headers)
 
     @patch("core.pic.models.PicItem.ensure")
     def test_ensure_call_with_file_content(self, mock):
@@ -422,13 +423,9 @@ class UploadViewPostTests(TestCase):
     def test_response_contains_model_details(self, mock):
         """Response to upload needs to contain associated model details."""
         # Arrange: Prepare a dummy PicItem & Image file
-        # mock_ensure = self.mock_ensure_with_dummy_pic(mock_ensure)
-        # args = ("dummy.jpg", b"\xff\xd8\xff")
-        # uploaded_file = SimpleUploadedFile(*args, content_type="image/jpeg")
         mock = self.mock_ensure_pic(mock, code="DUMYHASH", fmt="jpg")
         upload = self.mock_picfile("dummy.jpg", b"\xff\xd8\xff")
         # Act: POST image, capture response
-        # resp = self.client.post(self.upload_url, {"image": uploaded_file})
         resp = self.client_file_upload(upload)
         resp_txt = resp.content.decode()
         # Assert: Response has file details
@@ -471,10 +468,8 @@ class UploadViewPostTests(TestCase):
     def test_empty_file_upload_returns_error(self, mock):
         """If the uploaded file is empty, view should return HTTP 400, dont call PicItem.ensure"""
         # Arrange: Create an empty file upload.
-        # empty_file = SimpleUploadedFile("empty.png", b"", content_type="image/png")
         empty_file = self.mock_picfile("empty.png", b"")
         # Act: POST the empty file.
-        # resp = self.client.post(self.upload_url, {"image": empty_file})
         resp = self.client_file_upload(empty_file)
         # Assert: Expect HTTP 400 and ensure PicItem.ensure is not called.
         self.assertEqual(resp.status_code, 400)
@@ -567,14 +562,12 @@ class UploadViewPostTests(TestCase):
         content = b"\x89PNG\r\n\x1a\n"
         upld_file = SimpleUploadedFile("test.png", content, content_type="image/png")
         # Act: POST the file without any Authorization header.
-        resp = self.client.post(self.upload_url, {"image": upld_file})
+        resp = self.client.post(self.upload_url, {"content": upld_file})
         # Assert: Expect HTTP 401 & plain text/header messages about auth
         self.assertEqual(resp.status_code, 401)
         self.assertEqual(resp.get("Content-Type"), "text/plain")
         self.assertEqual(resp.get("X-Error"), "true")
         self.assertIn("unauthor", resp.content.decode().lower())
-        self.assertIn("login", resp.content.decode().lower())
-        self.assertIn("upload", resp.content.decode().lower())
 
 
 ### Template Tests ###
