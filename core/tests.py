@@ -404,12 +404,8 @@ class UploadViewPostTests(TestCase):
     def test_file_saved_as_hash_filename_fmt_ext(self, mock):
         """Test uploaded pic file saved w/ Item.code & PicItem.format filename."""
         # Arrange: Dummy PicItem & Image file
-        # kwargs = {"code": "DUMYHASH", "fmt": "gif", "size": 0}
-        # mock_ensure = self.mock_ensure_with_dummy_pic(mock_ensure, **kwargs)
         mock = self.mock_ensure_pic(mock, code="DUMYHASH", fmt="gif")
         # image_content = b"GIF89a"
-        # args = ("dummy.gif", image_content)
-        # uploaded_file = SimpleUploadedFile(*args, content_type="image/gif")
         upload_file = self.mock_picfile("dummy.gif", b"GIF89a")
         # Act: Post image
         # self.client.post(self.upload_url, {"image": uploaded_file})
@@ -546,16 +542,13 @@ class UploadViewPostTests(TestCase):
         # Arrange: Setup a dummy PicItem and dummy upload file w/ malicious filename.
         mock = self.mock_ensure_pic(mock, code="SAFEHASH", fmt="png")
         upload = self.mock_picfile("../../evil.jpg", b"\x89PNG\r\n\x1a\n")
-
         # Act: POST the file.
         resp = self.client_file_upload(upload)
-
         # Assert: The file is saved with the safe hashed filename.
         self.assertEqual(resp.status_code, 200)
         self.assertIn("SAFEHASH.png", resp.content.decode())
         self.assertTrue(os.path.exists(settings.UPLOAD_DIR / "SAFEHASH.png"))
 
-    # TODO: Also check that invalid or expired JWT also gets rejected
     def test_upload_without_auth_token(self):
         """An upload request without Authorization heeader should be rejected."""
         # Arrange: Create a dummy PNG file.

@@ -99,6 +99,7 @@ def upload_view_post(request):
     return upload_response("No file uploaded", stat=400)
 
 
+# TODO: Handle pasting an image/binary data into textbox from clipboard
 def upload_view(request):
     method = request.method
     if method == "GET":
