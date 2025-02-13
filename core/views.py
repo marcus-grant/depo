@@ -1,14 +1,19 @@
+import logging
+import os
+import time
+from typing import Optional
+
 from django.conf import settings
 from django.shortcuts import render
 from django.http import HttpRequest, HttpResponseBadRequest, HttpResponse  # , Http404
-from django.template.loader import render_to_string
-from typing import Optional
 
 from core.models import Item
 from core.user.models import jwt_required
 from core.link.models import LinkItem
 from core.pic.models import PicItem
 
+# TODO: Standardize name in settings & make sure program name used
+logger = logging.getLogger(__name__)
 
 # TODO: Read picture byte stream as chunks instead
 # TODO: Properly handle 404s with context containing shortcode
@@ -69,6 +74,8 @@ def validate_upload_bytes(upload_bytes: bytes) -> Optional[str]:
 
 @jwt_required
 def upload_view_post(request):
+    time_start = time.time()
+    logger.info("Upload initiated")
     pic_file = request.FILES.get("content")
     if pic_file:
         file_data = pic_file.read()
@@ -91,7 +98,8 @@ def upload_view_post(request):
         except Exception as e:
             msg = "Error saving file"
             return upload_response(msg, err=True, stat=500, filename=filename)
-
+        time_elapsed = time.time() - time_start
+        logger.info(f"Upload completed: {filename} in {time_elapsed:.2f}seconds")
         msg = f"Uploaded file {filename} successfully!"
         return upload_response(msg, stat=200, filename=filename)
 

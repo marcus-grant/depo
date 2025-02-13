@@ -563,6 +563,89 @@ class UploadViewPostTests(TestCase):
         self.assertIn("unauthor", resp.content.decode().lower())
 
 
+@override_settings(
+    UPLOAD_DIR=settings.BASE_DIR / "tmp", MAX_UPLOAD_SIZE=5 * 1024 * 1024
+)
+class UploadViewLoggingTests(TestCase):
+    # TODO: Upload these common setup and teardown methods to a base testclass
+    def setUp(self):
+        self.client = Client()
+        self.upload_url = reverse("upload")
+        if not os.path.exists(settings.UPLOAD_DIR):
+            os.makedirs(settings.UPLOAD_DIR)
+        self.user = User.objects.create(name="tester", email="test@example.com")
+        self.user.set_password("password")
+        self.user.save()
+        payload = {
+            "name": self.user.name,
+            "email": self.user.email,
+            "exp": datetime.now(timezone.utc)
+            + timedelta(seconds=JWT_EXP_DELTA_SECONDS),
+        }
+        token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+        if isinstance(token, bytes):
+            token = token.decode("utf-8")
+        self.auth_bearer = f"Bearer {token}"
+        self.auth_header = {"HTTP_AUTHORIZATION": self.auth_bearer}
+
+    def tearDown(self):
+        for filename in os.listdir(settings.UPLOAD_DIR):
+            file_path = os.path.join(settings.UPLOAD_DIR, filename)
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                os.rmdir(file_path)
+        os.rmdir(settings.UPLOAD_DIR)
+
+    # NOTE: Helper functions of repeat testing tasks
+    # NOTE: READ THESE to learn how to use upload views
+    def mock_ensure_pic(self, mock, code="L0GHASH7", fmt="png"):
+        picitem = MagicMock()
+        picitem.item.code = code
+        picitem.format = fmt
+        mock.return_value = picitem
+        return mock
+
+    def mock_file(self, fname, fcontent):
+        # Helper:  Create SimpleUploadFile with correct content type
+        if fname.endswith(".png"):
+            ctype = "image/png"
+        elif fname.endswith(".jpg") or fname.endswith(".jpeg"):
+            ctype = "image/jpeg"
+        elif fname.endswith(".gif"):
+            ctype = "image/gif"
+        else:
+            ctype = "application/octet-stream"
+        return SimpleUploadedFile(fname, fcontent, content_type=ctype)
+
+    def client_file_upload(self, file, auth=True):
+        data = {"content": file}
+        headers = {}
+        if auth:
+            headers["HTTP_AUTHORIZATION"] = self.auth_bearer
+        return self.client.post(self.upload_url, data, **headers)
+
+    @patch("core.pic.models.PicItem.ensure")
+    def test_successful_upload_logs_message(self, mock):
+        """A successful upload should add an INFO log:
+        - "Upload initiated" at start
+        - "Upload completed: <filename> in <elapsed> seconds" on success
+        """
+        # Arrange: Set up dummy PicItem instance
+        mock = self.mock_ensure_pic(mock)
+        upload = self.mock_file("test.png", b"\x89PNG\r\n\x1a\n")
+        # Act: Capture logs during upload request
+        with self.assertLogs("core.views", level="INFO") as log_cm:
+            resp = self.client_file_upload(upload)
+        log_out = " ".join(log_cm.output)
+        # Assert: Response should be 200, logs contain upload init & complete
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("upload", log_out.lower())
+        self.assertIn("init", log_out.lower())
+        self.assertIn("complet", log_out.lower())
+        self.assertIn(f"{mock().item.code}.{mock().format}", log_out)
+
+
 ### Template Tests ###
 
 
