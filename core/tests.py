@@ -683,6 +683,20 @@ class UploadViewLoggingTests(TestCase):
         self.assertIn("empty", log_out.lower())
         self.assertIn("file", log_out.lower())
 
+    @override_settings(MAX_UPLOAD_SIZE=100)
+    @patch("core.pic.models.PicItem.ensure")
+    def test_upload_logs_error_when_size_excessive(self, mock):
+        """File uploads exceeding MAX_UPLOAD_SIZE should log error."""
+        # Arrange: Setup dummy pic item & oversized image file
+        mock = self.mock_ensure_pic(mock)
+        upload = self.mock_file("oversized.jpg", b"A" * 101)
+        # Act: Capture ERROR logs during upload
+        with self.assertLogs("depo.core.views", level="ERROR") as log_cm:
+            resp = self.client_file_upload(upload)
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("byte", " ".join(log_cm.output).lower())
+        self.assertIn("limit", " ".join(log_cm.output).lower())
+
 
 ### Template Tests ###
 

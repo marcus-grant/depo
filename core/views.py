@@ -88,6 +88,7 @@ def upload_view_post(request):
 
     if len(file_data) > settings.MAX_UPLOAD_SIZE:
         msg = f"File size {len(file_data)} exceeds limit of {settings.MAX_UPLOAD_SIZE} bytes"
+        logger.error(msg)
         return upload_response(msg, err=True, stat=400)
 
     pic_type = validate_upload_bytes(file_data)
