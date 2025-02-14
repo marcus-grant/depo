@@ -13,7 +13,7 @@ from core.link.models import LinkItem
 from core.pic.models import PicItem
 
 # TODO: Standardize name in settings & make sure program name used
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("depo." + __name__)
 
 # TODO: Read picture byte stream as chunks instead
 # TODO: Properly handle 404s with context containing shortcode
@@ -72,39 +72,41 @@ def validate_upload_bytes(upload_bytes: bytes) -> Optional[str]:
     return None
 
 
+# TODO: Logging should be moved out to own module and/or midware
 @jwt_required
 def upload_view_post(request):
     time_start = time.time()
     logger.info("Upload initiated")
     pic_file = request.FILES.get("content")
-    if pic_file:
-        file_data = pic_file.read()
-        if file_data == "" or file_data == b"" or file_data is None:
-            return upload_response("Empty file uploaded", err=True, stat=400)
+    if not pic_file:
+        return upload_response("No file uploaded", stat=400)
 
-        if len(file_data) > settings.MAX_UPLOAD_SIZE:
-            msg = f"File size {len(file_data)} exceeds limit of {settings.MAX_UPLOAD_SIZE} bytes"
-            return upload_response(msg, err=True, stat=400)
+    file_data = pic_file.read()
+    if file_data == "" or file_data == b"" or file_data is None:
+        return upload_response("Empty file uploaded", err=True, stat=400)
 
-        pic_type = validate_upload_bytes(file_data)
-        if not pic_type:
-            return upload_response("File type not allowed", err=True, stat=400)
+    if len(file_data) > settings.MAX_UPLOAD_SIZE:
+        msg = f"File size {len(file_data)} exceeds limit of {settings.MAX_UPLOAD_SIZE} bytes"
+        return upload_response(msg, err=True, stat=400)
 
-        pic_item = PicItem.ensure(file_data)  # Ensure PicItem
-        filename = f"{pic_item.item.code}.{pic_item.format}"
-        try:
-            with open(settings.UPLOAD_DIR / filename, "wb") as f:
-                f.write(file_data)  # Write uploaded pic file to disk
-        except Exception as e:
-            msg = "Error saving file"
-            return upload_response(msg, err=True, stat=500, filename=filename)
-        time_elapsed = time.time() - time_start
-        logger.info(f"Upload completed: {filename} in {time_elapsed:.2f}seconds")
-        msg = f"Uploaded file {filename} successfully!"
-        return upload_response(msg, stat=200, filename=filename)
+    pic_type = validate_upload_bytes(file_data)
+    if not pic_type:
+        return upload_response("File type not allowed", err=True, stat=400)
 
-    # No file uploaded
-    return upload_response("No file uploaded", stat=400)
+    pic_item = PicItem.ensure(file_data)  # Ensure PicItem
+    filename = f"{pic_item.item.code}.{pic_item.format}"
+    try:
+        with open(settings.UPLOAD_DIR / filename, "wb") as f:
+            f.write(file_data)  # Write uploaded pic file to disk
+    except OSError as e:
+        msg = "Error during upload file save"
+        logger.error(f"{msg}: {e}")
+        return upload_response(msg, err=True, stat=500, filename=filename)
+
+    time_elapsed = time.time() - time_start
+    logger.info(f"Upload completed: {filename} in {time_elapsed:.2f}seconds")
+    msg = f"Uploaded file {filename} successfully!"
+    return upload_response(msg, stat=200, filename=filename)
 
 
 # TODO: Handle pasting an image/binary data into textbox from clipboard

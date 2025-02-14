@@ -634,16 +634,36 @@ class UploadViewLoggingTests(TestCase):
         # Arrange: Set up dummy PicItem instance
         mock = self.mock_ensure_pic(mock)
         upload = self.mock_file("test.png", b"\x89PNG\r\n\x1a\n")
+
         # Act: Capture logs during upload request
-        with self.assertLogs("core.views", level="INFO") as log_cm:
+        with self.assertLogs("depo.core.views", level="INFO") as log_cm:
             resp = self.client_file_upload(upload)
         log_out = " ".join(log_cm.output)
+
         # Assert: Response should be 200, logs contain upload init & complete
         self.assertEqual(resp.status_code, 200)
         self.assertIn("upload", log_out.lower())
         self.assertIn("init", log_out.lower())
         self.assertIn("complet", log_out.lower())
         self.assertIn(f"{mock().item.code}.{mock().format}", log_out)
+
+    @patch("core.pic.models.PicItem.ensure")
+    def test_upload_error_logs_error_message(self, mock):
+        """File-save errors(OSError) should error.log with correct message."""
+        # Arrange: Setup dummy pic item & dummy image file
+        mock = self.mock_ensure_pic(mock)
+        upload = self.mock_file("test.png", b"\x89PNG\r\n\x1a\n")
+
+        # Act: Patch open to sim disk-err during POST, capture logs
+        with patch("core.views.open", side_effect=OSError("Disk error")):
+            with self.assertLogs("depo.core.views", level="ERROR") as log_cm:
+                resp = self.client_file_upload(upload)
+        log_out = " ".join(log_cm.output)
+
+        # Assert: Response should have 500 status
+        self.assertEqual(resp.status_code, 500)
+        self.assertIn("error", log_out.lower())
+        self.assertIn("save", log_out.lower())
 
 
 ### Template Tests ###
