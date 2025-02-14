@@ -665,6 +665,24 @@ class UploadViewLoggingTests(TestCase):
         self.assertIn("error", log_out.lower())
         self.assertIn("save", log_out.lower())
 
+    @patch("core.pic.models.PicItem.ensure")
+    def test_empty_file_upload_logs_error(self, mock):
+        """Empty file uploads should log err stating the problem."""
+        # Arrange: Setup dummy pic item & empty image file
+        mock = self.mock_ensure_pic(mock)
+        upload = self.mock_file("empty.png", b"")
+
+        # Act: Capture ERROR logs during upload
+        with self.assertLogs("depo.core.views", level="ERROR") as log_cm:
+            resp = self.client_file_upload(upload)
+        log_out = " ".join(log_cm.output)
+
+        # Assert: Response should have 400 status
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("error", log_out.lower())
+        self.assertIn("empty", log_out.lower())
+        self.assertIn("file", log_out.lower())
+
 
 ### Template Tests ###
 

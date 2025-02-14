@@ -83,6 +83,7 @@ def upload_view_post(request):
 
     file_data = pic_file.read()
     if file_data == "" or file_data == b"" or file_data is None:
+        logger.error("Empty file uploaded")
         return upload_response("Empty file uploaded", err=True, stat=400)
 
     if len(file_data) > settings.MAX_UPLOAD_SIZE:
