@@ -93,7 +93,9 @@ def upload_view_post(request):
 
     pic_type = validate_upload_bytes(file_data)
     if not pic_type:
-        return upload_response("File type not allowed", err=True, stat=400)
+        msg = "Invalid or unknown filetype, not allowed"
+        logger.error(msg)
+        return upload_response(msg, err=True, stat=400)
 
     pic_item = PicItem.ensure(file_data)  # Ensure PicItem
     filename = f"{pic_item.item.code}.{pic_item.format}"

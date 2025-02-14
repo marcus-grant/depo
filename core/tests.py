@@ -455,9 +455,12 @@ class UploadViewPostTests(TestCase):
         file = SimpleUploadedFile("invalid.xyz", x, content_type="text/plain")
         # Act: POST the file.
         resp = self.client_file_upload(file)
+        msg = resp.content.decode().lower()
         # Assert: Expect HTTP 400 and that PicItem.ensure is never called.
         self.assertEqual(resp.status_code, 400)
-        self.assertIn("File type not allowed", resp.content.decode())
+        self.assertIn("invalid", msg)
+        self.assertIn("type", msg)
+        self.assertIn("allow", msg)
         mock.assert_not_called()
 
     @patch("core.pic.models.PicItem.ensure")
@@ -513,11 +516,14 @@ class UploadViewPostTests(TestCase):
         )
         # Act: POST the file with Accept header set to text/plain.
         resp = self.client_file_upload(upload)
+        msg = resp.content.decode().lower()
         # Assert: Status code, content and error headers, and body
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(resp["Content-Type"], "text/plain")
         self.assertEqual(resp.get("X-Error"), "true")
-        self.assertIn("File type not allowed", resp.content.decode())
+        self.assertIn("invalid", msg)
+        self.assertIn("type", msg)
+        self.assertIn("allow", msg)
 
     @override_settings(MAX_UPLOAD_SIZE=100)
     @patch("core.pic.models.PicItem.ensure")
@@ -696,6 +702,23 @@ class UploadViewLoggingTests(TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("byte", " ".join(log_cm.output).lower())
         self.assertIn("limit", " ".join(log_cm.output).lower())
+
+    @patch("core.pic.models.PicItem.ensure")
+    def test_upload_logs_error_on_invlid_type(self, mock):
+        """File uploads of invalid content type should log error."""
+        # Arrange: Setup dummy pic item & invalid content type file
+        mock = self.mock_ensure_pic(mock)
+        upload = self.mock_file("invalid.xyz", b"Invalid content")
+
+        # Act: Capture ERROR logs during upload
+        with self.assertLogs("depo.core.views", level="ERROR") as log_cm:
+            resp = self.client_file_upload(upload)
+        log_out = " ".join(log_cm.output)
+
+        # Assert: Error log made, contains useful info, 400 resp code
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("invalid", log_out.lower())
+        self.assertIn("type", log_out.lower())
 
 
 ### Template Tests ###
