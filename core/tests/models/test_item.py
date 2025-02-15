@@ -1,15 +1,13 @@
-# core/tests
+# core/tests/models/test_item.py
 from datetime import datetime, timezone
 from unittest.mock import patch
+
 from django.db import models
 from django.test import TestCase
-from django.urls import reverse
 
-from core.util.shortcode import hash_b32, SHORTCODE_MIN_LEN, SHORTCODE_MAX_LEN
 from core.models import Item
+from core.util.shortcode import SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
 from core.link.models import LinkItem
-
-### Model tests ###
 
 
 class ItemSchemaTest(TestCase):
@@ -228,52 +226,3 @@ class ItemContextTest(TestCase):
         self.assertEqual(ctx["ctype"], "xyz")
         self.assertIn(now, ctx["btime"])
         self.assertIn(now, ctx["mtime"])
-
-
-### View Tests ###
-
-
-class ShortcodeDetailsViewTest(TestCase):
-    def setUp(self):
-        self.link = LinkItem.ensure("https://google.com")
-
-    # TODO: Need to figure out how to deal with 404
-    # def test_non_existent_shortcode(self):
-    #     """Test failed shortcode lookup renders 404-lookup.html"""
-    #     resp = self.client.get(reverse("shortcode_details", args=["noExist"]))
-    #     self.assertEqual(resp.status_code, 404)
-    #     # Because HttPResponseNotFound cant be tested against template use,
-    #     # Check for a commented out string with a test marker
-    #     self.assertContains(resp, "404-lookup.html", status_code=404)
-    #     self.assertContains(resp, "testMarker", status_code=404)
-
-    def test_valid_shortcode_renders_details(self):
-        """Test valid shortcode form request renders details page content"""
-        shortcode = self.link.item.code
-        resp = self.client.get(reverse("shortcode_details", args=[shortcode]))
-        self.assertEqual(resp.status_code, 200)
-        self.assertTemplateUsed(resp, "shortcode-details.html")
-        self.assertContains(resp, shortcode)
-        self.assertContains(resp, self.link.url)
-
-
-### Template Tests ###
-
-
-# TODO: Test the redirection of the shortcode using URLs
-class TemplateTagsTest(TestCase):
-    def test_index_contains_form(self):
-        resp = self.client.get(reverse("web_index"))
-        self.assertContains(resp, "<form")
-        self.assertContains(resp, 'name="content"')
-        self.assertContains(resp, 'type="submit"')
-        self.assertNotContains(resp, "/details")
-
-    def test_index_contains_form_post(self):
-        ctx = {"content": "https://www.google.com"}
-        resp = self.client.post(reverse("web_index"), ctx)
-        self.assertContains(resp, "<form")
-        self.assertContains(resp, 'name="content"')
-        self.assertContains(resp, 'type="submit"')
-        # Check for the confirmation link unique to POST
-        self.assertContains(resp, "/details")
