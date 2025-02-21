@@ -55,7 +55,7 @@ class UserModelTests(TestCase):
 class AuthenticationTests(TestCase):
     def setUp(self):
         self.client = Client()
-        self.login_url = reverse("login")
+        self.login_url = reverse("login_view")
         self.user = User.objects.create(name="tester", email="test@example.com")
         self.user.set_password("password")
         self.user.save()

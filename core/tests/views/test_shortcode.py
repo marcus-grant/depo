@@ -1,4 +1,4 @@
-# core/tests/views/test_code_detail.py
+# core/tests/views/test_shortcode.py
 from django.urls import reverse
 from django.test import TestCase
 

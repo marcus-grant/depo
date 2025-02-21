@@ -11,8 +11,7 @@ import jwt
 
 from core.models.user import User
 
-# from core.user.views import JWT_EXP_DELTA_SECONDS
-from core.viewsnew.user import JWT_EXP_DELTA_SECONDS
+from core.views.user import JWT_EXP_DELTA_SECONDS
 
 
 # TODO: Create base TestCase classes to subtype to reduce duplicate testing code
@@ -201,7 +200,7 @@ class UploadViewPostTests(TestCase):
         # Create a dummy image file (non-empty).
         upload = self.mock_picfile("dummy.jpg", b"\xff\xd8\xff")
         # Act: POST the file while patching open func simulating saving error.
-        with patch("core.views.open", side_effect=OSError("Disk error")):
+        with patch("core.views.upload.open", side_effect=OSError("Disk error")):
             resp = self.client_file_upload(upload)
         # Assert: Expect HTTP 500 and an error message mentioning file saving.
         self.assertEqual(resp.status_code, 500)
@@ -360,7 +359,7 @@ class UploadViewLoggingTests(TestCase):
         upload = self.mock_file("test.png", b"\x89PNG\r\n\x1a\n")
 
         # Act: Capture logs during upload request
-        with self.assertLogs("depo.core.views", level="INFO") as log_cm:
+        with self.assertLogs("depo.core.views.upload", level="INFO") as log_cm:
             resp = self.client_file_upload(upload)
         log_out = " ".join(log_cm.output)
 
@@ -379,8 +378,8 @@ class UploadViewLoggingTests(TestCase):
         upload = self.mock_file("test.png", b"\x89PNG\r\n\x1a\n")
 
         # Act: Patch open to sim disk-err during POST, capture logs
-        with patch("core.views.open", side_effect=OSError("Disk error")):
-            with self.assertLogs("depo.core.views", level="ERROR") as log_cm:
+        with patch("core.views.upload.open", side_effect=OSError("Disk error")):
+            with self.assertLogs("depo.core.views.upload", level="ERROR") as log_cm:
                 resp = self.client_file_upload(upload)
         log_out = " ".join(log_cm.output)
 
@@ -415,21 +414,21 @@ class UploadViewLoggingTests(TestCase):
         mock = self.mock_ensure_pic(mock)
         upload = self.mock_file("oversized.jpg", b"A" * 101)
         # Act: Capture ERROR logs during upload
-        with self.assertLogs("depo.core.views", level="ERROR") as log_cm:
+        with self.assertLogs("depo.core.views.upload", level="ERROR") as log_cm:
             resp = self.client_file_upload(upload)
         self.assertEqual(resp.status_code, 400)
         self.assertIn("byte", " ".join(log_cm.output).lower())
         self.assertIn("limit", " ".join(log_cm.output).lower())
 
     @patch("core.models.pic.PicItem.ensure")
-    def test_upload_logs_error_on_invlid_type(self, mock):
+    def test_upload_logs_error_on_invalid_type(self, mock):
         """File uploads of invalid content type should log error."""
         # Arrange: Setup dummy pic item & invalid content type file
         mock = self.mock_ensure_pic(mock)
         upload = self.mock_file("invalid.xyz", b"Invalid content")
 
         # Act: Capture ERROR logs during upload
-        with self.assertLogs("depo.core.views", level="ERROR") as log_cm:
+        with self.assertLogs("depo.core.views.upload", level="ERROR") as log_cm:
             resp = self.client_file_upload(upload)
         log_out = " ".join(log_cm.output)
 

@@ -1,4 +1,4 @@
-# core/viewsnew/user.py
+# core/views/user.py
 from datetime import UTC, datetime, timedelta
 from django.conf import settings
 from django.http import HttpResponse

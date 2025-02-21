@@ -49,7 +49,6 @@ INSTALLED_APPS = [
     # "core.link",  # TODO: Is this needed?
     # "core.pic",
     # "core.user",
-    # "core.viewsnew.user", # TODO: Are views needed to be installed?
 ]
 
 MIDDLEWARE = [
