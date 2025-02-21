@@ -6,7 +6,7 @@ from django.db import models
 from django.utils import timezone
 from unittest.mock import patch
 
-from core.pic.models import PicItem
+from core.models.pic import PicItem
 from core.models import Item
 from core.util.shortcode import hash_b32, SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
 
@@ -33,7 +33,7 @@ class PicItemEnsureTest(TestCase):
     VALID_GIF_CONTENT = b"GIF89a" + b"\x00" * 100  # GIF magic bytes
     INVALID_CONTENT = b"\x00\x01\x02\x03"  # Unsupported format
 
-    @patch("core.models.hash_b32")
+    @patch("core.models.item.hash_b32")
     def test_create_picitem_with_jpg(self, mock_hash_b32):
         """Test that ensure creates a PicItem for valid JPEG content."""
         mock_hash_b32.return_value = "PIC12345HASH1"
@@ -50,7 +50,7 @@ class PicItemEnsureTest(TestCase):
         self.assertEqual(pic_item.size, len(self.VALID_JPG_CONTENT))
         self.assertEqual(pic_item.format, "jpg")
 
-    @patch("core.models.hash_b32")
+    @patch("core.models.item.hash_b32")
     def test_create_picitem_with_png(self, mock_hash_b32):
         """Test that ensure creates a PicItem for valid PNG content."""
         mock_hash_b32.return_value = "PIC22345HASH2"
@@ -67,7 +67,7 @@ class PicItemEnsureTest(TestCase):
         self.assertEqual(pic_item.size, len(self.VALID_PNG_CONTENT))
         self.assertEqual(pic_item.format, "png")
 
-    @patch("core.models.hash_b32")
+    @patch("core.models.item.hash_b32")
     def test_create_picitem_with_gif(self, mock_hash_b32):
         """Test that ensure creates a PicItem for valid GIF content."""
         mock_hash_b32.return_value = "PIC32345HASH3"
@@ -90,7 +90,7 @@ class PicItemEnsureTest(TestCase):
             PicItem.ensure(content=self.INVALID_CONTENT)
         self.assertIn("Unsupported image format.", str(context.exception))
 
-    @patch("core.models.hash_b32")
+    @patch("core.models.item.hash_b32")
     def test_idempotency_of_ensure(self, mock_hash_b32):
         """Test that multiple calls to ensure with the same content do not create duplicates."""
         mock_hash_b32.return_value = "PIC42345HASH4"
@@ -102,7 +102,7 @@ class PicItemEnsureTest(TestCase):
         self.assertEqual(Item.objects.count(), 1)
         self.assertEqual(pic_item1, pic_item2)
 
-    @patch("core.models.hash_b32")
+    @patch("core.models.item.hash_b32")
     def test_existing_item_usage(self, mock_hash_b32):
         """Ensures it uses an existing Item if one with the same code and hash exists."""
         mock_hash_b32.return_value = "1234567890"

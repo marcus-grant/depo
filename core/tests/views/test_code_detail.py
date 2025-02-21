@@ -2,7 +2,7 @@
 from django.urls import reverse
 from django.test import TestCase
 
-from core.link.models import LinkItem
+from core.models.link import LinkItem
 
 
 class ShortcodeDetailsViewTest(TestCase):

@@ -1,12 +1,11 @@
-# core/user/views.py
+# core/viewsnew/user.py
 from datetime import UTC, datetime, timedelta
 from django.conf import settings
-from django.http import JsonResponse, HttpResponse
+from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-import json
 import jwt
 
-from core.user.models import User
+from core.models.user import User
 
 # NOTE: To simplify initially, use Django SECRET_KEY as JWT secret with short expiration
 # TODO: Come up with a better secret key system for JWT
@@ -23,6 +22,9 @@ JWT_EXP_DELTA_SECONDS = 60 * 60  # 1 hour
 # TODO: Reconsider JWT for HTTPOnly cookies I'm not convinced their extra complexity comes with better security without using a claims system
 @csrf_exempt  # For simplicity before real deployment, consider real CSRF handling
 def login_view(request):
+    method = request.method
+    if method == "GET":
+        return HttpResponse("GET /login PLEASE IMPLEMENT ME", status=200)
     # TODO: Implement errors for all NON-POST requests
     email = request.POST.get("email")
     password = request.POST.get("password")  # TODO: Is this really secure?

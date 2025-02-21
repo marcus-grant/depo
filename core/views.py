@@ -8,9 +8,9 @@ from django.shortcuts import render
 from django.http import HttpRequest, HttpResponseBadRequest, HttpResponse  # , Http404
 
 from core.models import Item
-from core.user.models import jwt_required
-from core.link.models import LinkItem
-from core.pic.models import PicItem
+from core.models.user import jwt_required
+from core.models.link import LinkItem
+from core.models.pic import PicItem
 
 # TODO: Standardize name in settings & make sure program name used
 logger = logging.getLogger("depo." + __name__)

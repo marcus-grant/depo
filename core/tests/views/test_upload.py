@@ -9,8 +9,10 @@ from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 import jwt
 
-from core.user.models import User
-from core.user.views import JWT_EXP_DELTA_SECONDS
+from core.models.user import User
+
+# from core.user.views import JWT_EXP_DELTA_SECONDS
+from core.viewsnew.user import JWT_EXP_DELTA_SECONDS
 
 
 # TODO: Create base TestCase classes to subtype to reduce duplicate testing code
@@ -105,7 +107,7 @@ class UploadViewPostTests(TestCase):
             headers["HTTP_AUTHORIZATION"] = self.auth_bearer
         return self.client.post(self.upload_url, data, **headers)
 
-    @patch("core.pic.models.PicItem.ensure")
+    @patch("core.models.pic.PicItem.ensure")
     def test_ensure_call_with_file_content(self, mock):
         """Ensure should PicItem.ensure called with contents of uploaded file."""
         # Arrange: Dummy PicItem instance & Image file
@@ -116,7 +118,7 @@ class UploadViewPostTests(TestCase):
         # Assert: PicItem.ensure called with exact file contents
         mock.assert_called_once_with(b"\x89PNG\r\n\x1a\n")
 
-    @patch("core.pic.models.PicItem.ensure")
+    @patch("core.models.pic.PicItem.ensure")
     def test_file_saved_as_hash_filename_fmt_ext(self, mock):
         """Test uploaded pic file saved w/ Item.code & PicItem.format filename."""
         # Arrange: Dummy PicItem & Image file
@@ -131,7 +133,7 @@ class UploadViewPostTests(TestCase):
         expect_filepath = settings.UPLOAD_DIR / expect_filename
         self.assertTrue(expect_filepath.exists())
 
-    @patch("core.pic.models.PicItem.ensure")
+    @patch("core.models.pic.PicItem.ensure")
     def test_response_contains_model_details(self, mock):
         """Response to upload needs to contain associated model details."""
         # Arrange: Prepare a dummy PicItem & Image file
@@ -144,7 +146,7 @@ class UploadViewPostTests(TestCase):
         self.assertIn(mock().item.code, resp_txt)
         self.assertIn(mock().format, resp_txt)
 
-    @patch("core.pic.models.PicItem.ensure")
+    @patch("core.models.pic.PicItem.ensure")
     def test_upload_accepts_allowed_file_types(self, mock):
         """Upload all valid filetypes, ensure upload approved & ensure called."""
         # Arrange: Prepare a dummy PicItem to simulate normal processing & dummy JPEG
@@ -163,7 +165,7 @@ class UploadViewPostTests(TestCase):
         self.assertEqual(resp_gif.status_code, 200)
         self.assertEqual(mock.call_count, 3)
 
-    @patch("core.pic.models.PicItem.ensure")
+    @patch("core.models.pic.PicItem.ensure")
     def test_upload_rejects_disallowed_file_types(self, mock):
         """Non accepted filetypes should be rejected"""
         # Arrange: Create a dummy text file.
@@ -179,7 +181,7 @@ class UploadViewPostTests(TestCase):
         self.assertIn("allow", msg)
         mock.assert_not_called()
 
-    @patch("core.pic.models.PicItem.ensure")
+    @patch("core.models.pic.PicItem.ensure")
     def test_empty_file_upload_returns_error(self, mock):
         """If the uploaded file is empty, view should return HTTP 400, dont call PicItem.ensure"""
         # Arrange: Create an empty file upload.
@@ -191,7 +193,7 @@ class UploadViewPostTests(TestCase):
         self.assertIn("EMPTY", resp.content.decode().upper())
         mock.assert_not_called()
 
-    @patch("core.pic.models.PicItem.ensure")
+    @patch("core.models.pic.PicItem.ensure")
     def test_file_write_error_returns_server_error(self, mock):
         """If error occurs during file writing, view should return HTTP 500."""
         # Arrange: Set up a dummy PicItem so processing proceeds.
@@ -207,7 +209,7 @@ class UploadViewPostTests(TestCase):
         self.assertIn("SAV", resp.content.decode().upper())
         self.assertIn("FILE", resp.content.decode().upper())
 
-    @patch("core.pic.models.PicItem.ensure")
+    @patch("core.models.pic.PicItem.ensure")
     def test_successful_upload_returns_custom_headers(self, mock):
         """Upload successes should include X-Uploaded-Filename header."""
         # Arrange: Set up a dummy PicItem so that processing works normally.
@@ -222,7 +224,7 @@ class UploadViewPostTests(TestCase):
         self.assertEqual(resp.get("X-Uploaded-Filename"), expected_filename)
         self.assertIn(expected_filename, resp.content.decode())
 
-    @patch("core.pic.models.PicItem.ensure")
+    @patch("core.models.pic.PicItem.ensure")
     def test_error_upload_returns_custom_error_headers(self, _):
         """X-Error header should be response to bad upload"""
         # Arrange: Create a file with disallowed content.
@@ -242,7 +244,7 @@ class UploadViewPostTests(TestCase):
         self.assertIn("allow", msg)
 
     @override_settings(MAX_UPLOAD_SIZE=100)
-    @patch("core.pic.models.PicItem.ensure")
+    @patch("core.models.pic.PicItem.ensure")
     def test_upload_rejects_files_exceeding_max_size(self, mock):
         """If upload file exceeds MAX_UPLOAD_SIZE, respond with 400 with message"""
         # Arrange: Create dummy image file with oversized content length
@@ -255,7 +257,7 @@ class UploadViewPostTests(TestCase):
         self.assertIn(expect, resp.content.decode())
         mock.assert_not_called()
 
-    @patch("core.pic.models.PicItem.ensure")
+    @patch("core.models.pic.PicItem.ensure")
     def test_malicious_filename_is_ignored(self, mock):
         """
         Even if uploaded file has a malicious filename,
@@ -347,7 +349,7 @@ class UploadViewLoggingTests(TestCase):
             headers["HTTP_AUTHORIZATION"] = self.auth_bearer
         return self.client.post(self.upload_url, data, **headers)
 
-    @patch("core.pic.models.PicItem.ensure")
+    @patch("core.models.pic.PicItem.ensure")
     def test_successful_upload_logs_message(self, mock):
         """A successful upload should add an INFO log:
         - "Upload initiated" at start
@@ -369,7 +371,7 @@ class UploadViewLoggingTests(TestCase):
         self.assertIn("complet", log_out.lower())
         self.assertIn(f"{mock().item.code}.{mock().format}", log_out)
 
-    @patch("core.pic.models.PicItem.ensure")
+    @patch("core.models.pic.PicItem.ensure")
     def test_upload_error_logs_error_message(self, mock):
         """File-save errors(OSError) should error.log with correct message."""
         # Arrange: Setup dummy pic item & dummy image file
@@ -387,7 +389,7 @@ class UploadViewLoggingTests(TestCase):
         self.assertIn("error", log_out.lower())
         self.assertIn("save", log_out.lower())
 
-    @patch("core.pic.models.PicItem.ensure")
+    @patch("core.models.pic.PicItem.ensure")
     def test_empty_file_upload_logs_error(self, mock):
         """Empty file uploads should log err stating the problem."""
         # Arrange: Setup dummy pic item & empty image file
@@ -406,7 +408,7 @@ class UploadViewLoggingTests(TestCase):
         self.assertIn("file", log_out.lower())
 
     @override_settings(MAX_UPLOAD_SIZE=100)
-    @patch("core.pic.models.PicItem.ensure")
+    @patch("core.models.pic.PicItem.ensure")
     def test_upload_logs_error_when_size_excessive(self, mock):
         """File uploads exceeding MAX_UPLOAD_SIZE should log error."""
         # Arrange: Setup dummy pic item & oversized image file
@@ -419,7 +421,7 @@ class UploadViewLoggingTests(TestCase):
         self.assertIn("byte", " ".join(log_cm.output).lower())
         self.assertIn("limit", " ".join(log_cm.output).lower())
 
-    @patch("core.pic.models.PicItem.ensure")
+    @patch("core.models.pic.PicItem.ensure")
     def test_upload_logs_error_on_invlid_type(self, mock):
         """File uploads of invalid content type should log error."""
         # Arrange: Setup dummy pic item & invalid content type file

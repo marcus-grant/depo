@@ -7,7 +7,7 @@ from django.test import TestCase
 
 from core.models import Item
 from core.util.shortcode import SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
-from core.link.models import LinkItem
+from core.models.link import LinkItem
 
 
 class ItemSchemaTest(TestCase):
@@ -184,7 +184,7 @@ class ItemEnsureTest(TestCase):
         EXS = [EX1, EX2, EX3, EX4, EX5]
         # Patch hash_b32 to return these values
         # Without patching it's really hard to find collisions to test
-        with patch("core.models.hash_b32") as mock_h32:
+        with patch("core.models.item.hash_b32") as mock_h32:
             for i, hash in enumerate(HASHES):
                 mock_h32.return_value = hash
                 with self.subTest(i=i, hash=hash, expect=EXS[i]):

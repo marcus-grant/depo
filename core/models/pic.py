@@ -4,7 +4,7 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from typing import Dict
 
-from core.models import Item
+from core.models.item import Item
 
 
 class PicItem(models.Model):

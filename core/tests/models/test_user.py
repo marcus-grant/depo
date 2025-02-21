@@ -9,7 +9,7 @@ from django.test import TestCase, Client, RequestFactory
 from django.urls import reverse
 import jwt
 
-from core.user.models import User, jwt_required
+from core.models.user import User, jwt_required
 
 
 ###
@@ -51,6 +51,7 @@ class UserModelTests(TestCase):
 ###
 
 
+# TODO: Should these be moved to integration tests?
 class AuthenticationTests(TestCase):
     def setUp(self):
         self.client = Client()
