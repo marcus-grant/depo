@@ -1,20 +1,54 @@
 # core/tests/views/test_login.py
+import jwt
+from datetime import datetime, timedelta, timezone
+
+from django.conf import settings
 from django.test import TestCase, Client
 from django.urls import reverse
-from unittest.mock import patch
+
+from core.models.user import User
+from core.views.user import JWT_EXP_DELTA_SECONDS
+
+# JWT_EXP_DELTA_SECONDS = 3600
 
 
 # TODO: Rename to test_user and include login view tests here?
 class LoginViewTests(TestCase):
+    """Tests involving core.views.user.login_view or /login URL"""
+
     def setUp(self):
+        # Prepare client and member var for url needed for tests
         self.client = Client()
         self.url = reverse("login")
+        # Create dummy user (hard-coded for now)
+        self.user = User.objects.create(name="tester", email="test@example.com")
+        self.user.set_password("password")
+        self.user.save()
 
     def test_get_returns_form(self):
         """GET request to /login returns HTML login form"""
         resp = self.client.get(self.url)
         content = resp.content.decode("utf-8")
         self.assertEqual(resp.status_code, 200)
-        self.assertIn("<form", content)
+        self.assertIn('<form method="post" action="/login"', content)
         self.assertIn('<input type="password', content)
         self.assertIn('<button type="submit"', content)
+
+    def test_post_valid_creds_returns_valid_jwt(self):
+        """POST request w| valid credentials returns plaintext containing valid JWT"""
+        # Arrange: valid login credentials
+        data = {"email": "test@example.com", "password": "password"}
+
+        # Act: POST request to /login
+        resp = self.client.post(self.url, data)
+        token = resp.content.decode("utf-8").strip()
+        decoded = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        now = int(datetime.now(timezone.utc).timestamp())
+
+        # Assert
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "text/plain")
+        self.assertEqual(resp["X-Auth-Token"], token)
+        self.assertEqual(decoded["name"], "tester")
+        self.assertEqual(decoded["email"], "test@example.com")
+        self.assertLessEqual(decoded["exp"] - now, JWT_EXP_DELTA_SECONDS)

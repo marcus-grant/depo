@@ -26,7 +26,9 @@ def login_view(req):
     method = req.method
     if method == "GET":
         return render(req, "login.html")
+
     # TODO: Implement errors for all NON-POST requests
+
     email = req.POST.get("email")
     password = req.POST.get("password")  # TODO: Is this really secure?
 
