@@ -52,3 +52,14 @@ class LoginViewTests(TestCase):
         self.assertEqual(decoded["name"], "tester")
         self.assertEqual(decoded["email"], "test@example.com")
         self.assertLessEqual(decoded["exp"] - now, JWT_EXP_DELTA_SECONDS)
+
+    def test_post_login_invalid_creds_returns_401(self):
+        """POST with invalid creds should return 401 Unauthorized"""
+        data = {"email": "tester", "password": "wrongpassword"}
+        resp = self.client.post(self.url, data)
+        content = resp.content.decode("utf-8")
+        self.assertEqual(resp.status_code, 401)
+        self.assertEqual(resp["X-Error"], "true")
+        self.assertEqual(resp["Content-Type"], "text/plain")
+        self.assertIn("access", content.lower())
+        self.assertIn("unauthor", content.lower())

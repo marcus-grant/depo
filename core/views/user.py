@@ -39,7 +39,7 @@ def login_view(req):
         user = None
     if user is None or not user.check_password(password):
         msg = "Access unauthorized due to mismatch between email and password"
-        resp = HttpResponse(msg, content_type="text_plain", status=401)
+        resp = HttpResponse(msg, content_type="text/plain", status=401)
         resp["X-Error"] = "true"
         return resp
 
