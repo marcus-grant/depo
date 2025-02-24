@@ -63,3 +63,10 @@ class LoginViewTests(TestCase):
         self.assertEqual(resp["Content-Type"], "text/plain")
         self.assertIn("access", content.lower())
         self.assertIn("unauthor", content.lower())
+
+    def test_non_post_get_request_returns_error(self):
+        """If request method is neither POST or GET, return 405 Method Not Allowed"""
+        resp_put = self.client.put(self.url)
+        self.assertEqual(resp_put.status_code, 405)
+        self.assertEqual(resp_put["Allow"], "GET, POST")
+        self.assertIn("method not allowed", resp_put.content.decode("utf-8").lower())

@@ -27,6 +27,13 @@ def login_view(req):
     if method == "GET":
         return render(req, "login.html")
 
+    if method != "POST":  # Method not allowed if not GET or POST
+        msg = "Method not allowed"
+        resp = HttpResponse(msg, content_type="text/plain", status=405)
+        resp["X-Error"] = "true"
+        resp["Allow"] = "GET, POST"
+        return resp
+
     # TODO: Implement errors for all NON-POST requests
 
     email = req.POST.get("email")
