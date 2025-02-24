@@ -2,6 +2,7 @@
 from datetime import UTC, datetime, timedelta
 from django.conf import settings
 from django.http import HttpResponse
+from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 import jwt
 
@@ -21,13 +22,13 @@ JWT_EXP_DELTA_SECONDS = 60 * 60  # 1 hour
 # Is it needed? Prefer plain text w/ headers
 # TODO: Reconsider JWT for HTTPOnly cookies I'm not convinced their extra complexity comes with better security without using a claims system
 @csrf_exempt  # For simplicity before real deployment, consider real CSRF handling
-def login_view(request):
-    method = request.method
+def login_view(req):
+    method = req.method
     if method == "GET":
-        return HttpResponse("GET /login PLEASE IMPLEMENT ME", status=200)
+        return render(req, "login.html")
     # TODO: Implement errors for all NON-POST requests
-    email = request.POST.get("email")
-    password = request.POST.get("password")  # TODO: Is this really secure?
+    email = req.POST.get("email")
+    password = req.POST.get("password")  # TODO: Is this really secure?
 
     # Authenticate user
     try:
