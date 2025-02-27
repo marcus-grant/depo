@@ -70,3 +70,58 @@ class LoginViewTests(TestCase):
         self.assertEqual(resp_put.status_code, 405)
         self.assertEqual(resp_put["Allow"], "GET, POST")
         self.assertIn("method not allowed", resp_put.content.decode("utf-8").lower())
+
+
+# TODO: Merge with above class when separating web & API views
+# class WebLoginViewTests(TestCase):
+#     """Tests involving core.views.user.login_view or /login URL (browsers)"""
+#
+#     def setUp(self):
+#         self.client = Client()
+#         self.login_url = reverse("login")
+#         self.index_url = reverse("index")
+#         self.user = User.objects.create(name="tester", email="test@example.com")
+#         self.user.set_password("password")
+#         self.user.save()
+#
+#     def test_successful_web_login_sets_cookie(self):
+#         """POST requests w| valid creds authenticate & set cookie for JWT"""
+#         data = {"email": "test@example.com", "password": "password"}
+#         resp = self.client.post(self.login_url, data)
+#         token = resp.cookies["auth_token"].value
+#         decoded = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+#         now = int(datetime.now(timezone.utc).timestamp())
+#         self.assertIn("auth_token", resp.cookies)
+#         self.assertTrue(token, "JWT token should not be empty")
+#         self.assertEqual(decoded["name"], "tester")
+#         self.assertEqual(decoded["email"], "test@example.com")
+#         self.assertLessEqual(decoded["exp"] - now, JWT_EXP_DELTA_SECONDS)
+
+
+class APILoginTests(TestCase):
+    """Tests concerning core.views.api_login_view or /api/login URL"""
+
+    def setUp(self):
+        self.client = Client()
+        self.url = reverse("api_login")
+        self.user = User.objects.create(name="tester", email="test@example.com")
+        self.user.set_password("password")
+        self.user.save()
+
+    def test_valid_creds_return_valiid_jwt(self):
+        """POST to /api/login w| valid creds returns:
+        200 code, plain text JWT token in body & X-Auth_token header"""
+        data = {"email": "test@example.com", "password": "password"}
+        resp = self.client.post(self.url, data)
+        token = resp.content.decode("utf-8").strip()
+        decoded = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "text/plain")
+        self.assertIsNotNone(token, "Token shouldn't be empty!")
+        self.assertEqual(resp["X-Auth-Token"], token)
+        self.assertEqual(decoded["name"], "tester")
+        self.assertEqual(decoded["email"], "test@example.com")
+        self.assertGreaterEqual(
+            decoded["exp"], int(datetime.now(timezone.utc).timestamp())
+        )
