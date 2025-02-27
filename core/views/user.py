@@ -82,6 +82,8 @@ def invalid_method_response(method: str, allowed: str) -> HttpResponse:
     resp["X-Error"] = "true"
     resp["Allow"] = allowed
     return resp
+
+
 # TODO: Figure out how to properly implement CSRF protection
 # TODO: User should have a validate func to eval if a given JWT is valid (name,email,exp,signature)
 # TODO: Refactor Http responses should have a helper
@@ -96,10 +98,6 @@ def login_view(req):
         return render(req, "login.html")
 
     if method != "POST":  # Method not allowed if not GET or POST
-        # msg = "Method not allowed"
-        # resp = HttpResponse(msg, content_type="text/plain", status=405)
-        # resp["X-Error"] = "true"
-        # resp["Allow"] = "GET, POST"
         return invalid_method_response(method, "GET, POST")
 
     # TODO: Implement errors for all NON-POST requests
@@ -108,6 +106,7 @@ def login_view(req):
     password = req.POST.get("password")  # TODO: Is this really secure?
 
     # Authenticate user
+    # TODO: User validate_user_creds instead
     try:
         user = User.objects.get(email=email)
     except User.DoesNotExist:
@@ -119,15 +118,18 @@ def login_view(req):
         return resp
 
     # Format token
+    # TODO: Use create_jwt instead
     expires = datetime.now(UTC) + timedelta(seconds=JWT_EXP_DELTA_SECONDS)
     token_payload = {"name": user.name, "email": user.email, "exp": expires}
     token = jwt.encode(token_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
     # For web logins: set cookie & redirect to index
+    # TODO: Esnure test coverage for redirect
     resp = HttpResponseRedirect(reverse("index"))
-
-    return HttpResponse(
-        token, content_type="text/plain", headers={"X-Auth-Token": token}
+    secure = (
+        False  # TODO: Set based on django.conf settings in production & samesite attrs
     )
+    resp.set_cookie("auth_token", token, expires=expires, httponly=True, secure=secure)
+    return resp
 
 
 @csrf_exempt

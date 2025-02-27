@@ -34,24 +34,25 @@ class LoginViewTests(TestCase):
         self.assertIn('<input type="password', content)
         self.assertIn('<button type="submit"', content)
 
-    def test_post_valid_creds_returns_valid_jwt(self):
-        """POST request w| valid credentials returns plaintext containing valid JWT"""
-        # Arrange: valid login credentials
-        data = {"email": "test@example.com", "password": "password"}
+    # TODO: Figure out how to merge in web view test class
+    # def test_post_valid_creds_returns_valid_jwt(self):
+    #     """POST request w| valid credentials returns plaintext containing valid JWT"""
+    #     # Arrange: valid login credentials
+    #     data = {"email": "test@example.com", "password": "password"}
 
-        # Act: POST request to /login
-        resp = self.client.post(self.url, data)
-        token = resp.content.decode("utf-8").strip()
-        decoded = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-        now = int(datetime.now(timezone.utc).timestamp())
+    #     # Act: POST request to /login
+    #     resp = self.client.post(self.url, data)
+    #     token = resp.content.decode("utf-8").strip()
+    #     decoded = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+    #     now = int(datetime.now(timezone.utc).timestamp())
 
-        # Assert
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp["Content-Type"], "text/plain")
-        self.assertEqual(resp["X-Auth-Token"], token)
-        self.assertEqual(decoded["name"], "tester")
-        self.assertEqual(decoded["email"], "test@example.com")
-        self.assertLessEqual(decoded["exp"] - now, JWT_EXP_DELTA_SECONDS)
+    #     # Assert
+    #     self.assertEqual(resp.status_code, 200)
+    #     self.assertEqual(resp["Content-Type"], "text/plain")
+    #     self.assertEqual(resp["X-Auth-Token"], token)
+    #     self.assertEqual(decoded["name"], "tester")
+    #     self.assertEqual(decoded["email"], "test@example.com")
+    #     self.assertLessEqual(decoded["exp"] - now, JWT_EXP_DELTA_SECONDS)
 
     def test_post_login_invalid_creds_returns_401(self):
         """POST with invalid creds should return 401 Unauthorized"""
@@ -74,29 +75,36 @@ class LoginViewTests(TestCase):
 
 
 # TODO: Merge with above class when separating web & API views
-# class WebLoginViewTests(TestCase):
-#     """Tests involving core.views.user.login_view or /login URL (browsers)"""
-#
-#     def setUp(self):
-#         self.client = Client()
-#         self.login_url = reverse("login")
-#         self.index_url = reverse("index")
-#         self.user = User.objects.create(name="tester", email="test@example.com")
-#         self.user.set_password("password")
-#         self.user.save()
-#
-#     def test_successful_web_login_sets_cookie(self):
-#         """POST requests w| valid creds authenticate & set cookie for JWT"""
-#         data = {"email": "test@example.com", "password": "password"}
-#         resp = self.client.post(self.login_url, data)
-#         token = resp.cookies["auth_token"].value
-#         decoded = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-#         now = int(datetime.now(timezone.utc).timestamp())
-#         self.assertIn("auth_token", resp.cookies)
-#         self.assertTrue(token, "JWT token should not be empty")
-#         self.assertEqual(decoded["name"], "tester")
-#         self.assertEqual(decoded["email"], "test@example.com")
-#         self.assertLessEqual(decoded["exp"] - now, JWT_EXP_DELTA_SECONDS)
+class WebLoginViewTests(TestCase):
+    """Tests involving core.views.user.login_view or /login URL (browsers)"""
+
+    def setUp(self):
+        self.client = Client()
+        self.login_url = reverse("login")
+        self.index_url = reverse("index")
+        self.user = User.objects.create(name="tester", email="test@example.com")
+        self.user.set_password("password")
+        self.user.save()
+
+    def test_successful_web_login_sets_cookie(self):
+        """POST requests: w| valid creds:
+        * Redirect to index page with code 302
+        * Set cookie for JWT
+        * Authenticate credentials with user
+        """
+        data = {"email": "test@example.com", "password": "password"}
+        resp = self.client.post(self.login_url, data)
+        token = resp.cookies["auth_token"].value
+        decoded = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        now = int(datetime.now(timezone.utc).timestamp())
+
+        self.assertEqual(resp.status_code, 302)  # Redirect to index w| 302
+        self.assertEqual(resp["Location"], self.index_url)
+        self.assertIn("auth_token", resp.cookies)  # Ensure cookie set w| JWT
+        self.assertTrue(token, "JWT token should not be empty")
+        self.assertEqual(decoded["name"], "tester")
+        self.assertEqual(decoded["email"], "test@example.com")
+        self.assertGreaterEqual(decoded["exp"], now)
 
 
 class APILoginTests(TestCase):
