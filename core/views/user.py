@@ -74,6 +74,15 @@ def create_jwt(user: User) -> str:
     return token
 
 
+# TODO: Move to a util module
+# TODO: Test in isolation
+def invalid_method_response(method: str, allowed: str) -> HttpResponse:
+    msg = f"Method ({method}) not allowed"
+    resp = HttpResponse(msg, content_type="text/plain", status=405)
+    resp["X-Error"] = "true"
+    resp["Allow"] = allowed
+    return resp
+# TODO: Figure out how to properly implement CSRF protection
 # TODO: User should have a validate func to eval if a given JWT is valid (name,email,exp,signature)
 # TODO: Refactor Http responses should have a helper
 # TODO: Refactor to pull JWT payload formatting into separate function or even util module
@@ -87,11 +96,11 @@ def login_view(req):
         return render(req, "login.html")
 
     if method != "POST":  # Method not allowed if not GET or POST
-        msg = "Method not allowed"
-        resp = HttpResponse(msg, content_type="text/plain", status=405)
-        resp["X-Error"] = "true"
-        resp["Allow"] = "GET, POST"
-        return resp
+        # msg = "Method not allowed"
+        # resp = HttpResponse(msg, content_type="text/plain", status=405)
+        # resp["X-Error"] = "true"
+        # resp["Allow"] = "GET, POST"
+        return invalid_method_response(method, "GET, POST")
 
     # TODO: Implement errors for all NON-POST requests
 

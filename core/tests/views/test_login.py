@@ -69,7 +69,8 @@ class LoginViewTests(TestCase):
         resp_put = self.client.put(self.url)
         self.assertEqual(resp_put.status_code, 405)
         self.assertEqual(resp_put["Allow"], "GET, POST")
-        self.assertIn("method not allowed", resp_put.content.decode("utf-8").lower())
+        self.assertIn("method", resp_put.content.decode("utf-8").lower())
+        self.assertIn("not allowed", resp_put.content.decode("utf-8").lower())
 
 
 # TODO: Merge with above class when separating web & API views
@@ -108,7 +109,10 @@ class APILoginTests(TestCase):
         self.user.set_password("password")
         self.user.save()
 
-    def test_valid_creds_return_valiid_jwt(self):
+    def now(self):
+        return int(datetime.now(timezone.utc).timestamp())
+
+    def test_valid_creds_return_valid_jwt(self):
         """POST to /api/login w| valid creds returns:
         200 code, plain text JWT token in body & X-Auth_token header"""
         data = {"email": "test@example.com", "password": "password"}
@@ -122,6 +126,4 @@ class APILoginTests(TestCase):
         self.assertEqual(resp["X-Auth-Token"], token)
         self.assertEqual(decoded["name"], "tester")
         self.assertEqual(decoded["email"], "test@example.com")
-        self.assertGreaterEqual(
-            decoded["exp"], int(datetime.now(timezone.utc).timestamp())
-        )
+        self.assertGreaterEqual(decoded["exp"], self.now())
