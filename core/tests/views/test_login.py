@@ -66,6 +66,15 @@ class WebLoginViewTests(TestCase):
         self.assertIn("access", content.lower())
         self.assertIn("unauthor", content.lower())
 
+    def test_non_post_get_request_returns_error(self):
+        """If request method is neither POST or GET, return 405 Method Not Allowed"""
+        resp_put = self.client.put(self.login_url)
+        self.assertEqual(resp_put.status_code, 405)
+        self.assertEqual(resp_put["Allow"], "GET, POST")
+        self.assertIn("method", resp_put.content.decode("utf-8").lower())
+        self.assertIn("not allowed", resp_put.content.decode("utf-8").lower())
+
+
 class APILoginTests(TestCase):
     """Tests concerning core.views.api_login_view or /api/login URL"""
 
