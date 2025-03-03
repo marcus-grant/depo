@@ -7,7 +7,7 @@ from core.util.shortcode import hash_b32, SHORTCODE_MIN_LEN
 class WebIndexViewTest(TestCase):
     def test_get_request_renders_index(self):
         """Test root GET request renders index.html"""
-        resp = self.client.get(reverse("web_index"))
+        resp = self.client.get(reverse("index"))
         self.assertEqual(resp.status_code, 200)
         self.assertTemplateUsed(resp, "index.html")
         self.assertNotContains(resp, "error")
@@ -16,7 +16,7 @@ class WebIndexViewTest(TestCase):
     def test_root_post_request_creates_item(self):
         """Test root POST request creates an item"""
         url = "https://www.google.com"
-        resp = self.client.post(reverse("web_index"), {"content": url})
+        resp = self.client.post(reverse("index"), {"content": url})
         self.assertEqual(resp.status_code, 200)
         self.assertTemplateUsed(resp, "index.html")
 
@@ -30,7 +30,7 @@ class WebIndexViewTest(TestCase):
     # def test_post_no_content(self):
     #     """Test POST request missing content"""
     #     # breakpoint()
-    #     resp = self.client.post(reverse("web_index"))
+    #     resp = self.client.post(reverse("index"))
     #     breakpoint()
     #     self.assertEqual(resp.status_code, 400)
     #     self.assertTemplateUsed(resp, "index.html")
