@@ -64,6 +64,20 @@ class WebLoginViewTests(TestCase):
         self.assertIn("access", content.lower())
         self.assertIn("unauthor", content.lower())
 
+    def test_post_bad_email_same_as_bad_password(self):
+        """Invalid email should return same response as invalid password.
+        This obscures which field is wrong, making unauthorized logins harder."""
+        bad_mail = {"email": "bad@example.com", "password": "password"}
+        bad_pass = {"email": "test@example.com", "password": "wrongpassword"}
+        resp_bad_mail = self.client.post(self.login_url, bad_mail)
+        resp_bad_pass = self.client.post(self.login_url, bad_pass)
+        content_bad_mail = resp_bad_mail.content.decode("utf-8")
+        content_bad_pass = resp_bad_pass.content.decode("utf-8")
+
+        self.assertEqual(resp_bad_mail.status_code, resp_bad_pass.status_code)
+        self.assertEqual(resp_bad_mail["X-Error"], resp_bad_pass["X-Error"])
+        self.assertEqual(content_bad_mail, content_bad_pass)
+
     def test_non_post_get_request_returns_error(self):
         """If request method is neither POST or GET, return 405 Method Not Allowed"""
         resp_put = self.client.put(self.login_url)
@@ -121,3 +135,17 @@ class APILoginTests(TestCase):
         self.assertIn("invalid", content.lower())
         self.assertIn("email", content.lower())
         self.assertIn("password", content.lower())
+
+    def test_post_bad_email_same_as_bad_password(self):
+        """Invalid email should return same response as invalid password.
+        This obscures which field is wrong, making unauthorized logins harder."""
+        bad_mail = {"email": "bad@example.com", "password": "password"}
+        bad_pass = {"email": "test@example.com", "password": "wrongpassword"}
+        resp_bad_mail = self.client.post(self.url, bad_mail)
+        resp_bad_pass = self.client.post(self.url, bad_pass)
+        content_bad_mail = resp_bad_mail.content.decode("utf-8")
+        content_bad_pass = resp_bad_pass.content.decode("utf-8")
+
+        self.assertEqual(resp_bad_mail.status_code, resp_bad_pass.status_code)
+        self.assertEqual(resp_bad_mail["X-Error"], resp_bad_pass["X-Error"])
+        self.assertEqual(content_bad_mail, content_bad_pass)
