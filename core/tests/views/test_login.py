@@ -106,6 +106,17 @@ class WebLoginViewTests(TestCase):
         self.assertEqual(decoded["email"], "test@example.com")
         self.assertGreaterEqual(decoded["exp"], now)
 
+    def test_post_login_invalid_creds_returns_401(self):
+        """POST with invalid creds should return 401 Unauthorized"""
+        data = {"email": "tester", "password": "wrongpassword"}
+        resp = self.client.post(self.login_url, data)
+        content = resp.content.decode("utf-8")
+
+        self.assertEqual(resp.status_code, 401)
+        self.assertEqual(resp["X-Error"], "true")
+        self.assertEqual(resp["Content-Type"], "text/plain")
+        self.assertIn("access", content.lower())
+        self.assertIn("unauthor", content.lower())
 
 class APILoginTests(TestCase):
     """Tests concerning core.views.api_login_view or /api/login URL"""
@@ -135,3 +146,18 @@ class APILoginTests(TestCase):
         self.assertEqual(decoded["name"], "tester")
         self.assertEqual(decoded["email"], "test@example.com")
         self.assertGreaterEqual(decoded["exp"], self.now())
+
+    def test_post_login_invalid_creds_returns_401(self):
+        """POST with invalid creds should return 401 Unauthorized"""
+        data = {"email": "tester", "password": "wrongpassword"}
+        resp = self.client.post(self.url, data)
+        content = resp.content.decode("utf-8")
+
+        self.assertEqual(resp.status_code, 401)
+        self.assertEqual(resp["X-Error"], "true")
+        self.assertEqual(resp["Content-Type"], "text/plain")
+        self.assertIn("access", content.lower())
+        self.assertIn("unauthor", content.lower())
+        self.assertIn("invalid", content.lower())
+        self.assertIn("email", content.lower())
+        self.assertIn("password", content.lower())

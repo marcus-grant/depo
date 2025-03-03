@@ -76,7 +76,7 @@ def create_jwt(user: User) -> str:
 
 # TODO: Move to a util module
 # TODO: Test in isolation
-def invalid_method_response(method: str, allowed: str) -> HttpResponse:
+def invalid_method_response(method: Opt[str], allowed: str) -> HttpResponse:
     msg = f"Method ({method}) not allowed"
     resp = HttpResponse(msg, content_type="text/plain", status=405)
     resp["X-Error"] = "true"
@@ -85,6 +85,7 @@ def invalid_method_response(method: str, allowed: str) -> HttpResponse:
 
 
 # TODO: Figure out how to properly implement CSRF protection
+# TODO: Render proper invalid credentials page or update on bad login
 # TODO: User should have a validate func to eval if a given JWT is valid (name,email,exp,signature)
 # TODO: Refactor Http responses should have a helper
 # TODO: Refactor to pull JWT payload formatting into separate function or even util module
@@ -141,8 +142,13 @@ def api_login_view(req: HttpRequest) -> HttpResponse:
     #     resp["X-Error"] = "true"
     #     resp["Allow"] = "POST"
     #     return resp
+
     user = validate_user_creds(req.POST.get("email"), req.POST.get("password"))
-    # TODO: Implement None return indicating invalid credentials
+    if user is None:
+        msg = "Access unauthorized due to invalid email or password."
+        resp = HttpResponse(msg, content_type="text/plain", status=401)
+        resp["X-Error"] = "true"
+        return resp
 
     token = create_jwt(user)
 
