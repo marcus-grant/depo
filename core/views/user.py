@@ -92,6 +92,7 @@ def invalid_method_response(method: Opt[str], allowed: str) -> HttpResponse:
 # TODO: Add password validation & potentially UserManager/AbstractUser classes
 # Is it needed? Prefer plain text w/ headers
 # TODO: Reconsider JWT for HTTPOnly cookies I'm not convinced their extra complexity comes with better security without using a claims system
+# TODO: Figure out way to redirect to last page or index if no last page
 @csrf_exempt  # For simplicity before real deployment, consider real CSRF handling
 def login_view(req):
     method = req.method
@@ -135,13 +136,8 @@ def login_view(req):
 
 @csrf_exempt
 def api_login_view(req: HttpRequest) -> HttpResponse:
-    # return HttpResponse("TODO: Implement", status=501)
-    # if req.method != "POST":
-    #     msg = "Method not allowed"
-    #     resp = HttpResponse(msg, content_type="text/plain", status=405)
-    #     resp["X-Error"] = "true"
-    #     resp["Allow"] = "POST"
-    #     return resp
+    if req.method != "POST":
+        return invalid_method_response(req.method, "POST")
 
     user = validate_user_creds(req.POST.get("email"), req.POST.get("password"))
     if user is None:

@@ -147,6 +147,14 @@ class APILoginTests(TestCase):
         self.assertEqual(decoded["email"], "test@example.com")
         self.assertGreaterEqual(decoded["exp"], self.now())
 
+    def test_non_post_get_request_returns_error(self):
+        """If request method is neither POST or GET, return 405 Method Not Allowed"""
+        resp_put = self.client.put(self.url)
+        self.assertEqual(resp_put.status_code, 405)
+        self.assertEqual(resp_put["Allow"], "POST")
+        self.assertIn("method", resp_put.content.decode("utf-8").lower())
+        self.assertIn("not allowed", resp_put.content.decode("utf-8").lower())
+
     def test_post_login_invalid_creds_returns_401(self):
         """POST with invalid creds should return 401 Unauthorized"""
         data = {"email": "tester", "password": "wrongpassword"}
