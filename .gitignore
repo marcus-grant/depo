@@ -1,5 +1,8 @@
 # Custom
 
+# Secrets
+users.json
+
 # Static content
 static/*
 staticfiles/*
