@@ -32,6 +32,7 @@ ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 # Application definition
 
 # Custom Vars
+USERS_FILE = BASE_DIR / "users.json"
 UPLOAD_DIR = BASE_DIR / "uploads"
 MAX_UPLOAD_SIZE = 100 * 10**6  # Default to 100MB
 

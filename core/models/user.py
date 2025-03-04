@@ -1,4 +1,4 @@
-# core/user/models.py
+# core/models/user.py
 from django.db import models
 from django.conf import settings
 from django.contrib.auth.hashers import make_password, check_password as chkpass
@@ -8,6 +8,7 @@ from functools import wraps
 import jwt
 
 
+# TODO: Add factory class method that also sets password and saves user
 # TODO: Add validation function other modules can use to determine if JWT valid (payload, sig, etc.)
 # TODO: Use either django's AbstractBaseUser or User models to get builtin permissions and auth
 # TODO: Add unique secrets generated for each user that are persisted

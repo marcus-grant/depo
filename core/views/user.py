@@ -85,6 +85,7 @@ def invalid_method_response(method: Opt[str], allowed: str) -> HttpResponse:
 
 
 # TODO: Figure out how to properly implement CSRF protection
+# TODO: Add logging for successful and failed logins
 # TODO: Render proper invalid credentials page or update on bad login
 # TODO: User should have a validate func to eval if a given JWT is valid (name,email,exp,signature)
 # TODO: Refactor Http responses should have a helper

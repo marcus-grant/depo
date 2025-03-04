@@ -1,15 +1,19 @@
-# core/user/tests.py
+# core/tests/models/test_user.py
 from datetime import datetime, timedelta, UTC
+import json
+import pathlib
+import tempfile
 
-# from django import test # DELETEME: Why is this here?
+from django.apps import apps
 from django.conf import settings
 from django.db import IntegrityError
 from django.http import HttpResponse
 from django.test import TestCase, RequestFactory, override_settings
+
 import jwt
 
 from core.models.user import User, jwt_required
-
+from core.apps import CoreConfig
 
 ###
 ### Models Tests
@@ -133,3 +137,55 @@ class JWTDecoratorTests(TestCase):
         self.assertEqual(resp.status_code, 401)
         self.assertEqual(resp["X-Error"], "true")
         self.assertIn(b"unauthorized", resp.content.lower())
+
+
+class UserPrepopulationTests(TestCase):
+    """Tests prepopulation takes place before server runs"""
+
+    def setUp(self):
+        # Ensure the User table is empty.
+        User.objects.all().delete()
+        # Create temporary config file with test users.
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.config_path = pathlib.Path(self.temp_dir.name) / "user.json"
+        test_users = [
+            {
+                "name": "alice",
+                "email": "alice@example.com",
+                "password": "alicepassword",
+            },
+            {
+                "name": "bob",
+                "email": "bob@example.com",
+                "password": "B0bpassword",
+            },
+        ]
+        with open(self.config_path, "w") as f:
+            json.dump(test_users, f)  # Correctly write JSON data
+
+        # Override settings for user config file location.
+        self.override = override_settings(USERS_FILE=self.config_path)
+        self.override.enable()
+
+    def tearDown(self):
+        self.override.disable()
+        self.temp_dir.cleanup()
+
+    def test_setup_empties_user_table(self):
+        """Tests this class' setUp method empties User table."""
+        self.assertEqual(User.objects.count(), 0)
+
+    def test_prepopulate_users_if_empty(self):
+        """If User table empty & user file exists, AppConfig.ready should populate."""
+        # Explicitly trigger prepopulation method
+        # app_cfg = CoreConfig("core", "core")
+        app_cfg = apps.get_app_config("core")
+        assert isinstance(app_cfg, CoreConfig)
+        app_cfg.prepopulate_users()
+
+        # Verify two users have been created
+        self.assertEqual(User.objects.count(), 2)
+        alice = User.objects.get(email="alice@example.com")
+        self.assertEqual(alice.name, "alice")
+        self.assertTrue(alice.check_password("alicepassword"))
+        self.assertNotEqual(alice.pass_hash, "alicepassword")
