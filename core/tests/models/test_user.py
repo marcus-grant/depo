@@ -148,7 +148,11 @@ class UserPrepopulationTests(TestCase):
         # Create temporary config file with test users.
         self.temp_dir = tempfile.TemporaryDirectory()
         self.config_path = pathlib.Path(self.temp_dir.name) / "user.json"
-        test_users = [
+        # Override settings for user config file location.
+        self.override = override_settings(USERS_FILE=self.config_path)
+        self.override.enable()
+        # Setup test user dicts
+        self.test_users = [
             {
                 "name": "alice",
                 "email": "alice@example.com",
@@ -160,12 +164,11 @@ class UserPrepopulationTests(TestCase):
                 "password": "B0bpassword",
             },
         ]
-        with open(self.config_path, "w") as f:
-            json.dump(test_users, f)  # Correctly write JSON data
 
-        # Override settings for user config file location.
-        self.override = override_settings(USERS_FILE=self.config_path)
-        self.override.enable()
+    def setup_temp_config(self, config):
+        """Used to control which user config is fed to the AppConfig and when."""
+        with open(self.config_path, "w") as f:
+            json.dump(config, f)
 
     def tearDown(self):
         self.override.disable()
@@ -177,15 +180,32 @@ class UserPrepopulationTests(TestCase):
 
     def test_prepopulate_users_if_empty(self):
         """If User table empty & user file exists, AppConfig.ready should populate."""
-        # Explicitly trigger prepopulation method
-        # app_cfg = CoreConfig("core", "core")
+        # Act: Explicitly trigger prepopulation method using self.test_users
+        self.setup_temp_config(self.test_users)
         app_cfg = apps.get_app_config("core")
         assert isinstance(app_cfg, CoreConfig)
         app_cfg.prepopulate_users()
-
-        # Verify two users have been created
+        # Assert: The two test_users are now in the User table
         self.assertEqual(User.objects.count(), 2)
         alice = User.objects.get(email="alice@example.com")
         self.assertEqual(alice.name, "alice")
         self.assertTrue(alice.check_password("alicepassword"))
         self.assertNotEqual(alice.pass_hash, "alicepassword")
+
+    # TODO: Refactor this before committing way shorter way to express this possible
+    def test_skips_existing_users(self):
+        # Arrange: Create existing "alice-old" user w| same email 'alice@example.com'
+        user = User.objects.create(name="alice-old", email="alice@example.com")
+        user.set_password("oldPassword")  # Different password, shouldn't change
+        user.save()
+        self.setup_temp_config(self.test_users)
+        # Act: Run prepopulation using temporary user config
+        app_cfg = apps.get_app_config("core")
+        assert isinstance(app_cfg, CoreConfig)
+        app_cfg.prepopulate_users()
+        # Assert "alice-old" remains the same & "bob" is added from users file
+        self.assertEqual(User.objects.count(), 2)
+        alice = User.objects.get(email="alice@example.com")
+        self.assertEqual(alice.name, "alice-old")
+        self.assertNotEqual(alice.pass_hash, "oldPassword")
+        self.assertTrue(alice.check_password("oldPassword"))

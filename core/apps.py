@@ -25,9 +25,6 @@ class CoreConfig(AppConfig):
         # Import the User model (assuming it is in core/models/user.py)
         from core.models.user import User
 
-        # Only prepopulate if no users exist.
-        if User.objects.exists():
-            return
         # Get the config file path from settings.
         cfg_file = getattr(settings, "USERS_FILE", None)
         if not cfg_file or not cfg_file.exists():
@@ -44,7 +41,9 @@ class CoreConfig(AppConfig):
                     user.save()
         except json.JSONDecodeError as e:
             logger.error(f"JSON decoding error for users file: {e}")
+            return
         except FileNotFoundError as e:
             logger.error(f"Error reading users file: {e}")
+            return
         finally:
             logger.info("User prepopulation complete")
