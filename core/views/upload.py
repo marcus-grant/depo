@@ -14,7 +14,6 @@ logger = logging.getLogger("depo." + __name__)
 
 # TODO: Read picture byte stream as chunks instead
 
-
 # TODO: Move file byte validation to separate module
 # Should include all upload validations and potentially determining filetype
 # TODO: Handle cases where we want text or ie SVG where it's XML text
@@ -70,6 +69,7 @@ def upload_view_post(request):
 
 
 # TODO: Handle pasting an image/binary data into textbox from clipboard
+@jwt_required
 def upload_view(request):
     method = request.method
     if method == "GET":
