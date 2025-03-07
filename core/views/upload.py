@@ -4,15 +4,16 @@ import time
 from typing import Optional
 
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import render
 
-from core.models.user import jwt_required
 from core.models.pic import PicItem
 
 logger = logging.getLogger("depo." + __name__)
 
 # TODO: Read picture byte stream as chunks instead
+
 
 # TODO: Move file byte validation to separate module
 # Should include all upload validations and potentially determining filetype
@@ -28,7 +29,7 @@ def validate_upload_bytes(upload_bytes: bytes) -> Optional[str]:
 
 
 # TODO: Logging should be moved out to own module and/or midware
-@jwt_required
+@login_required
 def upload_view_post(request):
     time_start = time.time()
     logger.info("Upload initiated")
@@ -42,7 +43,8 @@ def upload_view_post(request):
         return upload_response("Empty file uploaded", err=True, stat=400)
 
     if len(file_data) > settings.MAX_UPLOAD_SIZE:
-        msg = f"File size {len(file_data)} exceeds limit of {settings.MAX_UPLOAD_SIZE} bytes"
+        msg = f"File size {len(file_data)}"
+        msg += f"exceeds limit of {settings.MAX_UPLOAD_SIZE} bytes"
         logger.error(msg)
         return upload_response(msg, err=True, stat=400)
 
@@ -69,8 +71,8 @@ def upload_view_post(request):
 
 
 # TODO: Handle pasting an image/binary data into textbox from clipboard
-@jwt_required
-def upload_view(request):
+@login_required  # TODO: Do we need to block GET requests from non-users?
+def web_upload_view(request):
     method = request.method
     if method == "GET":
         return render(request, "upload.html")  # GET case

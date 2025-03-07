@@ -35,6 +35,7 @@ ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 USERS_FILE = BASE_DIR / "users.json"
 UPLOAD_DIR = BASE_DIR / "uploads"
 MAX_UPLOAD_SIZE = 100 * 10**6  # Default to 100MB
+LOGIN_URL = "/accounts/login/"
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -64,23 +65,35 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # If using DRF for API endpoints:
+    # 'rest_framework',
+    # 'rest_framework.authtoken',
     # Add your apps here
-    "core.apps.CoreConfig",  # TODO: This or just 'core'?
-    # "core",
-    # "core.link",  # TODO: Is this needed?
-    # "core.pic",
-    # "core.user",
+    "core.apps.CoreConfig",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+# NOTE: Use for Django REST Framework
+# Optionally, if using Django Rest Framework for API endpoints
+# REST_FRAMEWORK = {
+#     'DEFAULT_PERMISSION_CLASSES': [
+#         'rest_framework.permissions.IsAuthenticated',
+#     ],
+#     'DEFAULT_AUTHENTICATION_CLASSES': [
+#         'rest_framework.authentication.SessionAuthentication',
+#         'rest_framework.authentication.TokenAuthentication',
+#     ],
+# }
 
 ROOT_URLCONF = "depo.urls"
 
