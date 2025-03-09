@@ -4,7 +4,8 @@ from pathlib import Path
 
 from django.apps import AppConfig
 from django.conf import settings
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth import get_user_model
+from django.db.models.signals import post_migrate
 
 logger = logging.getLogger(__name__)
 
@@ -16,42 +17,43 @@ class CoreConfig(AppConfig):
     path = str(Path(__file__).resolve().parent)
 
     def ready(self):
-        """When apps are loaded and migrations made, call prepopulation."""
-        # from django.db.models.signals import post_migrate
+        """When apps are loaded and migrations completed, call prepopulation."""
+        # Connect the prepopulation function to post_migrate signal,
+        # which ensures that our user creation happens after all migrations.
+        post_migrate.connect(self.prepopulate_superuser, sender=self)
 
-        # post_migrate.connect(self.prepopulate_users, sender=self)
-        pass
+    def prepopulate_superuser(self, **kwargs):
+        """
+        Prepopulate Django's built-in user model with a superuser that possesses
+        all major permissions (is_superuser, is_staff). This function checks for an
+        existing user with a specific username or email and creates one if it doesn't exist.
 
-    # TODO: Marked for deletion, should prepopulate django builtin users
-    # def prepopulate_users(self, **kwargs):
-    #     # Import the User model (assuming it is in core/models/user.py)
-    #     from core.models.user import User
+        COMMENT:
+        The old method prepopulated a custom User model using a configuration file and Django signals.
+        This approach relied on reading external JSON configuration and creating users with custom fields.
+        In contrast, this method utilizes Django's built‑in User model (accessed via get_user_model()),
+        ensuring that the user is created with proper password hashing and permission flags.
+        The post_migrate signal is still used, which is a standard way to perform such prepopulation,
+        though some may opt to use a custom management command or data migration for more control.
+        """
+        User = get_user_model()
+        # Define credentials either directly or via settings.
+        # For demonstration, we use some hardcoded values.
+        username = getattr(settings, "SUPERUSER_USERNAME", "admin")
+        email = getattr(settings, "SUPERUSER_EMAIL", "admin@example.com")
+        password = getattr(settings, "SUPERUSER_PASSWORD", "adminpass")
 
-    #     print("Prepopulating users")
-
-    #     # Get the config file path from settings.
-    #     cfg_file = getattr(settings, "USERS_FILE", None)
-    #     if not cfg_file or not cfg_file.exists():
-    #         return  # Config file setting or file itself doesn't exist
-    #     try:
-    #         with open(cfg_file, "r") as f:
-    #             cfg_users = json.load(f)
-    #     except json.JSONDecodeError as e:
-    #         logger.error(f"JSON decoding error for users file: {e}")
-    #         return
-    #     except FileNotFoundError as e:
-    #         logger.error(f"Error reading users file: {e}")
-    #         return
-    #     for cfg_user in cfg_users:
-    #         # Determine if a user with this email already exists.
-    #         if not User.objects.filter(email=cfg_user["email"]).exists():
-    #             name, email = cfg_user["name"], cfg_user["email"]
-    #             hashed = make_password(cfg_user["password"])
-    #             User.objects.create(email=email, name=name, pass_hash=hashed)
-    #             logger.info(f"User {name} created with email {email}")
-    #             print(f"User {name} created with email {email}")
-    #         else:
-    #             msg = f"User with email {cfg_user['email']} already exists, skipping."
-    #             logger.info(msg)
-    #     logger.info("User prepopulation complete")
-    #     print("User prepopulation complete")
+        if not User.objects.filter(username=username).exists():
+            try:
+                # Create superuser with all permissions.
+                User.objects.create_superuser(
+                    username=username, email=email, password=password
+                )
+                logger.info(f"Superuser '{username}' created with email {email}")
+                print(f"Superuser '{username}' created with email {email}")
+            except Exception as e:
+                logger.error(f"Error creating superuser: {e}")
+                print(f"Error creating superuser: {e}")
+        else:
+            logger.info(f"Superuser '{username}' already exists, skipping.")
+            print(f"Superuser '{username}' already exists, skipping.")
