@@ -36,6 +36,7 @@ USERS_FILE = BASE_DIR / "users.json"
 UPLOAD_DIR = BASE_DIR / "uploads"
 MAX_UPLOAD_SIZE = 100 * 10**6  # Default to 100MB
 LOGIN_URL = "/accounts/login/"
+LOGIN_REDIRECT_URL = "/"
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
