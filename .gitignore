@@ -2,6 +2,7 @@
 
 # Secrets
 users.json
+*.env
 
 # Static content
 static/*
