@@ -21,6 +21,16 @@ class WebUploadViewGETTests(TestCase):
         self.client = Client()
         # Assuming the web upload GET view is named "web_upload" in your urls.
         self.url = reverse("web_upload")
+        self.name = "testuser"
+        self.email = "test@example.com"
+        self.passw = "password"
+
+    def login(self):
+        self.user = User.objects.create_user(  # type: ignore
+            username=self.name, email=self.email, password=self.passw
+        )
+        self.client = Client()
+        self.client.login(username=self.name, password=self.passw)
 
     def test_upload_requires_auth(self):
         """Access without authentication should redirect to the login page."""
@@ -33,16 +43,23 @@ class WebUploadViewGETTests(TestCase):
 
     def test_upload_view_authenticated(self):
         """A logged-in user should be able to access the upload page via GET."""
-        user_kwargs = {"username": "tester", "password": "password"}
-        User.objects.create_user(**user_kwargs)  # type: ignore
-        logged_in = self.client.login(**user_kwargs)
-        self.assertTrue(logged_in, "Login failed")
-        resp = self.client.get(self.url, follow=True)
+        # Log in as a test user.
+        self.login()
+        # Make a GET request with follow to follow any redirects.
+        resp = self.client.get(reverse("web_upload"), follow=True)
+        # Check that the response has a 200 status code.
         self.assertEqual(resp.status_code, 200)
-        # Optionally, check that the upload page template is used and contains file input.
-        self.assertContains(resp, '<input type="file"')
-        self.assertContains(resp, 'id="progress"')
-        self.assertContains(resp, 'id="preview"')
+        # Check that the correct template is used.
+        self.assertTemplateUsed(resp, "upload.html")
+        # Get response content as a string.
+        content = resp.content.decode()
+        # Check that the upload form is present.
+        self.assertIn("<form", content)
+        self.assertIn('type="file"', content)
+        # Ensure that the form contains a csrf token.
+        self.assertIn("csrfmiddlewaretoken", content)
+        # Ensure that there is a submit button in the form.
+        self.assertIn('button type="submit"', content)
 
 
 # =============================================================================
@@ -186,30 +203,40 @@ class WebUploadViewPostTests(TestCase):
 
     @patch("core.models.pic.PicItem.ensure")
     def test_successful_upload_returns_custom_headers(self, mock):
-        """Upon a successful upload, custom headers such as X-Uploaded-Filename should be included in the response."""
+        """Upon a successful upload, the response HTML should include a success message and detail link."""
         mock = self.mock_ensure_pic(mock, code="HEADERHASH", fmt="png")
         upload = self.mock_picfile("test.png", b"\x89PNG\r\n\x1a\n")
         resp = self.client_file_upload(upload)
         expected_filename = f"{mock().item.code}.{mock().format}"
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp["Content-Type"], "text/plain")
-        self.assertEqual(resp.get("X-Uploaded-Filename"), expected_filename)
-        self.assertIn(expected_filename, resp.content.decode())
+        self.assertEqual(resp["Content-Type"], "text/html; charset=utf-8")
+        content = resp.content.decode()
+        # Verify that the HTML contains a success notification with the expected upload message.
+        self.assertIn("Uploaded file", content)
+        self.assertIn(expected_filename, content)
+        # Check for the existence of a detail link leading to the uploaded item's page.
+        self.assertRegex(content, r'<a\s[^>]*href="[^"]+"[^>]*>[^<]*</a>')
 
     @patch("core.models.pic.PicItem.ensure")
-    def test_error_upload_returns_custom_error_headers(self, _):
-        """Uploads with errors should return custom error headers indicating failure."""
+    def test_error_upload_returns_notif_info(self, _):
+        """Uploads with errors should return an HTML response with error notification."""
         upload = SimpleUploadedFile(
             "bad.txt", b"Not an image", content_type="text/plain"
         )
         resp = self.client.post(self.upload_url, {"content": upload})
-        msg = resp.content.decode().lower()
+
+        # Ensure we have a 400 status code for error scenarios.
         self.assertEqual(resp.status_code, 400)
-        self.assertEqual(resp.get("Content-Type"), "text/plain")
-        self.assertEqual(resp.get("X-Error"), "true")
-        self.assertIn("invalid", msg)
-        self.assertIn("type", msg)
-        self.assertIn("allow", msg)
+        # Response should now be HTML.
+        self.assertEqual(resp.get("Content-Type"), "text/html; charset=utf-8")
+
+        content = resp.content.decode().lower()
+        # Check that the HTML contains the Bulma error notification.
+        self.assertIn("notification is-danger", content)
+        # Verify error-relevant messaging is rendered in the HTML.
+        self.assertIn("invalid", content)
+        self.assertIn("type", content)
+        self.assertIn("allow", content)
 
     @override_settings(MAX_UPLOAD_SIZE=100)
     @patch("core.models.pic.PicItem.ensure")

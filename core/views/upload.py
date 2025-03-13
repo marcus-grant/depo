@@ -64,7 +64,7 @@ def upload_view_post(req):
     fname = f"{pic_item.item.code}.{pic_item.format}"
     fpath = settings.UPLOAD_DIR / fname
     if fpath.exists():
-        return upload_response(req, msg="File already exists", fname=fname, stat=409)
+        return upload_response(req, msg="File already exists", fname=fname)
     try:
         with open(fpath, "wb") as f:
             f.write(file_data)  # Write uploaded pic file to disk
