@@ -1,7 +1,7 @@
 from django.db import models
 from typing import Optional, TypedDict
 
-from core.models import Item, Content, ItemContext
+from core.models.item import Item, Content, ItemContext
 
 
 class LinkItemContext(TypedDict):
