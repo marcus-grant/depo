@@ -22,7 +22,7 @@ class ShortcodeDetailsViewTest(TestCase):
     def test_valid_shortcode_renders_details(self):
         """Test valid shortcode form request renders details page content"""
         shortcode = self.link.item.code
-        resp = self.client.get(reverse("shortcode_details", args=[shortcode]))
+        resp = self.client.get(reverse("item_details", args=[shortcode]))
         self.assertEqual(resp.status_code, 200)
         self.assertTemplateUsed(resp, "shortcode-details.html")
         self.assertContains(resp, shortcode)
