@@ -14,6 +14,12 @@ logger = logging.getLogger("depo." + __name__)
 
 # TODO: Read picture byte stream as chunks instead
 
+# TODO: Reference theses constant messages in the response function
+ACCEPT_EXTS = ".jpg,.jpeg,.png,.gif"
+MSG_EXIST = "File already exists"
+MSG_EMPTY = "Empty file uploaded"
+MSG_INVALID = "Invalid or unknown filetype, not allowed"
+
 
 # TODO: Move file byte validation to separate module
 # Should include all upload validations and potentially determining filetype
@@ -30,44 +36,47 @@ def validate_upload_bytes(upload_bytes: bytes) -> Optional[str]:
 
 # TODO: Logging should be moved out to own module and/or midware
 @login_required
-def upload_view_post(request):
+def upload_view_post(req):
     time_start = time.time()
     logger.info("Upload initiated")
-    pic_file = request.FILES.get("content")
+    pic_file = req.FILES.get("content")
     if not pic_file:
-        return upload_response("No file uploaded", stat=400)
+        return upload_response(req, msg="No file uploaded", err=True, stat=400)
 
     file_data = pic_file.read()
     if file_data == "" or file_data == b"" or file_data is None:
         logger.error("Empty file uploaded")
-        return upload_response("Empty file uploaded", err=True, stat=400)
+        return upload_response(req, msg="Empty file uploaded", err=True, stat=400)
 
     if len(file_data) > settings.MAX_UPLOAD_SIZE:
         msg = f"File size {len(file_data)}"
         msg += f" exceeds limit of {settings.MAX_UPLOAD_SIZE} bytes"
         logger.error(msg)
-        return upload_response(msg, err=True, stat=400)
+        return upload_response(req, msg=msg, err=True, stat=400)
 
     pic_type = validate_upload_bytes(file_data)
     if not pic_type:
         msg = "Invalid or unknown filetype, not allowed"
         logger.error(msg)
-        return upload_response(msg, err=True, stat=400)
+        return upload_response(req, msg=msg, err=True, stat=400)
 
     pic_item = PicItem.ensure(file_data)  # Ensure PicItem
-    filename = f"{pic_item.item.code}.{pic_item.format}"
+    fname = f"{pic_item.item.code}.{pic_item.format}"
+    fpath = settings.UPLOAD_DIR / fname
+    if fpath.exists():
+        return upload_response(req, msg="File already exists", fname=fname, stat=409)
     try:
-        with open(settings.UPLOAD_DIR / filename, "wb") as f:
+        with open(fpath, "wb") as f:
             f.write(file_data)  # Write uploaded pic file to disk
     except OSError as e:
         msg = "Error during upload file save"
         logger.error(f"{msg}: {e}")
-        return upload_response(msg, err=True, stat=500, filename=filename)
+        return upload_response(req, msg=msg, err=True, stat=500, fname=fname)
 
     time_elapsed = time.time() - time_start
-    logger.info(f"Upload completed: {filename} in {time_elapsed:.2f}seconds")
-    msg = f"Uploaded file {filename} successfully!"
-    return upload_response(msg, stat=200, filename=filename)
+    logger.info(f"Upload completed: {fname} in {time_elapsed:.2f}seconds")
+    msg = f"Uploaded file {fname} successfully!"
+    return upload_response(req, msg=msg, stat=200, fname=fname)
 
 
 # TODO: Handle pasting an image/binary data into textbox from clipboard
@@ -85,14 +94,16 @@ def web_upload_view(request):
 # TODO: Test in isolation, have calling view mock test this func
 # TODO: Move headers out to separate module, standardize & document
 # TODO: Status should be a positional arg
-def upload_response(msg, stat, err=False, filename=None):
+def upload_response(req, msg=None, err=False, fname=None, stat=200):
     """
-    Returns a plain text HttpResponse and, if the client accepts plain text,
-    attaches additional headers with details.
+    Renders an HTML template to show the result of an upload.
     """
-    resp = HttpResponse(msg, status=stat, content_type="text/plain")
-    if filename:
-        resp["X-Uploaded-Filename"] = filename
-    if err:
-        resp["X-Error"] = "true"
-    return resp
+    context = {
+        "message": msg,
+        "error": err,
+        "filename": fname,
+        "shortcode": fname.split(".")[0] if fname else None,
+        "accept_exts": ACCEPT_EXTS,
+    }
+    # Note: This now renders the result using an HTML template instead of plain text.
+    return render(req, "upload.html", context, status=stat)

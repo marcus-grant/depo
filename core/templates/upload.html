@@ -1,37 +1,48 @@
-<!-- your_app/templates/upload.html -->
-<!-- TODO: Update to use at least 'base' block -->
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Upload Image</title>
-</head>
-<body>
-    <h1>Upload an Image</h1>
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        <input type="file" name="image" accept=".jpg,.jpeg,.png,.gif" required>
-        <button type="submit">Upload</button>
-    </form>
-    <!-- UI Elements for visual feedback -->
-    <div id="progress">Uploading...</div>
-    <div id="preview"></div>
+<!-- core/templates/upload.html -->
+{% extends "base.html" %}
 
-    <script>
-    // Minimal JS to show image preview
-    document.getElementById('fileInput').addEventListener('change', function(e) {
-      var file = e.target.files[0];
-      if(file) {
-        var reader = new FileReader();
-        reader.onload = function(event) {
-          var img = document.createElement("img");
-          img.src = event.target.result;
-          var preview = document.getElementById("preview");
-          preview.innerHTML = "";
-          preview.appendChild(img);
-        };
-        reader.readAsDataURL(file);
-      }
-    });
-    </script>
-</body>
-</html>
+{% block content %}
+  {% if message %}
+    {% if error %}
+      <div class="notification is-danger">
+        <h2 class="title is-4">Upload Failed</h2>
+        <p>{{ message }}</p>
+      </div>
+    {% else %}
+      <div class="notification is-success">
+        <h2 class="title is-4">Success</h2>
+        <p>{{ message }}</p>
+      </div>
+      {% if shortcode %}
+        <p>Your file is available with shortcode: 
+          <a class="has-text-link" href="{% url 'item_details' shortcode %}">
+            {{ shortcode }}
+          </a>
+        </p>
+      {% endif %}
+    {% endif %}
+    <a class="button is-link" href="{% url 'web_upload' %}">
+      Upload another image
+    </a>
+  {% else %}
+    <h1 class="title is-3">Upload an Image</h1>
+    <form method="post" enctype="multipart/form-data" class="box">
+        {% csrf_token %}
+        <div class="field">
+          <label class="label" for="id_content">Choose an image:</label>
+          <div class="control">
+            <input
+              class="input"
+              type="file"
+              id="id_content"
+              name="content"
+              accept="{{ accept_exts }}"
+            required>
+          </div>
+        </div>
+        <div class="control">
+            <button type="submit" class="button is-primary">Upload</button>
+        </div>
+    </form>
+  {% endif %}
+{% endblock %}

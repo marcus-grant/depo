@@ -34,7 +34,7 @@ SECRET_KEY = env("DEPO_SECRET_KEY", default=_defaultkey)  # type: ignore
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # NOTE: Should we be doing this below as well?
-# DEBUG = env("DEBUG", default=False)
+DEBUG = env("DEBUG", default=True)
 
 # DEBUG = True
 # DEBUG = False
