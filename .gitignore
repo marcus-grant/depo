@@ -1,5 +1,12 @@
 # Custom
 
+# Secrets
+depo.env
+users.json
+
+# Tools
+.aider.*
+
 # Static content
 static/*
 staticfiles/*
