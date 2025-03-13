@@ -4,8 +4,8 @@ from django.db import models
 from unittest.mock import patch
 
 from core.models import Item
-from core.link.models import LinkItem
-from core.util.shortcode import SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
+from core.models.link import LinkItem
+from core.util.shortcode import SHORTCODE_MIN_LEN
 
 
 class LinkItemSchemaTest(TestCase):
@@ -160,7 +160,7 @@ class LinkItemEnsureTest(TestCase):
         self.assertEqual(link_item.item, new_item)
         self.assertEqual(link_item.url, content)
 
-    @patch("core.models.hash_b32")
+    @patch("core.models.item.hash_b32")
     def test_shortcode_collision(self, mock_h32):
         """Test shortcode collision handling in Item.ensure via LinkItem.ensure"""
         COUNT_B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"

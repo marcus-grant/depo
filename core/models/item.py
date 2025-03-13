@@ -1,14 +1,16 @@
+# core/models/item.py
 from django.db import models
 from typing import Optional, Union, Literal, TypedDict, TYPE_CHECKING
 
 from core.util.shortcode import hash_b32, SHORTCODE_MAX_LEN, SHORTCODE_MIN_LEN
 
+# TODO: Add pic
 if TYPE_CHECKING:
-    from core.link.models import LinkItem
+    from core.models.link import LinkItem
+
 
 CTYPE = Literal["url", "txt", "pic", "xyz"]
 Content = Union[str, bytes]
-
 
 # TODO: Consider making timestamps their own TypedDict
 # class TStampContext(TypedDict):
