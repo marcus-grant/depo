@@ -9,6 +9,7 @@ import tempfile
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import check_password
 
 User = get_user_model()
 
@@ -106,4 +107,26 @@ class CreateSuperuserTests(TestCase):
             user.email,  # type: ignore
             "existing@example.com",
             "The existing user should not be overridden by the command.",
+        )
+
+
+class HashPasswordTests(TestCase):
+    def test_hash_password_output(self):
+        """
+        Running the hash_password command with a valid password should
+        output a hashed version that correctly verifies against the input.
+        """
+        password = "mysecretpassword"
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            call_command("hash_password", password)
+        output = buf.getvalue().strip()
+        self.assertNotEqual(
+            output,
+            password,
+            "The output should not be the same as the input password.",
+        )
+        self.assertTrue(
+            check_password(password, output),
+            "The hashed password should match the original input.",
         )
