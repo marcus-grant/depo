@@ -4,11 +4,13 @@
 
 ### **Step 1.1: Create Logging Module**
 
-- [ ] Create `logging_ext/logging.py` with the `StandardLogger` class.
-- [ ] Define `PROJECT_TAG` as a constant (`"DEPO"`).
+- [x] Create `core/util/logging.py` with the `DepoLogger` class.
+- [x] Define `PROJECT_TAG` as a constant (`"DEPO"`).
 - [ ] Define `STANDARD_MESSAGES` dictionary with preconfigured log messages.
 - [ ] Implement the `log()` method supporting all standard log levels.
-- [ ] Write pytest cases:
+- [ ] Write `django.test` cases:
+  - [x] Test to ensure PROJECT_TAG is `DEPO`.
+  - [x] Test to ensure class is called `DepoLogger`.
   - [ ] Validate ISO8601 timestamp formatting.
   - [ ] Ensure the project tag appears in all logs.
   - [ ] Test all log levels (DEBUG, INFO, WARNING, ERROR, CRITICAL).
@@ -20,7 +22,7 @@
 - [ ] Add logging at the start of request processing (`"START OF REQUEST PROCESSING"`).
 - [ ] Add logging after response generation (`"END OF REQUEST PROCESSING"`).
 - [ ] Include request details (method, endpoint) in logs.
-- [ ] Write pytest cases:
+- [ ] Write `django.test` cases:
   - [ ] Confirm logs are emitted during API requests.
   - [ ] Validate log messages contain endpoint and method details.
 
@@ -32,7 +34,7 @@
 
 - [ ] Create `UploadAPIView` with `http_method_names = ["post"]`.
 - [ ] Return a placeholder 200 response for POST requests.
-- [ ] Write pytest cases:
+- [ ] Write `django.test` cases:
   - [ ] Verify GET/PUT/DELETE return 405.
   - [ ] Confirm POST returns 200.
 
@@ -40,7 +42,7 @@
 
 - [ ] Add SHA-256 hash computation for uploaded files.
 - [ ] Store computed hash in Django’s cache for idempotency checks.
-- [ ] Write pytest cases:
+- [ ] Write `django.test` cases:
   - [ ] Ensure identical files produce identical hashes.
   - [ ] Validate hash storage in cache.
 
@@ -52,7 +54,7 @@
 
 - [ ] Query cache/database for existing file hashes.
 - [ ] Return 200 with `X-Duplicate: true` header if duplicate detected.
-- [ ] Write pytest cases:
+- [ ] Write `django.test` cases:
   - [ ] Confirm duplicate uploads return 200 and header.
   - [ ] Ensure no duplicate files are stored.
 
@@ -61,14 +63,14 @@
 - [ ] Compute `size` from uploaded file.
 - [ ] Use `python-magic` to detect `format` from magic bytes.
 - [ ] Set `mtime` and `btime` to `datetime.now()` if not provided.
-- [ ] Write pytest cases:
+- [ ] Write `django.test` cases:
   - [ ] Validate computed `size`, `format`, and timestamps.
 
 ### **Step 3.3: Metadata Override Validation**
 
 - [ ] Accept `mtime`/`btime` overrides via headers or form fields.
 - [ ] Return 400 if `format` header conflicts with computed format.
-- [ ] Write pytest cases:
+- [ ] Write `django.test` cases:
   - [ ] Test valid `mtime`/`btime` overrides.
   - [ ] Verify 400 error on format mismatch.
 
@@ -80,14 +82,14 @@
 
 - [ ] Use atomic transactions for database writes.
 - [ ] Delete temporary files on validation errors.
-- [ ] Write pytest cases:
+- [ ] Write `django.test` cases:
   - [ ] Simulate network failures and validate no partial data persists.
 
 ### **Step 4.2: Support Multiple Upload Types**
 
 - [ ] Add `FileUploadParser` for `application/octet-stream`.
 - [ ] Add `MultiPartParser` for `multipart/form-data`.
-- [ ] Write pytest cases:
+- [ ] Write `django.test` cases:
   - [ ] Test raw binary and form-data uploads.
 
 ---
@@ -99,7 +101,7 @@
 - [ ] Log `"DUPLICATE UPLOAD DETECTED"` on duplicates.
 - [ ] Log `"PARTIAL UPLOAD ABORTED"` on cleanup.
 - [ ] Include computed metadata in logs.
-- [ ] Write pytest cases:
+- [ ] Write `django.test` cases:
   - [ ] Validate log messages align with API behavior.
 
 ### **Step 5.2: End-to-End Testing**
