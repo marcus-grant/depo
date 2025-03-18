@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import path, include
+
 # from core.views.user import login_view, api_login_view  # TODO: Delete once login works
 from core.views.upload import web_upload_view
 from core.views.upload_api import UploadAPIView
