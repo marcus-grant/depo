@@ -29,23 +29,30 @@ class UploadAPIView(APIView):
 
     def post(self, request, *args, **kwargs):
         uploaded_file = request.FILES.get("content")
-        # Check for both no file provided and empty file using size property.
         if not uploaded_file or uploaded_file.size == 0:
             return Response("No file uploaded", status=status.HTTP_400_BAD_REQUEST)
 
-        # Now it is safe to read the file.
         file_bytes = uploaded_file.read()
-
         try:
             # TODO: Find out what the expected exception for an invalid data type is
             picitem = PicItem.ensure(file_bytes)
         except Exception:
             stat = status.HTTP_500_INTERNAL_SERVER_ERROR
-            return Response("Error processing file", status=stat)
+            return Response("Invalid upload format", status=stat)
 
         filename = f"{picitem.item.code}.{picitem.format}"
+        filepath = settings.UPLOAD_DIR / filename
+
+        # Ensure the upload directory exists.
+        try:
+            settings.UPLOAD_DIR.mkdir(exist_ok=True)
+            with open(filepath, "wb") as f:
+                f.write(file_bytes)
+        except Exception as e:
+            stat = status.HTTP_500_INTERNAL_SERVER_ERROR
+            return Response(f"Error saving file: {e}", status=stat)
+
         response = Response(filename, status=status.HTTP_200_OK)
         response["X-Code"] = picitem.item.code
         response["X-Format"] = picitem.format
         return response
-

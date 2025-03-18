@@ -5,16 +5,17 @@ from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
 import logging
 from pathlib import Path
+from depo.settings import UPLOAD_DIR
 from rest_framework.test import APITestCase
 from unittest.mock import MagicMock, patch
 
 
 class UploadAPITest(TestCase):
-    @override_settings(UPLOAD_ROOT=Path("uploads"))
+    @override_settings(UPLOAD_DIR=settings.BASE_DIR / "testupload")
     def setUp(self):
         self.client = Client()
         self.url = reverse("api_upload")  # match 'name' in urls.py
-        self.upload_dir = Path(settings.UPLOAD_ROOT)
+        self.upload_dir = Path(settings.UPLOAD_DIR)
         self.upload_dir.mkdir(exist_ok=True)
         # Suppress "Method Not Allowed" logging messages during tests
         logging.getLogger("django.request").setLevel(logging.CRITICAL)
@@ -100,7 +101,7 @@ class UploadAPITest(TestCase):
         resp = self.client_file_upload(upload_file)
 
         self.assertEqual(resp.status_code, 500)
-        self.assertEqual(resp.content.decode(), "Error processing file")
+        self.assertEqual(resp.content.decode(), "Invalid upload format")
 
     @patch("core.models.pic.PicItem.ensure")
     def test_empty_file_upload(self, mock_ensure):
@@ -141,3 +142,56 @@ class UploadAPITest(TestCase):
         self.assertEqual(resp.content.decode(), expected_filename)
         self.assertEqual(resp.get("X-Code"), expected_pic.item.code)
         self.assertEqual(resp.get("X-Format"), expected_pic.format)
+
+    @override_settings(UPLOAD_DIR=settings.BASE_DIR / "testupload")
+    @patch("core.models.pic.PicItem.ensure")
+    def test_file_saved_successfully(self, mock_ensure):
+        """Verify that a valid file upload saves the file in UPLOAD_DIR with proper filename."""
+        # Set up a dummy PicItem return value.
+        expected_pic = self.pic_mock(code="SAVE123", fmt="png", size=1024)
+        mock_ensure.return_value = expected_pic
+        testpath = settings.BASE_DIR / "testupload"
+
+        # Create a valid file upload.
+        file_content = b"valid file content"
+        valid_file = self.mock_picfile("valid.png", file_content)
+        resp = self.client_file_upload(valid_file)
+
+        # Check that PicItem.ensure was called correctly.
+        mock_ensure.assert_called_once_with(file_content)
+
+        # Build expected filename and file path.
+        filename = f"{expected_pic.item.code}.{expected_pic.format}"
+        filepath = testpath / filename
+
+        # Verify file is saved and its content matches.
+        self.assertTrue(filepath.exists())
+        with open(filepath, "rb") as f:
+            saved_content = f.read()
+        self.assertEqual(saved_content, file_content)
+
+        # Verify response details.
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.content.decode(), filename)
+        self.assertEqual(resp.get("X-Code"), expected_pic.item.code)
+        self.assertEqual(resp.get("X-Format"), expected_pic.format)
+
+    @patch("core.models.pic.PicItem.ensure")
+    @patch("builtins.open", side_effect=Exception("Filesystem error"))
+    def test_filesystem_error_during_save(self, mock_open, mock_ensure):
+        """Simulate a filesystem error during file save and verify a 500 error response."""
+        # Set up a dummy PicItem return value.
+        expected_pic = self.pic_mock(code="FAIL123", fmt="png", size=1024)
+        mock_ensure.return_value = expected_pic
+
+        # Create a valid file upload.
+        file_content = b"valid file content"
+        valid_file = self.mock_picfile("valid.png", file_content)
+        resp = self.client_file_upload(valid_file)
+
+        # Verify that open was attempted and raised an exception.
+        mock_open.assert_called()
+
+        # Verify that we returned a 500 error.
+        self.assertEqual(resp.status_code, 500)
+        self.assertEqual(resp.content.decode(), "Error saving file: Filesystem error")

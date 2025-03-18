@@ -42,11 +42,29 @@
 
 ### **Step 2.2: Content Hash Calculation**
 
+*Other than porting test coverage for DRF APIs for PicItem.ensure these aren't needed*
+
 - [ ] Add SHA-256 hash computation for uploaded files.
 - [ ] Store computed hash in Django’s cache for idempotency checks.
 - [ ] Write `django.test` cases:
   - [ ] Ensure identical files produce identical hashes.
   - [ ] Validate hash storage in cache.
+
+**DELETE THESE**
+
+- test_error_processing_file
+- Forces PicItem.ensure to raise an exception and checks that a 500 error is returned.
+- Ensures that the response body contains "Error processing file."
+
+- test_empty_file_upload
+- Uploads an empty file (file exists but has zero bytes) and verifies that a 400 error is returned.
+- Ensures that PicItem.ensure is not called.
+
+- test_no_file_upload
+- Submits a request with no file at all (missing from the request.FILES) and confirms the same 400 response.
+- Also ensures that PicItem.ensure is not called.
+
+- Test that a file is actually saved to UPLOAD_DIR with filename f"{picitem.item.code}.{picitem.format}"
 
 ---
 
