@@ -56,6 +56,7 @@ MAX_UPLOAD_SIZE = 100 * 10**6  # Default to 100MB
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"
 # Logging
+# TODO: Determine if we need this, use above to define custom logger
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

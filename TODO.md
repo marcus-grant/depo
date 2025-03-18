@@ -4,6 +4,8 @@
 
 ### **Step 1.1: Create Logging Module**
 
+- **NOTE**: I don't know if we're continuing to create a separate logger
+  - Django already has a logging system, so we might just use that
 - [x] Create `core/util/logging.py` with the `DepoLogger` class.
 - [x] Define `PROJECT_TAG` as a constant (`"DEPO"`).
 - [ ] Define `STANDARD_MESSAGES` dictionary with preconfigured log messages.
@@ -11,7 +13,7 @@
 - [ ] Write `django.test` cases:
   - [x] Test to ensure PROJECT_TAG is `DEPO`.
   - [x] Test to ensure class is called `DepoLogger`.
-  - [ ] Validate ISO8601 timestamp formatting.
+  - [ ] Validate ISO8601 time-stamp formatting.
   - [ ] Ensure the project tag appears in all logs.
   - [ ] Test all log levels (DEBUG, INFO, WARNING, ERROR, CRITICAL).
   - [ ] Verify importability of `STANDARD_MESSAGES`.
