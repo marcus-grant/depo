@@ -90,3 +90,14 @@ class UploadAPITest(TestCase):
         # Check body text includes the details.
         content = resp.content.decode()
         self.assertEqual(content, f"{picitem.item.code}.{picitem.format}")
+
+    @patch("core.models.pic.PicItem.ensure")
+    def test_error_processing_file(self, mock_ensure):
+        """Verify that if an exception occurs during file processing, a 500 error is returned."""
+        # Force PicItem.ensure to raise an Exception.
+        mock_ensure.side_effect = Exception("Processing error")
+        upload_file = self.mock_picfile("dummy.png", b"\x89PNG\r\n\x1a\n")
+        resp = self.client_file_upload(upload_file)
+
+        self.assertEqual(resp.status_code, 500)
+        self.assertEqual(resp.content.decode(), "Error processing file")
