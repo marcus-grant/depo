@@ -87,8 +87,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # If using DRF for API endpoints:
-    # 'rest_framework',
-    # 'rest_framework.authtoken',
+    "rest_framework",
+    "rest_framework.authtoken",
     # Add your apps here
     "core.apps.CoreConfig",
 ]
