@@ -34,11 +34,11 @@
 
 ### **Step 2.1: Basic POST Endpoint**
 
-- [ ] Create `UploadAPIView` with `http_method_names = ["post"]`.
-- [ ] Return a placeholder 200 response for POST requests.
-- [ ] Write `django.test` cases:
-  - [ ] Verify GET/PUT/DELETE return 405.
-  - [ ] Confirm POST returns 200.
+- [x] Create `UploadAPIView` with `http_method_names = ["post"]`.
+- [x] Return a placeholder 200 response for POST requests.
+- [x] Write `django.test` cases:
+  - [x] Verify GET/PUT/DELETE return 405.
+  - [x] Confirm POST returns 200.
 
 ### **Step 2.2: Content Hash Calculation**
 
