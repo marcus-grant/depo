@@ -37,11 +37,11 @@ class UploadAPIView(APIView):
         file_bytes = uploaded_file.read()
 
         try:
+            # TODO: Find out what the expected exception for an invalid data type is
             picitem = PicItem.ensure(file_bytes)
         except Exception:
-            return Response(
-                "Error processing file", status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            stat = status.HTTP_500_INTERNAL_SERVER_ERROR
+            return Response("Error processing file", status=stat)
 
         filename = f"{picitem.item.code}.{picitem.format}"
         response = Response(filename, status=status.HTTP_200_OK)

@@ -120,3 +120,24 @@ class UploadAPITest(TestCase):
         mock_ensure.assert_not_called()
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(resp.content.decode(), "No file uploaded")
+
+    @patch("core.models.pic.PicItem.ensure")
+    def test_valid_file_upload(self, mock_ensure):
+        """Verify that a valid file upload returns a 200 response with proper details."""
+        # Create a dummy PicItem return value.
+        expected_pic = self.pic_mock(code="VALID123", fmt="png", size=1024)
+        mock_ensure.return_value = expected_pic
+
+        # Create a valid file upload.
+        valid_file = self.mock_picfile("valid.png", b"somecontent")
+        resp = self.client_file_upload(valid_file)
+
+        # Verify PicItem.ensure was called with the exact file content.
+        mock_ensure.assert_called_once_with(b"somecontent")
+
+        # Check that the response is correct.
+        self.assertEqual(resp.status_code, 200)
+        expected_filename = f"{expected_pic.item.code}.{expected_pic.format}"
+        self.assertEqual(resp.content.decode(), expected_filename)
+        self.assertEqual(resp.get("X-Code"), expected_pic.item.code)
+        self.assertEqual(resp.get("X-Format"), expected_pic.format)
