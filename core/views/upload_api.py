@@ -29,6 +29,11 @@ class UploadAPIView(APIView):
 
     def post(self, request, *args, **kwargs):
         uploaded_file = request.FILES.get("content")
+        # Check for both no file provided and empty file using size property.
+        if not uploaded_file or uploaded_file.size == 0:
+            return Response("No file uploaded", status=status.HTTP_400_BAD_REQUEST)
+
+        # Now it is safe to read the file.
         file_bytes = uploaded_file.read()
 
         try:

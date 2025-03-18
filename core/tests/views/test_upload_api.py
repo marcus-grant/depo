@@ -101,3 +101,22 @@ class UploadAPITest(TestCase):
 
         self.assertEqual(resp.status_code, 500)
         self.assertEqual(resp.content.decode(), "Error processing file")
+
+    @patch("core.models.pic.PicItem.ensure")
+    def test_empty_file_upload(self, mock_ensure):
+        """Verify that uploading an empty file returns a 400 error and
+        does not call PicItem.ensure."""
+        upload_file = self.mock_picfile("empty.png", b"")
+        resp = self.client_file_upload(upload_file)
+        # Verify that PicItem.ensure was not called.
+        mock_ensure.assert_not_called()
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.content.decode(), "No file uploaded")
+
+    @patch("core.models.pic.PicItem.ensure")
+    def test_no_file_upload(self, mock_ensure):
+        """No file upload should provided should have same effect as empty file."""
+        resp = self.client.post(self.url)
+        mock_ensure.assert_not_called()
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.content.decode(), "No file uploaded")
