@@ -1,5 +1,6 @@
 # core/tests/views/test_upload_api.py
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -11,6 +12,7 @@ from rest_framework.test import APITestCase
 from unittest.mock import MagicMock, patch
 
 
+# TODO: Offload filesaving to submodule, simplifying testing to mocks
 class UploadAPITest(TestCase):
     @override_settings(UPLOAD_DIR=settings.BASE_DIR / "testupload")
     def setUp(self):
@@ -18,6 +20,8 @@ class UploadAPITest(TestCase):
         self.url = reverse("api_upload")  # match 'name' in urls.py
         self.upload_dir = Path(settings.UPLOAD_DIR)
         self.upload_dir.mkdir(exist_ok=True)
+        self.user = User.objects.create_user(username="tester", password="pass")
+        self.client.force_login(self.user)
         # Suppress "Method Not Allowed" logging messages during tests
         logging.getLogger("django.request").setLevel(logging.CRITICAL)
 
@@ -56,6 +60,14 @@ class UploadAPITest(TestCase):
     def client_file_upload(self, content):
         """Helper to perform file upload to API endpoint."""
         return self.client.post(self.url, {"content": content}, format="multipart")
+
+    def test_unauthenticated_401_response(self):
+        self.client.logout()
+        resp = self.client.post(self.url)
+        self.assertEqual(self.client.post(self.url).status_code, 401)
+        self.assertIn("X-Error", resp.headers)
+        self.assertEqual(resp.get("X-Error"), "Unauthorized")
+        self.assertEqual(resp.content, b"Unauthorized, need to authenticate request")
 
     def test_temp_upload_dir(self):
         """Ensure temp upload directory exists."""

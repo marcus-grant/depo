@@ -63,12 +63,12 @@
 
 ### **Step 3.1: Duplicate Detection**
 
-- [ ] Write `django.test` cases:
-  - [ ] Confirm duplicate uploads return 200 and header when duplicate found.
-  - [ ] Ensure no duplicate files are stored, they'll result in same filename.
-- [ ] Make changes to `core/views/upload_api.py` to pass tests.
-  - [ ] Query cache/database for existing file hashes.
-  - [ ] Return 200 with `X-Duplicate: true` header if duplicate detected.
+- [x] Write `django.test` cases:
+  - [x] Confirm duplicate uploads return 200 and header when duplicate found.
+  - [x] Ensure no duplicate files are stored, they'll result in same filename.
+- [x] Make changes to `core/views/upload_api.py` to pass tests.
+  - [x] Query cache/database for existing file hashes.
+  - [x] Return 200 with `X-Duplicate: true` header if duplicate detected.
 
 ### **Step 3.2: Automatic Metadata Computation**
 

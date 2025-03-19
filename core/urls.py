@@ -12,8 +12,6 @@ from core.views.shortcode import (
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("django.contrib.auth.urls")),
-    # path("login", login_view, name="login"), # TODO: DELETEME
-    # path("api/login", api_login_view, name="api_login"), # TODO: DELETEME
     path("upload/", web_upload_view, name="web_upload"),
     path("api/upload/", UploadAPIView.as_view(), name="api_upload"),
     path("", web_index, name="index"),

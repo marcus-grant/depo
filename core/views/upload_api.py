@@ -4,12 +4,13 @@
 from pathlib import Path
 
 from django.conf import settings
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.renderers import BaseRenderer
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import NotAuthenticated
 
-from core.models.item import Item
 from core.models.pic import PicItem
 
 
@@ -24,9 +25,12 @@ class PlainTextRenderer(BaseRenderer):
         return str(data)
 
 
+# TODO: Offload filesaving to django, simplifying testing to mocks
+# NOTE: Follow this article: https://docs.djangoproject.com/en/5.1/topics/files/
 class UploadAPIView(APIView):
     renderer_classes = [PlainTextRenderer]
     http_method_names = ["post"]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         uploaded_file = request.FILES.get("content")
@@ -58,3 +62,12 @@ class UploadAPIView(APIView):
                 stat = status.HTTP_500_INTERNAL_SERVER_ERROR
                 return Response(f"Error saving file: {e}", status=stat)
         return response
+
+    def handle_exception(self, exc):
+        # If exception is due to unauthenticated access, return 401
+        if isinstance(exc, NotAuthenticated):
+            msg = "Unauthorized, need to authenticate request"
+            resp = Response(msg, status=status.HTTP_401_UNAUTHORIZED)
+            resp["X-Error"] = "Unauthorized"
+            return resp
+        return super().handle_exception(exc)
