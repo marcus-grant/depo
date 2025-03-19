@@ -3,6 +3,7 @@ from django.conf import settings
 from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
+import io
 import logging
 from pathlib import Path
 from depo.settings import UPLOAD_DIR
@@ -169,3 +170,29 @@ class UploadAPITest(TestCase):
         # Verify that we returned a 500 error.
         self.assertEqual(resp.status_code, 500)
         self.assertEqual(resp.content.decode(), "Error saving file: Filesystem error")
+
+    @override_settings(UPLOAD_DIR=settings.BASE_DIR / "testupload")
+    @patch("core.models.pic.PicItem.ensure")
+    def test_idempotency_with_headers_and_files(self, mock_ensure):
+        """Assert that duplicate uploads return X-Duplicate header."""
+        # Create a dummy PicItem return value.
+        expected_pic = self.pic_mock(code="DUPE1234", fmt="png", size=10)
+        mock_ensure.return_value = expected_pic
+        testpath = settings.BASE_DIR / "testupload"
+
+        # Create a valid file upload.
+        valid_file = self.mock_picfile("valid.png", b"somecontent")
+        resp = self.client_file_upload(valid_file)
+        filepath = testpath / f"{expected_pic.item.code}.{expected_pic.format}"
+
+        # Assert first file exists and response does not contain X-Duplicate header.
+        self.assertTrue(filepath.exists(), "Test file wasn't saved")
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotIn("X-Duplicate", resp)
+        # Now assert 200, X-Duplicate head and no extra files created on 2nd upload.
+        num_files = len(list(testpath.iterdir()))
+        valid_file = self.mock_picfile("valid.png", b"somecontent")
+        resp = self.client_file_upload(valid_file)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get("X-Duplicate"), "true")
+        self.assertEqual(len(list(testpath.iterdir())), num_files)
