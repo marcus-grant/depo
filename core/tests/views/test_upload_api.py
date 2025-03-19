@@ -122,57 +122,31 @@ class UploadAPITest(TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(resp.content.decode(), "No file uploaded")
 
+    @override_settings(UPLOAD_DIR=settings.BASE_DIR / "testupload")
     @patch("core.models.pic.PicItem.ensure")
     def test_valid_file_upload(self, mock_ensure):
-        """Verify that a valid file upload returns a 200 response with proper details."""
+        """Verify a valid file upload returns a 200 response with
+        proper details and correctly saved file with expected contents."""
         # Create a dummy PicItem return value.
         expected_pic = self.pic_mock(code="VALID123", fmt="png", size=1024)
         mock_ensure.return_value = expected_pic
+        testpath = settings.BASE_DIR / "testupload"
 
         # Create a valid file upload.
         valid_file = self.mock_picfile("valid.png", b"somecontent")
         resp = self.client_file_upload(valid_file)
+        filename = f"{expected_pic.item.code}.{expected_pic.format}"
+        filepath = testpath / filename
 
-        # Verify PicItem.ensure was called with the exact file content.
+        # Verify PicItem.ensure was called and expected filename & content saved
         mock_ensure.assert_called_once_with(b"somecontent")
+        self.assertTrue(filepath.exists(), "Test file wasn't saved")
+        self.assertEqual(filepath.read_bytes(), b"somecontent")
 
         # Check that the response is correct.
         self.assertEqual(resp.status_code, 200)
         expected_filename = f"{expected_pic.item.code}.{expected_pic.format}"
         self.assertEqual(resp.content.decode(), expected_filename)
-        self.assertEqual(resp.get("X-Code"), expected_pic.item.code)
-        self.assertEqual(resp.get("X-Format"), expected_pic.format)
-
-    @override_settings(UPLOAD_DIR=settings.BASE_DIR / "testupload")
-    @patch("core.models.pic.PicItem.ensure")
-    def test_file_saved_successfully(self, mock_ensure):
-        """Verify that a valid file upload saves the file in UPLOAD_DIR with proper filename."""
-        # Set up a dummy PicItem return value.
-        expected_pic = self.pic_mock(code="SAVE123", fmt="png", size=1024)
-        mock_ensure.return_value = expected_pic
-        testpath = settings.BASE_DIR / "testupload"
-
-        # Create a valid file upload.
-        file_content = b"valid file content"
-        valid_file = self.mock_picfile("valid.png", file_content)
-        resp = self.client_file_upload(valid_file)
-
-        # Check that PicItem.ensure was called correctly.
-        mock_ensure.assert_called_once_with(file_content)
-
-        # Build expected filename and file path.
-        filename = f"{expected_pic.item.code}.{expected_pic.format}"
-        filepath = testpath / filename
-
-        # Verify file is saved and its content matches.
-        self.assertTrue(filepath.exists())
-        with open(filepath, "rb") as f:
-            saved_content = f.read()
-        self.assertEqual(saved_content, file_content)
-
-        # Verify response details.
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.content.decode(), filename)
         self.assertEqual(resp.get("X-Code"), expected_pic.item.code)
         self.assertEqual(resp.get("X-Format"), expected_pic.format)
 

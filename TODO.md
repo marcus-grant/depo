@@ -46,25 +46,16 @@
 
 - [ ] Add SHA-256 hash computation for uploaded files.
 - [ ] Store computed hash in Django’s cache for idempotency checks.
-- [ ] Write `django.test` cases:
-  - [ ] Ensure identical files produce identical hashes.
-  - [ ] Validate hash storage in cache.
 
-**DELETE THESE**
+#### Better version
 
-- test_error_processing_file
-- Forces PicItem.ensure to raise an exception and checks that a 500 error is returned.
-- Ensures that the response body contains "Error processing file."
-
-- test_empty_file_upload
-- Uploads an empty file (file exists but has zero bytes) and verifies that a 400 error is returned.
-- Ensures that PicItem.ensure is not called.
-
-- test_no_file_upload
-- Submits a request with no file at all (missing from the request.FILES) and confirms the same 400 response.
-- Also ensures that PicItem.ensure is not called.
-
-- Test that a file is actually saved to UPLOAD_DIR with filename f"{picitem.item.code}.{picitem.format}"
+- [x] Write `django.test` cases:
+  - [x] Ensure identical files produce identical hashes.
+  - [x] Validate hash storage in cache.
+  - [x] File saves using `PicItem.ensure` in `settings.UPLOAD_DIR`.
+    - Using path: `f"{settings.UPLOAD_DIR}/{PicItem.item.code}.{PicItem.format}"`
+  - [x] `PicItem.ensure` when raising, returns `Invalid format` (500) response.
+- [x] Implementation for all these tests passing.
 
 ---
 
@@ -72,11 +63,12 @@
 
 ### **Step 3.1: Duplicate Detection**
 
-- [ ] Query cache/database for existing file hashes.
-- [ ] Return 200 with `X-Duplicate: true` header if duplicate detected.
 - [ ] Write `django.test` cases:
-  - [ ] Confirm duplicate uploads return 200 and header.
-  - [ ] Ensure no duplicate files are stored.
+  - [ ] Confirm duplicate uploads return 200 and header when duplicate found.
+  - [ ] Ensure no duplicate files are stored, they'll result in same filename.
+- [ ] Make changes to `core/views/upload_api.py` to pass tests.
+  - [ ] Query cache/database for existing file hashes.
+  - [ ] Return 200 with `X-Duplicate: true` header if duplicate detected.
 
 ### **Step 3.2: Automatic Metadata Computation**
 
