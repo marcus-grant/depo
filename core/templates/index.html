@@ -17,20 +17,20 @@
 <br>
 <h2>Create Shortcode:</h2>
 
-  {% if error %}
+{% if error %}
   <p style="color: red;">{{ error }}</p>
-  {% endif %}
+{% endif %}
 
-  {% include 'includes/shortcode-form.html' %}
+{% include 'includes/shortcode-form.html' %}
 
-  {% if item %}
+{% if item %}
 <p>Your shortcode is: <strong>{{ item.code }}</strong></p>
 <p>You can access details at: 
   <a href="./{{ item.code }}/details">
     {{ request.build_absolute_uri }}{{ item.code }}/details
   </a>
 </p>
-  {% endif %}
+{% endif %}
 
 {% endblock content %}
 

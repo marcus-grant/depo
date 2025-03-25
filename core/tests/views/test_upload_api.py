@@ -4,11 +4,8 @@ from django.contrib.auth.models import User
 from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
-import io
 import logging
 from pathlib import Path
-from depo.settings import UPLOAD_DIR
-from rest_framework.test import APITestCase
 from unittest.mock import MagicMock, patch
 
 

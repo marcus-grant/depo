@@ -1,18 +1,19 @@
 <!-- START core/templates.login.html -->
 <!-- TODO: Make this use the base block tempalte and any other relevant templates -->
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>login</title>
-  </head>
-  <body>
-    <h1>Login</h1>
-    <form method="post" action="{% url 'login' %}">
-      {% csrf_token %}
-      <label>E-Mail: <input type="text" name="email" /></label><br />
-      <label>Password: <input type="password" name="password" /></label><br />
-      <button type="submit">Login</button>
-    </form>
-  </body>
-</html>
+<!-- TODO: DELETEME I THINK THE registration/login.html IS THE CORRECT ONE -->
+<!-- <!DOCTYPE html>
+<!-- <html>
+<!--   <head>
+<!--     <title>login</title>
+<!--   </head>
+<!--   <body>
+<!--     <h1>Login</h1>
+<!--     <form method="post" action="{% url 'login' %}">
+<!--       {% csrf_token %}
+<!--       <label>E-Mail: <input type="text" name="email" /></label><br />
+<!--       <label>Password: <input type="password" name="password" /></label><br />
+<!--       <button type="submit">Login</button>
+<!--     </form>
+<!--   </body>
+<!-- </html> -->
 <!-- END core/templates.login.html -->
