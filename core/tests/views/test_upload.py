@@ -21,6 +21,7 @@ class WebUploadViewGETTests(TestCase):
         self.client = Client()
         # Assuming the web upload GET view is named "web_upload" in your urls.
         self.url = reverse("web_upload")
+        self.url_index = reverse("index")
         self.name = "testuser"
         self.email = "test@example.com"
         self.passw = "password"

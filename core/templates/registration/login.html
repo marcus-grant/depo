@@ -1,21 +1,36 @@
 <!-- START core/templates/registration/login.html -->
 <!-- TODO: Incorporate base block/includes -->
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Login</title>
-  </head>
-  <body>
-    <h1>Login</h1>
-    <form method="post">
-      {% csrf_token %}
-      {{ form.as_p }}
-      <button type="submit">Log In</button>
-    </form>
-    {% if form.errors %}
-      <p style="color: red;">Invalid username or password</p>
-    {% endif %}
-  </body>
-</html>
+<!-- TODO: Unittest all conditional render outcomes -->
+{% extends "base.html" %}
+{% block title %}Login{% endblock title %}
+{% block content %}
+<h1>Login</h1>
+
+{% if next %}
+<div class="notification is-warning">
+  <p>You must be logged in first!</p>
+  <p>You will be redirected to {{ next }} after logging in.</p>
+</div>
+{% endif %}
+
+{% if request.GET.next %}
+  <!-- FIXME: Is this necessary with above? -->
+  <!-- <p>You will be redirected to {{ request.GET.next }} after logging in.</p> -->
+{% endif %}
+
+{% if request.GET.error %}
+  <p style="color: red;">{{ request.GET.error }}</p>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Log In</button>
+</form>
+
+{% if form.errors %}
+<p style="color: red;">Invalid username or password</p>
+{% endif %}
+
+{% endblock content %}
 <!-- END core/templates/registration/login.html -->

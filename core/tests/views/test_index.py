@@ -1,13 +1,18 @@
 from django.urls import reverse
-from django.test import TestCase
+from django.test import TestCase, Client
 
 from core.util.shortcode import hash_b32, SHORTCODE_MIN_LEN
 
 
 class WebIndexViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.url_index = reverse("index")
+        self.url_login = reverse("login")
+
     def test_get_request_renders_index(self):
         """Test root GET request renders index.html"""
-        resp = self.client.get(reverse("index"))
+        resp = self.client.get(self.url_index)
         self.assertEqual(resp.status_code, 200)
         self.assertTemplateUsed(resp, "index.html")
         self.assertNotContains(resp, "error")
@@ -16,7 +21,7 @@ class WebIndexViewTest(TestCase):
     def test_root_post_request_creates_item(self):
         """Test root POST request creates an item"""
         url = "https://www.google.com"
-        resp = self.client.post(reverse("index"), {"content": url})
+        resp = self.client.post(self.url_index, {"content": url})
         self.assertEqual(resp.status_code, 200)
         self.assertTemplateUsed(resp, "index.html")
 
@@ -26,12 +31,8 @@ class WebIndexViewTest(TestCase):
         self.assertContains(resp, f"{shortcode}</strong>")
         self.assertRegex(resp.content.decode(), pattern_href)
 
-    # NOTE: I can't think of a case where this will happen
-    # def test_post_no_content(self):
-    #     """Test POST request missing content"""
-    #     # breakpoint()
-    #     resp = self.client.post(reverse("index"))
-    #     breakpoint()
-    #     self.assertEqual(resp.status_code, 400)
-    #     self.assertTemplateUsed(resp, "index.html")
-    #     self.assertContains(resp, "Content is required")
+    def test_index_shows_login_for_anon(self):
+        """When anonymous user, index page should show login link over upload widget"""
+        response = self.client.get(self.url_index)
+        expected_link = f"{self.url_login}?next={self.url_index}"
+        self.assertContains(response, f'href="{expected_link}"')
