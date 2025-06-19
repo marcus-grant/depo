@@ -9,6 +9,7 @@ class WebIndexViewTest(TestCase):
         self.client = Client()
         self.url_index = reverse("index")
         self.url_login = reverse("login")
+        self.url_upload = reverse("web_upload")
 
     def test_get_request_renders_index(self):
         """Test root GET request renders index.html"""

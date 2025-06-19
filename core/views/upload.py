@@ -4,9 +4,9 @@ import time
 from typing import Optional
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 from core.models.pic import PicItem
 
@@ -35,48 +35,57 @@ def validate_upload_bytes(upload_bytes: bytes) -> Optional[str]:
 
 
 # TODO: Logging should be moved out to own module and/or midware
+def process_file_upload(file_data: bytes) -> dict:
+    """Extract core upload processing logic for reuse"""
+    if not file_data or file_data == b"":
+        return {"success": False, "message": MSG_EMPTY, "status": 400}
+
+    if len(file_data) > settings.MAX_UPLOAD_SIZE:
+        msg = f"File size {len(file_data)} exceeds limit of {settings.MAX_UPLOAD_SIZE} bytes"
+        return {"success": False, "message": msg, "status": 400}
+
+    pic_type = validate_upload_bytes(file_data)
+    if not pic_type:
+        return {"success": False, "message": MSG_INVALID, "status": 400}
+
+    pic_item = PicItem.ensure(file_data)
+    fname = f"{pic_item.item.code}.{pic_item.format}"
+    fpath = settings.UPLOAD_DIR / fname
+    
+    if fpath.exists():
+        return {"success": True, "message": MSG_EXIST, "item": pic_item, "filename": fname}
+    
+    try:
+        with open(fpath, "wb") as f:
+            f.write(file_data)
+        msg = f"Uploaded file {fname} successfully!"
+        return {"success": True, "message": msg, "item": pic_item, "filename": fname}
+    except OSError as e:
+        logger.error(f"Error during upload file save: {e}")
+        return {"success": False, "message": "Error during upload file save", "status": 500, "filename": fname}
+
+
 @login_required
 def upload_view_post(req):
     time_start = time.time()
     logger.info("Upload initiated")
     pic_file = req.FILES.get("content")
+    
     if not pic_file:
         return upload_response(req, msg="No file uploaded", err=True, stat=400)
 
     file_data = pic_file.read()
-    if file_data == "" or file_data == b"" or file_data is None:
-        logger.error("Empty file uploaded")
-        return upload_response(req, msg="Empty file uploaded", err=True, stat=400)
-
-    if len(file_data) > settings.MAX_UPLOAD_SIZE:
-        msg = f"File size {len(file_data)}"
-        msg += f" exceeds limit of {settings.MAX_UPLOAD_SIZE} bytes"
-        logger.error(msg)
-        return upload_response(req, msg=msg, err=True, stat=400)
-
-    pic_type = validate_upload_bytes(file_data)
-    if not pic_type:
-        msg = "Invalid or unknown filetype, not allowed"
-        logger.error(msg)
-        return upload_response(req, msg=msg, err=True, stat=400)
-
-    pic_item = PicItem.ensure(file_data)  # Ensure PicItem
-    fname = f"{pic_item.item.code}.{pic_item.format}"
-    fpath = settings.UPLOAD_DIR / fname
-    if fpath.exists():
-        return upload_response(req, msg="File already exists", fname=fname)
-    try:
-        with open(fpath, "wb") as f:
-            f.write(file_data)  # Write uploaded pic file to disk
-    except OSError as e:
-        msg = "Error during upload file save"
-        logger.error(f"{msg}: {e}")
-        return upload_response(req, msg=msg, err=True, stat=500, fname=fname)
+    result = process_file_upload(file_data)
+    
+    if not result["success"]:
+        logger.error(result["message"])
+        messages.error(req, result["message"])
+        return upload_response(req, msg=result["message"], err=True, stat=result.get("status", 400))
 
     time_elapsed = time.time() - time_start
+    fname = result["filename"]
     logger.info(f"Upload completed: {fname} in {time_elapsed:.2f}seconds")
-    msg = f"Uploaded file {fname} successfully!"
-    return upload_response(req, msg=msg, stat=200, fname=fname)
+    return upload_response(req, msg=result["message"], stat=200, fname=fname)
 
 
 # TODO: Handle pasting an image/binary data into textbox from clipboard

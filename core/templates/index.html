@@ -21,7 +21,14 @@
   <p style="color: red;">{{ error }}</p>
 {% endif %}
 
-{% include 'includes/shortcode-form.html' %}
+{% if user.is_authenticated %}
+  {% include 'includes/shortcode-form.html' %}
+{% else %}
+  <div class="box has-text-centered">
+    <p class="subtitle">Want to upload images?</p>
+    <a href="{% url 'login' %}?next={{ request.get_full_path }}" class="button is-link">Login to Upload Files</a>
+  </div>
+{% endif %}
 
 {% if item %}
 <p>Your shortcode is: <strong>{{ item.code }}</strong></p>

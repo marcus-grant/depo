@@ -5,6 +5,7 @@ from django.http import HttpRequest, HttpResponseBadRequest
 from django.shortcuts import render
 
 from core.models.link import LinkItem
+from core.views.upload import process_file_upload
 
 # TODO: Standardize name in settings & make sure program name used
 logger = logging.getLogger("depo." + __name__)
