@@ -129,3 +129,37 @@
   border-radius: 4px;
 }
 </style>
+
+<!-- Upload Form JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const dropZone = document.getElementById('drop-zone');
+  
+  if (dropZone) {
+    // Add drag-over visual cue functionality
+    dropZone.addEventListener('dragenter', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.add('drag-over');
+    });
+    
+    dropZone.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.add('drag-over');
+    });
+    
+    dropZone.addEventListener('dragleave', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove('drag-over');
+    });
+    
+    dropZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dropZone.classList.remove('drag-over');
+    });
+  }
+});
+</script>

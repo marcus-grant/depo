@@ -49,17 +49,18 @@ class UploadFormTest(TestCase):
         """Test that JavaScript for drag-over visual cues is present in the page"""
         self.client.login(username="testuser", password="testpass")
         response = self.client.get(self.url_index)
-        
+
         # Check that JavaScript event handlers are present in the page
         js_checks = [
             ("dragenter", "Missing dragenter event handler"),
-            ("dragover", "Missing dragover event handler"), 
+            ("dragover", "Missing dragover event handler"),
             ("dragleave", "Missing dragleave event handler"),
             ("drop", "Missing drop event handler"),
             ("drag-over", "Missing drag-over CSS class reference"),
             ("addEventListener", "Missing JavaScript event listeners"),
         ]
-        
+
         for expect, msg in js_checks:
             with self.subTest(js_fragment=expect):
                 self.assertContains(response, expect, msg_prefix=msg)
+
