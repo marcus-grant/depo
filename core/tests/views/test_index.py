@@ -1,5 +1,6 @@
 from django.urls import reverse
 from django.test import TestCase, Client
+from django.contrib.auth.models import User
 
 from core.util.shortcode import hash_b32, SHORTCODE_MIN_LEN
 
@@ -37,3 +38,4 @@ class WebIndexViewTest(TestCase):
         response = self.client.get(self.url_index)
         expected_link = f"{self.url_login}?next={self.url_index}"
         self.assertContains(response, f'href="{expected_link}"')
+

@@ -1,0 +1,131 @@
+<!-- Upload Form -->
+<form enctype="multipart/form-data" method="post" id="upload-form">
+  {% csrf_token %}
+  
+  <!-- Main content input area -->
+  <div class="box">
+    <div class="field">
+      <label for="content" class="label">Content</label>
+      <div class="control">
+        <textarea 
+          id="content" 
+          name="content" 
+          class="textarea"
+          placeholder="Paste text or link…"
+          rows="3"
+          aria-describedby="content-help"
+        ></textarea>
+      </div>
+    </div>
+    
+    <!-- Hidden file input for programmatic access -->
+    <input 
+      type="file" 
+      id="file-input" 
+      name="image" 
+      accept=".jpg,.jpeg,.png"
+      style="display: none;"
+      aria-hidden="true"
+    />
+    
+    <!-- Visible drop zone -->
+    <div 
+      id="drop-zone" 
+      class="box has-text-centered is-clickable drop-zone"
+      tabindex="0"
+      role="button"
+      aria-label="Click to select image files or drag and drop images here"
+      aria-describedby="drop-zone-help"
+    >
+      <div class="content">
+        <p class="is-size-5">
+          <span class="icon is-large">
+            <i class="fas fa-upload"></i>
+          </span>
+        </p>
+        <p>Drop images here or click to select</p>
+        <p class="is-size-7 has-text-grey">JPG, PNG up to 5MB</p>
+      </div>
+    </div>
+    
+    <!-- Image thumbnail container -->
+    <div id="thumbnail-container" class="columns is-multiline" style="display: none;">
+      <!-- Thumbnails will be dynamically inserted here -->
+    </div>
+    
+    <!-- Help text -->
+    <p id="content-help" class="help">
+      Enter text content, paste a URL, or upload an image
+    </p>
+    <p id="drop-zone-help" class="help is-sr-only">
+      Supported formats: JPEG, PNG. Maximum size: 5 MB
+    </p>
+  </div>
+  
+  <!-- Hidden fields for form processing -->
+  <input type="hidden" id="detected-type" name="detected_type" value="">
+  
+  <!-- Accessibility: Live region for announcements -->
+  <div id="content-announcements" aria-live="polite" class="is-sr-only"></div>
+  
+  <!-- Submit button -->
+  <div class="field">
+    <div class="control">
+      <button type="submit" class="button is-primary" id="submit-btn" disabled>
+        Create Shortcode
+      </button>
+    </div>
+  </div>
+  
+  <!-- No-JS fallback inputs (hidden by default, shown when JS disabled) -->
+  <noscript>
+    <div class="box">
+      <h3 class="title is-5">Alternative Inputs</h3>
+      <div class="field">
+        <label for="fallback-url" class="label">URL:</label>
+        <div class="control">
+          <input type="url" id="fallback-url" name="fallback_url" class="input">
+        </div>
+      </div>
+      <div class="field">
+        <label for="fallback-text" class="label">Text:</label>
+        <div class="control">
+          <textarea id="fallback-text" name="fallback_text" class="textarea" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="field">
+        <label for="fallback-file" class="label">Image File:</label>
+        <div class="control">
+          <input type="file" id="fallback-file" name="fallback_image" accept=".jpg,.jpeg,.png" class="input">
+        </div>
+      </div>
+    </div>
+  </noscript>
+</form>
+
+<!-- Custom styles for drag-and-drop behavior -->
+<style>
+.drop-zone {
+  border: 2px dashed hsl(0, 0%, 86%);
+  transition: all 0.2s ease;
+}
+
+.drop-zone:hover,
+.drop-zone:focus {
+  border-color: hsl(204, 86%, 53%);
+  background-color: hsl(204, 100%, 97%);
+}
+
+.drop-zone.drag-over {
+  border-color: hsl(204, 86%, 53%);
+  background-color: hsl(204, 100%, 95%);
+  border-style: solid;
+}
+
+.thumbnail {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+</style>
