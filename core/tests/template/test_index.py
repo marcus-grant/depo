@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 
 
 # TODO: Test the redirection of the shortcode using URLs
-# TODO: Test that login form appears when not logged in
+# TODO: Test that login form appears when not logged in and upload form does not
 class IndexTemplateElemsTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass")

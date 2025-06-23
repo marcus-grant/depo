@@ -134,8 +134,9 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
   
-  if (dropZone) {
+  if (dropZone && fileInput) {
     // Add drag-over visual cue functionality
     dropZone.addEventListener('dragenter', function(e) {
       e.preventDefault();
@@ -159,6 +160,19 @@ document.addEventListener('DOMContentLoaded', function() {
       e.preventDefault();
       e.stopPropagation();
       dropZone.classList.remove('drag-over');
+    });
+    
+    // Add file picker functionality
+    dropZone.addEventListener('click', function(e) {
+      e.preventDefault();
+      fileInput.click();
+    });
+    
+    dropZone.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fileInput.click();
+      }
     });
   }
 });

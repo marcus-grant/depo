@@ -64,3 +64,20 @@ class UploadFormTest(TestCase):
             with self.subTest(js_fragment=expect):
                 self.assertContains(response, expect, msg_prefix=msg)
 
+    def test_file_picker_click_functionality(self):
+        """Test that JavaScript for file picker click/keypress is present"""
+        self.client.login(username="testuser", password="testpass")
+        response = self.client.get(self.url_index)
+
+        # Check that click and keypress event handlers are present
+        picker_checks = [
+            ("click", "Missing click event handler for file picker"),
+            ("keydown", "Missing keydown event handler for file picker"),
+            ("Enter", "Missing Enter key detection"),
+            ("file-input", "Missing file input reference"),
+            (".click()", "Missing programmatic click call"),
+        ]
+
+        for expect, msg in picker_checks:
+            with self.subTest(picker_fragment=expect):
+                self.assertContains(response, expect, msg_prefix=msg)
