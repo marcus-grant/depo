@@ -81,3 +81,20 @@ class UploadFormTest(TestCase):
         for expect, msg in picker_checks:
             with self.subTest(picker_fragment=expect):
                 self.assertContains(response, expect, msg_prefix=msg)
+
+    def test_drag_drop_event_handling(self):
+        """Test that drag-and-drop events call preventDefault and stopPropagation"""
+        self.client.login(username="testuser", password="testpass")
+        response = self.client.get(self.url_index)
+
+        # Check that preventDefault and stopPropagation are called in event handlers
+        event_checks = [
+            ("preventDefault", "Missing preventDefault() calls in drag events"),
+            ("stopPropagation", "Missing stopPropagation() calls in drag events"),
+            ("e.preventDefault", "Missing event.preventDefault() pattern"),
+            ("e.stopPropagation", "Missing event.stopPropagation() pattern"),
+        ]
+
+        for expect, msg in event_checks:
+            with self.subTest(event_fragment=expect):
+                self.assertContains(response, expect, msg_prefix=msg)
