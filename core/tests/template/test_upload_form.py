@@ -104,7 +104,7 @@ class UploadFormTest(TestCase):
         """Test that JavaScript for clipboard paste handling is present"""
         self.client.login(username="testuser", password="testpass")
         response = self.client.get(self.url_index)
-        
+
         # Check that paste event handler and clipboardData access are present
         paste_checks = [
             ("paste", "Missing paste event handler"),
@@ -113,7 +113,7 @@ class UploadFormTest(TestCase):
             ("image/jpeg", "Missing JPEG detection"),
             ("image/png", "Missing PNG detection"),
         ]
-        
+
         for expect, msg in paste_checks:
             with self.subTest(paste_fragment=expect):
                 self.assertContains(response, expect, msg_prefix=msg)
@@ -122,18 +122,40 @@ class UploadFormTest(TestCase):
         """Test that image validation matches Django settings"""
         self.client.login(username="testuser", password="testpass")
         response = self.client.get(self.url_index)
-        
+
         # Check that validation logic uses the actual Django MAX_UPLOAD_SIZE setting
         max_size_bytes = str(settings.MAX_UPLOAD_SIZE)
         max_size_mb = settings.MAX_UPLOAD_SIZE // (1024 * 1024)
-        
+
         validation_checks = [
             (max_size_bytes, f"Missing {max_size_bytes} byte size limit check"),
-            (f"under {max_size_mb} MiB", f"Missing {max_size_mb} MiB toast error message"),
+            (
+                f"under {max_size_mb} MiB",
+                f"Missing {max_size_mb} MiB toast error message",
+            ),
             ("showToast", "Missing toast function"),
             ("file.size", "Missing file size check"),
         ]
-        
+
         for expect, msg in validation_checks:
             with self.subTest(validation_fragment=expect):
+                self.assertContains(response, expect, msg_prefix=msg)
+
+    def test_thumbnail_rendering_functionality(self):
+        """Test that thumbnail rendering and image queuing logic is present"""
+        self.client.login(username="testuser", password="testpass")
+        response = self.client.get(self.url_index)
+        
+        # Check that thumbnail rendering logic is present
+        thumbnail_checks = [
+            ("thumbnail-container", "Missing thumbnail container element"),
+            ("100px", "Missing 100px thumbnail size specification"),
+            ("URL.createObjectURL", "Missing URL.createObjectURL for thumbnail preview"),
+            ("img.src =", "Missing image src assignment for thumbnail"),
+            ("renderThumbnailAndQueue", "Missing thumbnail rendering function"),
+            ("style.display = 'block'", "Missing thumbnail container display logic"),
+        ]
+        
+        for expect, msg in thumbnail_checks:
+            with self.subTest(thumbnail_fragment=expect):
                 self.assertContains(response, expect, msg_prefix=msg)

@@ -168,6 +168,46 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 5000);
   }
   
+  // Helper function to render thumbnail and queue image
+  function renderThumbnailAndQueue(file) {
+    const thumbnailContainer = document.getElementById('thumbnail-container');
+    if (!thumbnailContainer) return;
+    
+    // Create thumbnail column
+    const column = document.createElement('div');
+    column.className = 'column is-narrow';
+    
+    // Create thumbnail image
+    const img = document.createElement('img');
+    img.className = 'thumbnail';
+    img.style.width = '100px';
+    img.style.height = '100px';
+    img.style.objectFit = 'cover';
+    img.style.borderRadius = '4px';
+    
+    // Use URL.createObjectURL for immediate preview
+    const objectURL = URL.createObjectURL(file);
+    img.src = objectURL;
+    
+    // Add to DOM
+    column.appendChild(img);
+    thumbnailContainer.appendChild(column);
+    
+    // Show thumbnail container
+    thumbnailContainer.style.display = 'block';
+    
+    // Store file for form submission (simple queue)
+    if (!window.queuedFiles) {
+      window.queuedFiles = [];
+    }
+    window.queuedFiles.push(file);
+    
+    // Clean up object URL when image loads
+    img.onload = function() {
+      URL.revokeObjectURL(objectURL);
+    };
+  }
+  
   if (dropZone && fileInput) {
     // Add drag-over visual cue functionality
     dropZone.addEventListener('dragenter', function(e) {
@@ -217,7 +257,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const file = clipboardData.files[i];
             if (isValidImageType(file)) {
               if (isValidFileSize(file)) {
-                // Valid clipboard image detected
+                // Valid clipboard image detected - render thumbnail and queue
+                renderThumbnailAndQueue(file);
                 console.log('Valid image pasted:', file.name, file.size);
               } else {
                 showToast('Only JPG or PNG under 32 MiB');
