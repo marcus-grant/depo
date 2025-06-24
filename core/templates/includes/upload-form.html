@@ -131,6 +131,7 @@
 </style>
 
 <!-- Upload Form JavaScript -->
+<!-- TODO: This needs to be moved to separate JS file & HTMX dataflow needs considering -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const dropZone = document.getElementById('drop-zone');
@@ -166,6 +167,25 @@ document.addEventListener('DOMContentLoaded', function() {
         toast.parentNode.removeChild(toast);
       }
     }, 5000);
+  }
+  
+  // Helper function to classify content as URL vs text
+  function classify(str) {
+    if (!str || str.trim() === '') return 'text';
+    
+    try {
+      // Try to create a URL object - if it works, it's a URL
+      new URL(str);
+      return 'url';
+    } catch (e) {
+      // If no protocol, try adding https://
+      try {
+        new URL('https://' + str);
+        return 'url';
+      } catch (e2) {
+        return 'text';
+      }
+    }
   }
   
   // Helper function to render thumbnail and queue image
@@ -247,8 +267,10 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
     
-    // Add clipboard paste functionality
+    // Add clipboard paste functionality and content classification
     const contentTextarea = document.getElementById('content');
+    const detectedTypeField = document.getElementById('detected-type');
+    
     if (contentTextarea) {
       contentTextarea.addEventListener('paste', function(e) {
         const clipboardData = e.clipboardData;
@@ -265,6 +287,15 @@ document.addEventListener('DOMContentLoaded', function() {
               }
             }
           }
+        }
+      });
+      
+      // Add content classification on blur
+      contentTextarea.addEventListener('blur', function(e) {
+        const content = e.target.value.trim();
+        if (content && detectedTypeField) {
+          const contentType = classify(content);
+          detectedTypeField.value = contentType;
         }
       });
     }

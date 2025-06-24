@@ -159,3 +159,22 @@ class UploadFormTest(TestCase):
         for expect, msg in thumbnail_checks:
             with self.subTest(thumbnail_fragment=expect):
                 self.assertContains(response, expect, msg_prefix=msg)
+
+    def test_content_classification_functionality(self):
+        """Test that content classification logic is present"""
+        self.client.login(username="testuser", password="testpass")
+        response = self.client.get(self.url_index)
+        
+        # Check that classification logic is present
+        classification_checks = [
+            ("function classify(", "Missing classify function definition"),
+            ("detected-type", "Missing detected_type hidden field reference"),
+            ("'url'", "Missing URL classification return value"),
+            ("'text'", "Missing text classification return value"),
+            ("blur", "Missing blur event handler for classification"),
+            ("URL(", "Missing URL constructor for validation"),
+        ]
+        
+        for expect, msg in classification_checks:
+            with self.subTest(classification_fragment=expect):
+                self.assertContains(response, expect, msg_prefix=msg)
