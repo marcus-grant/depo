@@ -197,3 +197,22 @@ class UploadFormTest(TestCase):
         for expect, msg in aria_checks:
             with self.subTest(aria_fragment=expect):
                 self.assertContains(response, expect, msg_prefix=msg)
+
+    def test_submit_button_gating_functionality(self):
+        """Test that submit button gating logic is present"""
+        self.client.login(username="testuser", password="testpass")
+        response = self.client.get(self.url_index)
+        
+        # Check that submit button gating logic is present
+        gating_checks = [
+            ("updateSubmitButtonState", "Missing submit button state update function"),
+            ("submit-btn", "Missing submit button reference"),
+            ("disabled", "Missing disabled attribute handling"),
+            ("window.queuedFiles", "Missing queued files check"),
+            ("contentTextarea.value", "Missing textarea content check"),
+            ("removeAttribute('disabled')", "Missing button enable logic"),
+        ]
+        
+        for expect, msg in gating_checks:
+            with self.subTest(gating_fragment=expect):
+                self.assertContains(response, expect, msg_prefix=msg)

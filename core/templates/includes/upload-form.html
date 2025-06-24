@@ -177,6 +177,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   
+  // Helper function to update submit button state
+  function updateSubmitButtonState() {
+    const submitButton = document.getElementById('submit-btn');
+    const contentTextarea = document.getElementById('content');
+    
+    if (!submitButton || !contentTextarea) return;
+    
+    // Check if we have valid content or queued files
+    const hasText = contentTextarea.value.trim() !== '';
+    const hasFiles = window.queuedFiles && window.queuedFiles.length > 0;
+    
+    if (hasText || hasFiles) {
+      submitButton.removeAttribute('disabled');
+    } else {
+      submitButton.setAttribute('disabled', 'disabled');
+    }
+  }
+  
   // Helper function to classify content as URL vs text
   function classify(str) {
     if (!str || str.trim() === '') return 'text';
@@ -234,6 +252,9 @@ document.addEventListener('DOMContentLoaded', function() {
     img.onload = function() {
       URL.revokeObjectURL(objectURL);
     };
+    
+    // Update submit button state since we now have files
+    updateSubmitButtonState();
   }
   
   if (dropZone && fileInput) {
@@ -313,6 +334,14 @@ document.addEventListener('DOMContentLoaded', function() {
             announceToScreenReader('Plain text detected');
           }
         }
+        
+        // Update submit button state
+        updateSubmitButtonState();
+      });
+      
+      // Update submit button state on input changes
+      contentTextarea.addEventListener('input', function(e) {
+        updateSubmitButtonState();
       });
     }
   }
