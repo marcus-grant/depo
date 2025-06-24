@@ -178,3 +178,22 @@ class UploadFormTest(TestCase):
         for expect, msg in classification_checks:
             with self.subTest(classification_fragment=expect):
                 self.assertContains(response, expect, msg_prefix=msg)
+
+    def test_aria_feedback_functionality(self):
+        """Test that ARIA live announcements are present"""
+        self.client.login(username="testuser", password="testpass")
+        response = self.client.get(self.url_index)
+        
+        # Check that ARIA feedback logic is present
+        aria_checks = [
+            ("content-announcements", "Missing ARIA live region element"),
+            ("aria-live=\"polite\"", "Missing aria-live polite attribute"),
+            ("Link detected", "Missing link detection announcement"),
+            ("Plain text detected", "Missing text detection announcement"),
+            ("Image pasted", "Missing image paste announcement"),
+            ("textContent =", "Missing announcement text assignment"),
+        ]
+        
+        for expect, msg in aria_checks:
+            with self.subTest(aria_fragment=expect):
+                self.assertContains(response, expect, msg_prefix=msg)

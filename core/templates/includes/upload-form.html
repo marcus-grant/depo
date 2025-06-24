@@ -169,6 +169,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 5000);
   }
   
+  // Helper function to announce feedback to screen readers
+  function announceToScreenReader(message) {
+    const announcements = document.getElementById('content-announcements');
+    if (announcements) {
+      announcements.textContent = message;
+    }
+  }
+  
   // Helper function to classify content as URL vs text
   function classify(str) {
     if (!str || str.trim() === '') return 'text';
@@ -281,6 +289,7 @@ document.addEventListener('DOMContentLoaded', function() {
               if (isValidFileSize(file)) {
                 // Valid clipboard image detected - render thumbnail and queue
                 renderThumbnailAndQueue(file);
+                announceToScreenReader('Image pasted');
                 console.log('Valid image pasted:', file.name, file.size);
               } else {
                 showToast('Only JPG or PNG under 32 MiB');
@@ -296,6 +305,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (content && detectedTypeField) {
           const contentType = classify(content);
           detectedTypeField.value = contentType;
+          
+          // Announce the classification result
+          if (contentType === 'url') {
+            announceToScreenReader('Link detected');
+          } else {
+            announceToScreenReader('Plain text detected');
+          }
         }
       });
     }
