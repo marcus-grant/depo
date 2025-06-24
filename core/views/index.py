@@ -1,6 +1,7 @@
 # core/views/index.py
 import logging
 
+from django.conf import settings
 from django.http import HttpRequest, HttpResponseBadRequest
 from django.shortcuts import render
 
@@ -29,14 +30,14 @@ def web_index(req: HttpRequest):
     if req.method == "POST":
         content = req.POST.get("content")
         if not content:
-            props = {"error": "Content is required"}
+            props = {"error": "Content is required", "settings": settings}
             return HttpResponseBadRequest(render(req, "index.html", props))
         try:
             link = LinkItem.ensure(content)
             item = link.item
         except Exception as e:
-            return render(req, "index.html", {"error": e})
+            return render(req, "index.html", {"error": e, "settings": settings})
         # TODO: Implement created and error
-        return render(req, "index.html", {"item": item})
+        return render(req, "index.html", {"item": item, "settings": settings})
     else:
-        return render(req, "index.html")
+        return render(req, "index.html", {"settings": settings})

@@ -51,7 +51,11 @@ SUPERUSER_EMAIL = env("DEPO_SUPERUSER_EMAIL", default="admin@example.com")  # ty
 SUPERUSER_PASS = env("DEPO_SUPERUSER_PASS", default="adminpass")  # type: ignore
 # Uploads
 UPLOAD_DIR = BASE_DIR / "uploads"
-MAX_UPLOAD_SIZE = 100 * 10**6  # Default to 100MB
+MAX_UPLOAD_SIZE = 32 * 1024 * 1024  # 32 MiB
+
+# Django file upload limits
+FILE_UPLOAD_MAX_MEMORY_SIZE = 32 * 1024 * 1024  # 32 MiB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 32 * 1024 * 1024  # 32 MiB
 # Default Django Auth
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"

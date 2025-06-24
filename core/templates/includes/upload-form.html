@@ -44,7 +44,7 @@
           </span>
         </p>
         <p>Drop images here or click to select</p>
-        <p class="is-size-7 has-text-grey">JPG, PNG up to 5MB</p>
+        <p class="is-size-7 has-text-grey">JPG, PNG up to 32 MiB</p>
       </div>
     </div>
     
@@ -58,7 +58,7 @@
       Enter text content, paste a URL, or upload an image
     </p>
     <p id="drop-zone-help" class="help is-sr-only">
-      Supported formats: JPEG, PNG. Maximum size: 5 MB
+      Supported formats: JPEG, PNG. Maximum size: 32 MiB
     </p>
   </div>
   
@@ -136,6 +136,38 @@ document.addEventListener('DOMContentLoaded', function() {
   const dropZone = document.getElementById('drop-zone');
   const fileInput = document.getElementById('file-input');
   
+  // Helper function for image type validation
+  function isValidImageType(file) {
+    return file.type === 'image/jpeg' || file.type === 'image/png';
+  }
+  
+  // Helper function for file size validation
+  function isValidFileSize(file) {
+    const maxSize = {{ settings.MAX_UPLOAD_SIZE }};
+    return file.size <= maxSize;
+  }
+  
+  // Helper function to show toast messages
+  function showToast(message) {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = 'notification is-danger';
+    toast.textContent = message;
+    toast.style.position = 'fixed';
+    toast.style.top = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '9999';
+    
+    document.body.appendChild(toast);
+    
+    // Remove after 5 seconds
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    }, 5000);
+  }
+  
   if (dropZone && fileInput) {
     // Add drag-over visual cue functionality
     dropZone.addEventListener('dragenter', function(e) {
@@ -174,6 +206,27 @@ document.addEventListener('DOMContentLoaded', function() {
         fileInput.click();
       }
     });
+    
+    // Add clipboard paste functionality
+    const contentTextarea = document.getElementById('content');
+    if (contentTextarea) {
+      contentTextarea.addEventListener('paste', function(e) {
+        const clipboardData = e.clipboardData;
+        if (clipboardData && clipboardData.files) {
+          for (let i = 0; i < clipboardData.files.length; i++) {
+            const file = clipboardData.files[i];
+            if (isValidImageType(file)) {
+              if (isValidFileSize(file)) {
+                // Valid clipboard image detected
+                console.log('Valid image pasted:', file.name, file.size);
+              } else {
+                showToast('Only JPG or PNG under 32 MiB');
+              }
+            }
+          }
+        }
+      });
+    }
   }
 });
 </script>
