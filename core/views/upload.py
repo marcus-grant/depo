@@ -160,8 +160,8 @@ def web_upload_view(request):
         if request.is_base64_image:
             try:
                 uploaded_file = convert_base64_to_file(content)
-                # Inject the file into request.FILES
-                request.FILES["image"] = uploaded_file
+                # Inject the file into request.FILES with the expected key
+                request.FILES["content"] = uploaded_file
             except ValueError as e:
                 return upload_response(
                     request, msg=f"Invalid image data: {e}", err=True, stat=400

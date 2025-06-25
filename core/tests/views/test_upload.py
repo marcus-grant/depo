@@ -340,9 +340,9 @@ class WebUploadViewPostTests(TestCase):
                 # Check that base-64 was converted to file
                 self.assertTrue(hasattr(request, "is_base64_image"))
                 self.assertTrue(request.is_base64_image)
-                self.assertIn("image", request.FILES)
+                self.assertIn("content", request.FILES)
 
-                uploaded_file = request.FILES["image"]
+                uploaded_file = request.FILES["content"]
                 self.assertEqual(uploaded_file.name, "clipboard.png")
                 self.assertEqual(uploaded_file.content_type, "image/png")
                 self.assertEqual(uploaded_file.read(), expected_bytes)
@@ -373,9 +373,9 @@ class WebUploadViewPostTests(TestCase):
                 # Check that base-64 was converted to file
                 self.assertTrue(hasattr(request, "is_base64_image"))
                 self.assertTrue(request.is_base64_image)
-                self.assertIn("image", request.FILES)
+                self.assertIn("content", request.FILES)
 
-                uploaded_file = request.FILES["image"]
+                uploaded_file = request.FILES["content"]
                 self.assertEqual(uploaded_file.name, "clipboard.jpg")
                 self.assertEqual(uploaded_file.content_type, "image/jpeg")
                 self.assertEqual(uploaded_file.read(), jpeg_bytes)
@@ -389,6 +389,67 @@ class WebUploadViewPostTests(TestCase):
 
             # POST the base-64 image
             resp = self.client.post(self.upload_url, {"content": base64_jpeg})
+
+    @override_settings(MAX_UPLOAD_SIZE=50)
+    def test_base64_image_respects_size_limits(self):
+        """Test that base-64 images are rejected when exceeding MAX_UPLOAD_SIZE"""
+        import base64
+        
+        # Create a valid PNG that's larger than 50 bytes
+        # PNG header + some extra data to make it > 50 bytes
+        large_image_bytes = b"\x89PNG\r\n\x1a\n" + b"A" * 60  # 68 bytes > 50 byte limit
+        large_b64 = base64.b64encode(large_image_bytes).decode()
+        base64_large = f"data:image/png;base64,{large_b64}"
+        
+        # POST the oversized base-64 image
+        resp = self.client.post(self.upload_url, {"content": base64_large})
+        
+        # Should return 400 error with size limit message
+        self.assertEqual(resp.status_code, 400)
+        expected_msg = "File size 68 exceeds limit of 50 bytes"
+        self.assertIn(expected_msg, resp.content.decode())
+
+    def test_base64_image_respects_type_validation(self):
+        """Test that base-64 images flow through existing type validation"""
+        import base64
+        from unittest.mock import patch
+        
+        # Create a valid PNG with proper magic bytes
+        png_bytes = b"\x89PNG\r\n\x1a\n" + b"dummy_png_data"
+        png_b64 = base64.b64encode(png_bytes).decode()
+        base64_png = f"data:image/png;base64,{png_b64}"
+        
+        with patch('core.models.pic.PicItem.ensure') as mock_ensure:
+            # Mock successful PicItem creation
+            mock_pic = mock_ensure.return_value
+            mock_pic.item.code = "TESTHASH"
+            mock_pic.format = "png"
+            
+            # POST the base-64 image
+            resp = self.client.post(self.upload_url, {"content": base64_png})
+            
+            # Should call PicItem.ensure with the decoded bytes
+            self.assertEqual(resp.status_code, 200)
+            mock_ensure.assert_called_once_with(png_bytes)
+
+    def test_base64_invalid_type_rejected(self):
+        """Test that base-64 images with invalid magic bytes are rejected"""
+        import base64
+        
+        # Create invalid image data (no proper magic bytes)
+        invalid_bytes = b"not_an_image_at_all"
+        invalid_b64 = base64.b64encode(invalid_bytes).decode()
+        base64_invalid = f"data:image/png;base64,{invalid_b64}"
+        
+        # POST the invalid base-64 image
+        resp = self.client.post(self.upload_url, {"content": base64_invalid})
+        
+        # Should return 400 error for invalid file type
+        self.assertEqual(resp.status_code, 400)
+        resp_text = resp.content.decode().lower()
+        self.assertIn("invalid", resp_text)
+        self.assertIn("type", resp_text)
+        self.assertIn("allow", resp_text)
 
 
 # =============================================================================
