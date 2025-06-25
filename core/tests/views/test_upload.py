@@ -272,6 +272,124 @@ class WebUploadViewPostTests(TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertIn("/accounts/login/", resp["Location"])
 
+    def test_base64_image_detection_flag_set_for_png(self):
+        """Test that base-64 PNG data URIs set request.is_base64_image flag"""
+        from unittest.mock import patch
+
+        # Test with a minimal base-64 PNG data URI
+        base64_png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+
+        # Mock the view to capture the request object
+        with patch(
+            "core.views.upload.web_upload_view",
+            wraps=__import__("core.views.upload").views.upload.web_upload_view,
+        ) as mock_view:
+
+            def capture_request(request):
+                # Check that the flag is set correctly
+                self.assertTrue(hasattr(request, "is_base64_image"))
+                self.assertTrue(request.is_base64_image)
+                # Call the original function
+                return mock_view.__wrapped__(request)
+
+            mock_view.side_effect = capture_request
+
+            # POST the base-64 image as content (not file upload)
+            resp = self.client.post(self.upload_url, {"content": base64_png})
+
+    def test_base64_image_detection_flag_false_for_text(self):
+        """Test that regular text content doesn't set the base-64 image flag"""
+        from unittest.mock import patch
+
+        text_content = "https://example.com"
+
+        # Mock the view to capture the request object
+        with patch(
+            "core.views.upload.web_upload_view",
+            wraps=__import__("core.views.upload").views.upload.web_upload_view,
+        ) as mock_view:
+
+            def capture_request(request):
+                # Check that the flag is set correctly
+                self.assertTrue(hasattr(request, "is_base64_image"))
+                self.assertFalse(request.is_base64_image)
+                # Call the original function
+                return mock_view.__wrapped__(request)
+
+            mock_view.side_effect = capture_request
+
+            # POST regular text content
+            resp = self.client.post(self.upload_url, {"content": text_content})
+
+    def test_base64_png_converted_to_uploaded_file(self):
+        """Test that base-64 PNG data is converted to InMemoryUploadedFile"""
+        import base64
+        from unittest.mock import patch
+
+        # Test with a minimal base-64 PNG data URI
+        base64_png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+
+        # Decode to get expected bytes
+        expected_bytes = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+        )
+
+        with patch("core.views.upload.upload_view_post") as mock_post:
+
+            def capture_request(request):
+                # Check that base-64 was converted to file
+                self.assertTrue(hasattr(request, "is_base64_image"))
+                self.assertTrue(request.is_base64_image)
+                self.assertIn("image", request.FILES)
+
+                uploaded_file = request.FILES["image"]
+                self.assertEqual(uploaded_file.name, "clipboard.png")
+                self.assertEqual(uploaded_file.content_type, "image/png")
+                self.assertEqual(uploaded_file.read(), expected_bytes)
+
+                # Return a mock response
+                from django.http import HttpResponse
+
+                return HttpResponse("OK")
+
+            mock_post.side_effect = capture_request
+
+            # POST the base-64 image
+            resp = self.client.post(self.upload_url, {"content": base64_png})
+
+    def test_base64_jpeg_converted_to_uploaded_file(self):
+        """Test that base-64 JPEG data is converted to InMemoryUploadedFile"""
+        import base64
+        from unittest.mock import patch
+
+        # Test with a minimal base-64 JPEG data URI (just the JPEG header)
+        jpeg_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF"
+        jpeg_b64 = base64.b64encode(jpeg_bytes).decode()
+        base64_jpeg = f"data:image/jpeg;base64,{jpeg_b64}"
+
+        with patch("core.views.upload.upload_view_post") as mock_post:
+
+            def capture_request(request):
+                # Check that base-64 was converted to file
+                self.assertTrue(hasattr(request, "is_base64_image"))
+                self.assertTrue(request.is_base64_image)
+                self.assertIn("image", request.FILES)
+
+                uploaded_file = request.FILES["image"]
+                self.assertEqual(uploaded_file.name, "clipboard.jpg")
+                self.assertEqual(uploaded_file.content_type, "image/jpeg")
+                self.assertEqual(uploaded_file.read(), jpeg_bytes)
+
+                # Return a mock response
+                from django.http import HttpResponse
+
+                return HttpResponse("OK")
+
+            mock_post.side_effect = capture_request
+
+            # POST the base-64 image
+            resp = self.client.post(self.upload_url, {"content": base64_jpeg})
+
 
 # =============================================================================
 # API Endpoint Tests - POST (File Uploads)

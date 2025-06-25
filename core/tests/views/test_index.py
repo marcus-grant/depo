@@ -38,4 +38,3 @@ class WebIndexViewTest(TestCase):
         response = self.client.get(self.url_index)
         expected_link = f"{self.url_login}?next={self.url_index}"
         self.assertContains(response, f'href="{expected_link}"')
-

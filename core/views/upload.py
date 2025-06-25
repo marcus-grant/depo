@@ -1,11 +1,14 @@
 # core/views/upload.py
+import base64
 import logging
 import time
+from io import BytesIO
 from typing import Optional
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.shortcuts import redirect, render
 
 from core.models.pic import PicItem
@@ -19,6 +22,44 @@ ACCEPT_EXTS = ".jpg,.jpeg,.png,.gif"
 MSG_EXIST = "File already exists"
 MSG_EMPTY = "Empty file uploaded"
 MSG_INVALID = "Invalid or unknown filetype, not allowed"
+
+
+def convert_base64_to_file(content: str) -> InMemoryUploadedFile:
+    """Convert base-64 data URI to InMemoryUploadedFile"""
+    # Extract content type and base-64 data
+    if content.startswith("data:image/png;base64,"):
+        content_type = "image/png"
+        filename = "clipboard.png"
+        b64_data = content[22:]  # Remove "data:image/png;base64," prefix
+    elif content.startswith("data:image/jpeg;base64,"):
+        content_type = "image/jpeg"
+        filename = "clipboard.jpg"
+        b64_data = content[23:]  # Remove "data:image/jpeg;base64," prefix
+    elif content.startswith("data:image/jpg;base64,"):
+        content_type = "image/jpeg"
+        filename = "clipboard.jpg"
+        b64_data = content[22:]  # Remove "data:image/jpg;base64," prefix
+    else:
+        raise ValueError("Unsupported data URI format")
+
+    # Decode base-64 data
+    try:
+        file_data = base64.b64decode(b64_data)
+    except Exception as e:
+        raise ValueError(f"Invalid base-64 data: {e}")
+
+    # Create InMemoryUploadedFile
+    file_obj = BytesIO(file_data)
+    uploaded_file = InMemoryUploadedFile(
+        file=file_obj,
+        field_name="image",
+        name=filename,
+        content_type=content_type,
+        size=len(file_data),
+        charset=None,
+    )
+
+    return uploaded_file
 
 
 # TODO: Move file byte validation to separate module
@@ -51,10 +92,15 @@ def process_file_upload(file_data: bytes) -> dict:
     pic_item = PicItem.ensure(file_data)
     fname = f"{pic_item.item.code}.{pic_item.format}"
     fpath = settings.UPLOAD_DIR / fname
-    
+
     if fpath.exists():
-        return {"success": True, "message": MSG_EXIST, "item": pic_item, "filename": fname}
-    
+        return {
+            "success": True,
+            "message": MSG_EXIST,
+            "item": pic_item,
+            "filename": fname,
+        }
+
     try:
         with open(fpath, "wb") as f:
             f.write(file_data)
@@ -62,7 +108,12 @@ def process_file_upload(file_data: bytes) -> dict:
         return {"success": True, "message": msg, "item": pic_item, "filename": fname}
     except OSError as e:
         logger.error(f"Error during upload file save: {e}")
-        return {"success": False, "message": "Error during upload file save", "status": 500, "filename": fname}
+        return {
+            "success": False,
+            "message": "Error during upload file save",
+            "status": 500,
+            "filename": fname,
+        }
 
 
 @login_required
@@ -70,17 +121,19 @@ def upload_view_post(req):
     time_start = time.time()
     logger.info("Upload initiated")
     pic_file = req.FILES.get("content")
-    
+
     if not pic_file:
         return upload_response(req, msg="No file uploaded", err=True, stat=400)
 
     file_data = pic_file.read()
     result = process_file_upload(file_data)
-    
+
     if not result["success"]:
         logger.error(result["message"])
         messages.error(req, result["message"])
-        return upload_response(req, msg=result["message"], err=True, stat=result.get("status", 400))
+        return upload_response(
+            req, msg=result["message"], err=True, stat=result.get("status", 400)
+        )
 
     time_elapsed = time.time() - time_start
     fname = result["filename"]
@@ -95,6 +148,25 @@ def web_upload_view(request):
     if method == "GET":
         return render(request, "upload.html")  # GET case
     if method == "POST":
+        # Detect base-64 image payloads in POST content
+        content = request.POST.get("content", "")
+        request.is_base64_image = (
+            content.startswith("data:image/png;base64,")
+            or content.startswith("data:image/jpeg;base64,")
+            or content.startswith("data:image/jpg;base64,")
+        )
+
+        # Convert base-64 images to uploaded files
+        if request.is_base64_image:
+            try:
+                uploaded_file = convert_base64_to_file(content)
+                # Inject the file into request.FILES
+                request.FILES["image"] = uploaded_file
+            except ValueError as e:
+                return upload_response(
+                    request, msg=f"Invalid image data: {e}", err=True, stat=400
+                )
+
         return upload_view_post(request)
     return upload_response(f"Method ({method}) not allowed", err=True, stat=405)
 

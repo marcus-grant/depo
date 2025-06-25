@@ -145,17 +145,20 @@ class UploadFormTest(TestCase):
         """Test that thumbnail rendering and image queuing logic is present"""
         self.client.login(username="testuser", password="testpass")
         response = self.client.get(self.url_index)
-        
+
         # Check that thumbnail rendering logic is present
         thumbnail_checks = [
             ("thumbnail-container", "Missing thumbnail container element"),
             ("100px", "Missing 100px thumbnail size specification"),
-            ("URL.createObjectURL", "Missing URL.createObjectURL for thumbnail preview"),
+            (
+                "URL.createObjectURL",
+                "Missing URL.createObjectURL for thumbnail preview",
+            ),
             ("img.src =", "Missing image src assignment for thumbnail"),
             ("renderThumbnailAndQueue", "Missing thumbnail rendering function"),
             ("style.display = 'block'", "Missing thumbnail container display logic"),
         ]
-        
+
         for expect, msg in thumbnail_checks:
             with self.subTest(thumbnail_fragment=expect):
                 self.assertContains(response, expect, msg_prefix=msg)
@@ -164,7 +167,7 @@ class UploadFormTest(TestCase):
         """Test that content classification logic is present"""
         self.client.login(username="testuser", password="testpass")
         response = self.client.get(self.url_index)
-        
+
         # Check that classification logic is present
         classification_checks = [
             ("function classify(", "Missing classify function definition"),
@@ -174,7 +177,7 @@ class UploadFormTest(TestCase):
             ("blur", "Missing blur event handler for classification"),
             ("URL(", "Missing URL constructor for validation"),
         ]
-        
+
         for expect, msg in classification_checks:
             with self.subTest(classification_fragment=expect):
                 self.assertContains(response, expect, msg_prefix=msg)
@@ -183,17 +186,17 @@ class UploadFormTest(TestCase):
         """Test that ARIA live announcements are present"""
         self.client.login(username="testuser", password="testpass")
         response = self.client.get(self.url_index)
-        
+
         # Check that ARIA feedback logic is present
         aria_checks = [
             ("content-announcements", "Missing ARIA live region element"),
-            ("aria-live=\"polite\"", "Missing aria-live polite attribute"),
+            ('aria-live="polite"', "Missing aria-live polite attribute"),
             ("Link detected", "Missing link detection announcement"),
             ("Plain text detected", "Missing text detection announcement"),
             ("Image pasted", "Missing image paste announcement"),
             ("textContent =", "Missing announcement text assignment"),
         ]
-        
+
         for expect, msg in aria_checks:
             with self.subTest(aria_fragment=expect):
                 self.assertContains(response, expect, msg_prefix=msg)
@@ -202,7 +205,7 @@ class UploadFormTest(TestCase):
         """Test that submit button gating logic is present"""
         self.client.login(username="testuser", password="testpass")
         response = self.client.get(self.url_index)
-        
+
         # Check that submit button gating logic is present
         gating_checks = [
             ("updateSubmitButtonState", "Missing submit button state update function"),
@@ -212,7 +215,7 @@ class UploadFormTest(TestCase):
             ("contentTextarea.value", "Missing textarea content check"),
             ("removeAttribute('disabled')", "Missing button enable logic"),
         ]
-        
+
         for expect, msg in gating_checks:
             with self.subTest(gating_fragment=expect):
                 self.assertContains(response, expect, msg_prefix=msg)
