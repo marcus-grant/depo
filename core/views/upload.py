@@ -75,18 +75,18 @@ def classify_content_type(request) -> str:
 
 
 def convert_base64_to_file(content: str) -> InMemoryUploadedFile:
-    """Convert base-64 data URI to InMemoryUploadedFile"""
+    """Convert base-64 data URI to InMemoryUploadedFile with security validation"""
     # Extract content type and base-64 data
     if content.startswith("data:image/png;base64,"):
-        content_type = "image/png"
+        claimed_type = "image/png"
         filename = "clipboard.png"
         b64_data = content[22:]  # Remove "data:image/png;base64," prefix
     elif content.startswith("data:image/jpeg;base64,"):
-        content_type = "image/jpeg"
+        claimed_type = "image/jpeg"
         filename = "clipboard.jpg"
         b64_data = content[23:]  # Remove "data:image/jpeg;base64," prefix
     elif content.startswith("data:image/jpg;base64,"):
-        content_type = "image/jpeg"
+        claimed_type = "image/jpeg"
         filename = "clipboard.jpg"
         b64_data = content[22:]  # Remove "data:image/jpg;base64," prefix
     else:
@@ -98,13 +98,37 @@ def convert_base64_to_file(content: str) -> InMemoryUploadedFile:
     except Exception as e:
         raise ValueError(f"Invalid base-64 data: {e}")
 
+    # Security hardening: Verify MIME type matches actual image data using Pillow
+    try:
+        from PIL import Image
+
+        image = Image.open(BytesIO(file_data))
+        actual_format = image.format.lower() if image.format else None
+
+        # Map claimed type to expected format
+        expected_format = None
+        if claimed_type == "image/png":
+            expected_format = "png"
+        elif claimed_type in ["image/jpeg", "image/jpg"]:
+            expected_format = "jpeg"
+
+        # Verify match
+        if actual_format != expected_format:
+            raise ValueError(
+                f"MIME type mismatch: claimed {claimed_type} but actual format is {actual_format}"
+            )
+    except ImportError:
+        # CRITICAL: Pillow not available - this is a security issue on production
+        raise ValueError("Image validation unavailable - server configuration error")
+    except Exception as e:
+        raise ValueError(f"Invalid image data: {e}")
     # Create InMemoryUploadedFile
     file_obj = BytesIO(file_data)
     uploaded_file = InMemoryUploadedFile(
         file=file_obj,
         field_name="image",
         name=filename,
-        content_type=content_type,
+        content_type=claimed_type,
         size=len(file_data),
         charset=None,
     )
@@ -208,6 +232,15 @@ def web_upload_view(request):
 
         # Convert base-64 images to uploaded files
         if request.is_base64_image:
+            # Security hardening: Check size before decode
+            max_base64_size = getattr(settings, "MAX_BASE64_SIZE", 8 * 1024 * 1024)
+            if len(content) > max_base64_size:
+                logger.warning(
+                    f"Base-64 upload rejected: size {len(content)} exceeds limit {max_base64_size}"
+                )
+                return upload_response(
+                    request, msg="Image too large", err=True, stat=400
+                )
             try:
                 uploaded_file = convert_base64_to_file(content)
                 # Inject the file into request.FILES with the expected key

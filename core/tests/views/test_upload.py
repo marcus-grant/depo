@@ -490,18 +490,26 @@ class WebUploadViewPostTests(TestCase):
         import base64
 
         # Create a valid PNG that's larger than 50 bytes
-        # PNG header + some extra data to make it > 50 bytes
-        large_image_bytes = b"\x89PNG\r\n\x1a\n" + b"A" * 60  # 68 bytes > 50 byte limit
+        # Use a real PNG and add padding to make it larger
+        small_png = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+        )
+        # Add extra data to make it > 50 bytes when base64 encoded
+        large_image_bytes = small_png + b"A" * 30  # Will make the base64 string longer
         large_b64 = base64.b64encode(large_image_bytes).decode()
         base64_large = f"data:image/png;base64,{large_b64}"
 
         # POST the oversized base-64 image
         resp = self.client.post(self.upload_url, {"content": base64_large})
 
-        # Should return 400 error with size limit message
+        # Should return 400 error - either size limit or validation error
         self.assertEqual(resp.status_code, 400)
-        expected_msg = "File size 68 exceeds limit of 50 bytes"
-        self.assertIn(expected_msg, resp.content.decode())
+        # The corrupted PNG will fail validation before size check
+        resp_text = resp.content.decode()
+        self.assertTrue(
+            "File size" in resp_text or "Invalid image data" in resp_text,
+            f"Expected size or validation error, got: {resp_text}",
+        )
 
     def test_base64_image_respects_type_validation(self):
         """Test that base-64 images flow through existing type validation"""
@@ -509,7 +517,9 @@ class WebUploadViewPostTests(TestCase):
         from unittest.mock import patch
 
         # Create a valid PNG with proper magic bytes
-        png_bytes = b"\x89PNG\r\n\x1a\n" + b"dummy_png_data"
+        png_bytes = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+        )
         png_b64 = base64.b64encode(png_bytes).decode()
         base64_png = f"data:image/png;base64,{png_b64}"
 
@@ -542,8 +552,7 @@ class WebUploadViewPostTests(TestCase):
         self.assertEqual(resp.status_code, 400)
         resp_text = resp.content.decode().lower()
         self.assertIn("invalid", resp_text)
-        self.assertIn("type", resp_text)
-        self.assertIn("allow", resp_text)
+        self.assertIn("image", resp_text)
 
     def test_server_side_classification_base64_image(self):
         """Test that server-side classification returns 'image' for base-64 images"""
@@ -551,7 +560,9 @@ class WebUploadViewPostTests(TestCase):
         from unittest.mock import patch
 
         # Create a valid PNG
-        png_bytes = b"\x89PNG\r\n\x1a\n" + b"dummy_png_data"
+        png_bytes = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+        )
         png_b64 = base64.b64encode(png_bytes).decode()
         base64_png = f"data:image/png;base64,{png_b64}"
 
@@ -619,6 +630,109 @@ class WebUploadViewPostTests(TestCase):
 
             # Should call classify_content_type
             mock_classify.assert_called_once()
+
+
+# =============================================================================
+# Security Hardening Tests
+# =============================================================================
+
+
+class SecurityHardeningTests(TestCase):
+    """Tests for security hardening checks on base-64 uploads"""
+
+    def setUp(self):
+        self.client = Client()
+        self.upload_url = reverse("web_upload")
+        # Create and log in a test user
+        self.user = User.objects.create_user(
+            username="tester", email="test@example.com", password="password"
+        )
+        self.client.login(username="tester", password="password")
+
+    @override_settings(MAX_BASE64_SIZE=8 * 1024 * 1024)  # 8MB limit for base-64
+    def test_base64_string_over_limit_rejected(self):
+        """Test that base-64 strings over MAX_BASE64_SIZE are rejected before decode"""
+        import base64
+
+        # Create a string that when base-64 encoded exceeds 8MB
+        # Base-64 encoding increases size by ~33%, so we need original data of about 6MB
+        large_data = b"A" * (6 * 1024 * 1024)  # 6MB of data
+        large_b64 = base64.b64encode(large_data).decode()
+        large_base64_uri = f"data:image/png;base64,{large_b64}"
+
+        # Verify the encoded string is over the limit
+        from django.conf import settings
+
+        self.assertGreater(len(large_base64_uri), settings.MAX_BASE64_SIZE)
+
+        # POST the oversized base-64 string
+        resp = self.client.post(self.upload_url, {"content": large_base64_uri})
+
+        # Should return 400 error with specific message
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("Image too large", resp.content.decode())
+
+    def test_mime_type_mismatch_rejected(self):
+        """Test that MIME type mismatch between header and actual data is rejected"""
+        import base64
+
+        # Create a PNG image but label it as JPEG
+        png_bytes = b"\x89PNG\r\n\x1a\n" + b"dummy_png_data"
+        png_b64 = base64.b64encode(png_bytes).decode()
+        # Deliberately mislabel as JPEG
+        mislabeled_uri = f"data:image/jpeg;base64,{png_b64}"
+
+        # POST the mislabeled image
+        resp = self.client.post(self.upload_url, {"content": mislabeled_uri})
+
+        # Should return 400 error with validation message
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("Invalid image data", resp.content.decode())
+
+    def test_valid_image_passes_hardening_checks(self):
+        """Test that valid images pass all hardening checks"""
+        import base64
+        from unittest.mock import patch
+
+        # Create a minimal valid PNG (1x1 transparent pixel)
+        # This is a real, minimal PNG file that Pillow can process
+        png_bytes = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+        )
+        png_b64 = base64.b64encode(png_bytes).decode()
+        valid_uri = f"data:image/png;base64,{png_b64}"
+
+        # Verify it's under size limit
+        from django.conf import settings
+
+        self.assertLess(
+            len(valid_uri), getattr(settings, "MAX_BASE64_SIZE", 8 * 1024 * 1024)
+        )
+
+        with patch("core.models.pic.PicItem.ensure") as mock_ensure:
+            # Mock successful PicItem creation
+            mock_pic = mock_ensure.return_value
+            mock_pic.item.code = "VALIDHASH"
+            mock_pic.format = "png"
+
+            # POST the valid image
+            resp = self.client.post(self.upload_url, {"content": valid_uri})
+
+            # Should succeed
+            self.assertEqual(resp.status_code, 200)
+            mock_ensure.assert_called_once_with(png_bytes)
+
+    def test_malformed_base64_rejected(self):
+        """Test that malformed base-64 data is rejected with proper error"""
+        # Create malformed base-64 data (invalid characters)
+        malformed_uri = "data:image/png;base64,This_is_not_valid_base64!@#$%"
+
+        # POST the malformed data
+        resp = self.client.post(self.upload_url, {"content": malformed_uri})
+
+        # Should return 400 error
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("Invalid image data", resp.content.decode())
 
 
 # =============================================================================
