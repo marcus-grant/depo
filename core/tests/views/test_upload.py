@@ -12,6 +12,100 @@ from django.urls import reverse
 User = get_user_model()
 
 # =============================================================================
+# Unit Tests for Classification Functions
+# =============================================================================
+
+
+class ClassificationFunctionTests(TestCase):
+    """Unit tests for looks_like_url and classify_content_type functions"""
+
+    def test_looks_like_url_with_scheme(self):
+        """Test URL detection for strings with explicit schemes"""
+        from core.views.upload import looks_like_url
+
+        self.assertTrue(looks_like_url("https://example.com"))
+        self.assertTrue(looks_like_url("http://example.com"))
+        self.assertTrue(looks_like_url("ftp://files.example.com"))
+        self.assertTrue(looks_like_url("https://sub.domain.com/path"))
+
+    def test_looks_like_url_without_scheme(self):
+        """Test URL detection for domain-like strings without schemes"""
+        from core.views.upload import looks_like_url
+
+        self.assertTrue(looks_like_url("example.com"))
+        self.assertTrue(looks_like_url("www.example.com"))
+        self.assertTrue(looks_like_url("sub.domain.co.uk"))
+        self.assertTrue(looks_like_url("api.service.io"))
+
+    def test_looks_like_url_false_cases(self):
+        """Test that non-URL strings return False"""
+        from core.views.upload import looks_like_url
+
+        self.assertFalse(looks_like_url("Hello world"))
+        self.assertFalse(looks_like_url("just text"))
+        self.assertFalse(looks_like_url("no.dots.but.not.a.url really"))
+        self.assertFalse(looks_like_url(""))
+        self.assertFalse(looks_like_url("   "))
+        self.assertFalse(looks_like_url(None))
+
+    def test_classify_content_type_base64_image(self):
+        """Test classification returns 'image' for base-64 images"""
+        from core.views.upload import classify_content_type
+        from unittest.mock import MagicMock
+
+        # Mock request with base-64 image flag
+        request = MagicMock()
+        request.is_base64_image = True
+        request.FILES = {}
+        request.POST.get.return_value = ""
+
+        result = classify_content_type(request)
+        self.assertEqual(result, "image")
+
+    def test_classify_content_type_uploaded_file(self):
+        """Test classification returns 'image' for file uploads"""
+        from core.views.upload import classify_content_type
+        from unittest.mock import MagicMock
+
+        # Mock request with uploaded file
+        request = MagicMock()
+        request.is_base64_image = False
+        request.FILES = {"content": MagicMock()}
+        request.POST.get.return_value = ""
+
+        result = classify_content_type(request)
+        self.assertEqual(result, "image")
+
+    def test_classify_content_type_url(self):
+        """Test classification returns 'url' for URL-like content"""
+        from core.views.upload import classify_content_type
+        from unittest.mock import MagicMock
+
+        # Mock request with URL content
+        request = MagicMock()
+        request.is_base64_image = False
+        request.FILES = {}
+        request.POST.get.return_value = "https://example.com"
+
+        result = classify_content_type(request)
+        self.assertEqual(result, "url")
+
+    def test_classify_content_type_text(self):
+        """Test classification returns 'text' for plain text content"""
+        from core.views.upload import classify_content_type
+        from unittest.mock import MagicMock
+
+        # Mock request with text content
+        request = MagicMock()
+        request.is_base64_image = False
+        request.FILES = {}
+        request.POST.get.return_value = "Hello world, this is plain text"
+
+        result = classify_content_type(request)
+        self.assertEqual(result, "text")
+
+
+# =============================================================================
 # Web Endpoint Tests - GET
 # =============================================================================
 
@@ -394,16 +488,16 @@ class WebUploadViewPostTests(TestCase):
     def test_base64_image_respects_size_limits(self):
         """Test that base-64 images are rejected when exceeding MAX_UPLOAD_SIZE"""
         import base64
-        
+
         # Create a valid PNG that's larger than 50 bytes
         # PNG header + some extra data to make it > 50 bytes
         large_image_bytes = b"\x89PNG\r\n\x1a\n" + b"A" * 60  # 68 bytes > 50 byte limit
         large_b64 = base64.b64encode(large_image_bytes).decode()
         base64_large = f"data:image/png;base64,{large_b64}"
-        
+
         # POST the oversized base-64 image
         resp = self.client.post(self.upload_url, {"content": base64_large})
-        
+
         # Should return 400 error with size limit message
         self.assertEqual(resp.status_code, 400)
         expected_msg = "File size 68 exceeds limit of 50 bytes"
@@ -413,21 +507,21 @@ class WebUploadViewPostTests(TestCase):
         """Test that base-64 images flow through existing type validation"""
         import base64
         from unittest.mock import patch
-        
+
         # Create a valid PNG with proper magic bytes
         png_bytes = b"\x89PNG\r\n\x1a\n" + b"dummy_png_data"
         png_b64 = base64.b64encode(png_bytes).decode()
         base64_png = f"data:image/png;base64,{png_b64}"
-        
-        with patch('core.models.pic.PicItem.ensure') as mock_ensure:
+
+        with patch("core.models.pic.PicItem.ensure") as mock_ensure:
             # Mock successful PicItem creation
             mock_pic = mock_ensure.return_value
             mock_pic.item.code = "TESTHASH"
             mock_pic.format = "png"
-            
+
             # POST the base-64 image
             resp = self.client.post(self.upload_url, {"content": base64_png})
-            
+
             # Should call PicItem.ensure with the decoded bytes
             self.assertEqual(resp.status_code, 200)
             mock_ensure.assert_called_once_with(png_bytes)
@@ -435,21 +529,96 @@ class WebUploadViewPostTests(TestCase):
     def test_base64_invalid_type_rejected(self):
         """Test that base-64 images with invalid magic bytes are rejected"""
         import base64
-        
+
         # Create invalid image data (no proper magic bytes)
         invalid_bytes = b"not_an_image_at_all"
         invalid_b64 = base64.b64encode(invalid_bytes).decode()
         base64_invalid = f"data:image/png;base64,{invalid_b64}"
-        
+
         # POST the invalid base-64 image
         resp = self.client.post(self.upload_url, {"content": base64_invalid})
-        
+
         # Should return 400 error for invalid file type
         self.assertEqual(resp.status_code, 400)
         resp_text = resp.content.decode().lower()
         self.assertIn("invalid", resp_text)
         self.assertIn("type", resp_text)
         self.assertIn("allow", resp_text)
+
+    def test_server_side_classification_base64_image(self):
+        """Test that server-side classification returns 'image' for base-64 images"""
+        import base64
+        from unittest.mock import patch
+
+        # Create a valid PNG
+        png_bytes = b"\x89PNG\r\n\x1a\n" + b"dummy_png_data"
+        png_b64 = base64.b64encode(png_bytes).decode()
+        base64_png = f"data:image/png;base64,{png_b64}"
+
+        with patch("core.views.upload.classify_content_type") as mock_classify:
+            # POST the base-64 image
+            resp = self.client.post(self.upload_url, {"content": base64_png})
+
+            # Should call classify_content_type with request
+            mock_classify.assert_called_once()
+            call_args = mock_classify.call_args[0]
+            request = call_args[0]
+
+            # Verify request has base-64 image flag and files
+            self.assertTrue(request.is_base64_image)
+            self.assertIn("content", request.FILES)
+
+    def test_server_side_classification_regular_file(self):
+        """Test that server-side classification returns 'image' for regular file uploads"""
+        from unittest.mock import patch
+
+        # Create a regular file upload
+        upload_file = self.mock_picfile("test.png", b"\x89PNG\r\n\x1a\n")
+
+        with patch("core.views.upload.classify_content_type") as mock_classify:
+            # POST the regular file
+            resp = self.client_file_upload(upload_file)
+
+            # Should call classify_content_type with request
+            mock_classify.assert_called_once()
+            call_args = mock_classify.call_args[0]
+            request = call_args[0]
+
+            # Verify request has files but not base-64 flag
+            self.assertFalse(getattr(request, "is_base64_image", False))
+            self.assertIn("content", request.FILES)
+
+    def test_server_side_classification_url_content(self):
+        """Test that server-side classification returns 'url' for URL content"""
+        from unittest.mock import patch
+
+        url_content = "https://example.com"
+
+        with patch("core.views.upload.classify_content_type") as mock_classify:
+            # Mock the classification function to return 'url'
+            mock_classify.return_value = "url"
+
+            # POST URL content (will fail at upload stage but classification happens first)
+            resp = self.client.post(self.upload_url, {"content": url_content})
+
+            # Should call classify_content_type
+            mock_classify.assert_called_once()
+
+    def test_server_side_classification_text_content(self):
+        """Test that server-side classification returns 'text' for plain text"""
+        from unittest.mock import patch
+
+        text_content = "Hello world, this is plain text"
+
+        with patch("core.views.upload.classify_content_type") as mock_classify:
+            # Mock the classification function to return 'text'
+            mock_classify.return_value = "text"
+
+            # POST text content (will fail at upload stage but classification happens first)
+            resp = self.client.post(self.upload_url, {"content": text_content})
+
+            # Should call classify_content_type
+            mock_classify.assert_called_once()
 
 
 # =============================================================================

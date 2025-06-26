@@ -4,6 +4,7 @@ import logging
 import time
 from io import BytesIO
 from typing import Optional
+from urllib.parse import urlparse
 
 from django.conf import settings
 from django.contrib import messages
@@ -22,6 +23,55 @@ ACCEPT_EXTS = ".jpg,.jpeg,.png,.gif"
 MSG_EXIST = "File already exists"
 MSG_EMPTY = "Empty file uploaded"
 MSG_INVALID = "Invalid or unknown filetype, not allowed"
+
+
+def looks_like_url(text: str) -> bool:
+    """Check if text looks like a URL"""
+    if not text or not isinstance(text, str):
+        return False
+
+    text = text.strip()
+
+    # Try parsing as URL
+    try:
+        parsed = urlparse(text)
+        # Has scheme (http, https, ftp, etc.)
+        if parsed.scheme:
+            return True
+        # Try adding https:// and parsing again
+        parsed_with_https = urlparse(f"https://{text}")
+        # Check if it has a valid netloc (domain) and no spaces
+        if (
+            parsed_with_https.netloc
+            and "." in parsed_with_https.netloc
+            and " " not in text
+        ):
+            # Additional check: netloc should not be too long or contain obviously non-URL characters
+            netloc = parsed_with_https.netloc
+            if len(netloc) < 100 and not any(
+                char in netloc for char in [" ", "\t", "\n"]
+            ):
+                return True
+        return False
+    except Exception:
+        return False
+
+
+def classify_content_type(request) -> str:
+    """
+    Classify content type based on request data.
+    Returns 'image', 'url', or 'text'.
+    """
+    # Check if it's a base-64 image or has uploaded files
+    if getattr(request, "is_base64_image", False) or request.FILES:
+        return "image"
+
+    # Check raw input for URL vs text
+    raw_input = request.POST.get("content", "").strip()
+    if looks_like_url(raw_input):
+        return "url"
+
+    return "text"
 
 
 def convert_base64_to_file(content: str) -> InMemoryUploadedFile:
@@ -166,6 +216,11 @@ def web_upload_view(request):
                 return upload_response(
                     request, msg=f"Invalid image data: {e}", err=True, stat=400
                 )
+
+        # Classify content type for analytics/routing
+        content_type = classify_content_type(request)
+        # Store classification for potential future use
+        request.content_classification = content_type
 
         return upload_view_post(request)
     return upload_response(f"Method ({method}) not allowed", err=True, stat=405)
