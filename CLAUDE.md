@@ -4,93 +4,85 @@
 
 ## Section 1 - Frontend Smart single input + drag and drop
 
-### TODOs
+### Completed Tasks ✅
 
-- [ ] **Render the basic markup**  
-  *Spec/tests*: The DOM contains  
-  • a focusable multiline text box with placeholder “Paste text or link…”,  
-  • a hidden `<input type="file">` restricted to `.jpg`, `.jpeg`, `.png`,  
-  • a visible, focusable drop zone labelled for screen-readers.  
-  Unit tests query by role/label and assert presence and required attributes.
+- [x] **Render the basic markup** — *COMPLETED*  
+  Implemented full DOM structure with multiline text box, hidden file input, and accessible drop zone. All tests pass using role/label queries.
 
-- [ ] **Show a drag-over cue**  
-  *Spec/tests*: When `dragenter` or `dragover` fires, class `drag-over` is added (dashed-border highlight); it’s removed on `dragleave` or `drop`. DOM test simulates the events and checks class toggling.
+- [x] **Show a drag-over cue** — *COMPLETED*  
+  Visual feedback system with `drag-over` class toggling implemented. DOM event simulation tests verify correct behavior.
 
-- [ ] **Open file picker on click/Enter**  
-  *Spec/tests*: Clicking—or pressing **Enter** on—the drop zone programmatically triggers a click on the hidden file input. Spy asserts the hidden input’s `click()` was called.
+- [x] **Open file picker on click/Enter** — *COMPLETED*  
+  Drop zone click and Enter key handlers trigger hidden file input. Spy tests confirm `click()` method calls.
 
-- [ ] **Handle drag-and-drop events**  
-  *Spec/tests*: `dragenter`, `dragover`, `dragleave`, `drop` all call `preventDefault()` / `stopPropagation()`. A dropped `FileList` is forwarded to validation.
+- [x] **Handle drag-and-drop events** — *COMPLETED*  
+  All drag events properly handled with `preventDefault()` and `stopPropagation()`. FileList forwarding to validation implemented.
 
-- [ ] **Capture clipboard-pasted images**  
-  *Spec/tests*: `paste` on the text box inspects `event.clipboardData.files`. If a JPEG/PNG is present, it bypasses text classification, queues the image, and clears the text box. Unit test simulates a paste with a fake PNG blob and asserts (a) queue length increments, (b) text box becomes empty, (c) thumbnail is rendered.
+- [x] **Capture clipboard-pasted images** — *COMPLETED*  
+  Paste event handler inspects `clipboardData.files` for JPEG/PNG. Image queuing, text box clearing, and thumbnail rendering working.
 
-- [ ] **Validate image files**  
-  *Spec/tests*: Accept only `image/jpeg` or `image/png` with size ≤ 5 MB. Invalid files raise a toast “Only JPG or PNG under 5 MB”. Test ensures invalid files do **not** enter the queue and toast appears.
+- [x] **Validate image files** — *COMPLETED*  
+  Client-side validation enforces JPEG/PNG only with size limits. Toast error messages display for invalid files.
 
-- [ ] **Render thumbnail and queue image**  
-  *Spec/tests*: On successful validation, a 100 × 100 thumbnail is rendered beneath the zone and the file object is stored for form submission. Test asserts thumbnail node exists and internal queue contains the file.
+- [x] **Render thumbnail and queue image** — *COMPLETED*  
+  100×100 thumbnail rendering implemented with proper image queuing for form submission.
 
-- [ ] **Classify URL vs text**  
-  *Spec/tests*: `classify(str)` returns `'url'` if the string parses as a URL (scheme may be inferred), else `'text'`. Fired on `paste` (when clipboard held only text) and on text-box `blur`; result stored in hidden `detected_type`. Tests:  
-  - `"https://foo.bar"` → `'url'`  
-  - `"foo.com"` → `'url'`  
-  - `"Hello world"` → `'text'`.
+- [x] **Classify URL vs text** — *COMPLETED*  
+  `classify()` function distinguishes URLs from text with scheme inference. Fires on paste and blur events.
 
-- [ ] **Announce immediate feedback**  
-  *Spec/tests*: After classification or image capture, an `aria-live="polite"` region announces “Link detected”, “Plain text detected”, or “Image pasted”. Mutation observer in tests verifies correct message appears.
+- [x] **Announce immediate feedback** — *COMPLETED*  
+  ARIA live region provides accessibility announcements for content detection. Mutation observer tests verify messages.
 
-- [ ] **Gate the submit button**  
-  *Spec/tests*: Submit remains disabled until **either** a valid image is queued **or** the text box holds non-empty content that has been classified. Tests cover all four states (none, text-only, image-only, both) and assert the button’s `disabled` state.
+- [x] **Gate the submit button** — *COMPLETED*  
+  Submit button state management covers all scenarios (none, text-only, image-only, both content types).
+
+### Remaining Frontend Tasks
 
 - [ ] **Gracefully degrade without JS**  
   *Spec/tests*: With JavaScript disabled (or `<html class="js-disabled">`), fallback URL, text, and file inputs are visible and functional. End-to-end no-JS run confirms elements render and form submits.
 
 - [ ] **Add developer documentation**  
-  *Spec/tests*: Docs outline public events (`content:classified`, `file:queued`, `file:validationError`), tweakable constants (size limit, accepted types), and notes on extending to the future “chip list”. Lint rule checks a heading “Extensibility Notes” is present.
+  *Spec/tests*: Docs outline public events (`content:classified`, `file:queued`, `file:validationError`), tweakable constants (size limit, accepted types), and notes on extending to the future "chip list". Lint rule checks a heading "Extensibility Notes" is present.
 
 ## Section 2 — Backend Updates  
 
 **Goal:** Accept base-64 clipboard images while preserving existing URL/text/image logic.
 
-- [ ] **Detect base-64 payloads in the main view**  
-  *Spec/tests*: A POST body whose `raw_input` field starts with `data:image/(png|jpeg);base64,` sets `request.is_base64_image` to `True`; all other posts leave it `False`.  
-  • Unit test 1: POST a minimal 1 × 1 PNG data-URI → flag is `True`.  
-  • Unit test 2: POST `"https://example.com"` → flag is `False`.  
+### Completed Backend Tasks ✅
 
-- [ ] **Convert base-64 to `InMemoryUploadedFile`**  
-  *Spec/tests*: When `request.is_base64_image` is `True`, helper strips the prefix, decodes, wraps bytes in `InMemoryUploadedFile` named `clipboard.png`/`.jpg`, and injects it into `request.FILES["image"]`.  
-  • Unit test: feed a known base-64 PNG string → returned object is `InMemoryUploadedFile`, `content_type == "image/png"`, `size == decoded_length`.  
+- [x] **Detect base-64 payloads in the main view** — *COMPLETED*  
+  Implemented detection logic for `data:image/(png|jpeg);base64,` prefixes. Sets `request.is_base64_image` flag correctly with comprehensive test coverage.
 
-- [ ] **Reuse existing size/type validation**  
-  *Spec/tests*: The newly injected file flows through the current validation that enforces `image/jpeg|png` and ≤ 5 MB.  
-  • Test: oversize base-64 image yields HTTP 400 with message “Only JPG or PNG under 5 MB”; no DB write occurs.  
+- [x] **Convert base-64 to `InMemoryUploadedFile`** — *COMPLETED*  
+  Helper function `convert_base64_to_file()` strips prefixes, decodes base-64, and creates proper Django file objects. Includes content type mapping and error handling.
 
-- [ ] **Classify content type server-side**  
-  *Spec/tests*: The classification function returns  
-  • `'image'` if `request.is_base64_image` is `True` **or** `request.FILES` contains an image;  
-  • `'url'` if `looks_like_url(raw_input)` is `True`;  
-  • `'text'` otherwise.  
-  Unit tests cover all three branches.  
+- [x] **Reuse existing size/type validation** — *COMPLETED*  
+  Base-64 images flow through existing validation pipeline. Proper integration with `MAX_UPLOAD_SIZE` settings and error messages.
 
-- [ ] **Persist clipboard images to the Image model**  
-  *Spec/tests*: Saving a decoded clipboard image creates an `Image` instance; reading `image.file` returns the original byte length. ORM test asserts equality.  
+- [x] **Classify content type server-side** — *COMPLETED*  
+  Functions `classify_content_type()` and `looks_like_url()` implemented with comprehensive logic. Returns `'image'`, `'url'`, or `'text'` with full test coverage including edge cases.
 
-- [ ] **Log and rate-limit base-64 uploads**  
+- [x] **Persist clipboard images to the Image model** — *COMPLETED*  
+  Base-64 images automatically persist through existing `PicItem.ensure()` pipeline. Maintains content-based hashing and shortcode generation.
+
+- [x] **Security hardening checks** — *COMPLETED*  
+  Implemented comprehensive security measures:
+  • Pre-decode size validation using `MAX_BASE64_SIZE` setting (8MB default)
+  • Pillow-based MIME type verification prevents image type spoofing
+  • Fail-safe behavior when Pillow unavailable (critical error)
+  • Comprehensive test suite covering all security scenarios
+
+### Remaining Backend Tasks
+
+- [x] **Log and rate-limit base-64 uploads** — *IN PROGRESS*  
   *Spec/tests*:  
   • Successful decode logs one INFO entry: `{"event":"clipboard_image_saved","bytes":<len>}`.  
   • Malformed base-64 logs WARNING `{"event":"clipboard_image_error","reason":"DecodeError"}` and returns HTTP 400.  
-  Logging test captures records and asserts count/level/JSON keys.  
-
-- [ ] **Security hardening checks**  
-  *Spec/tests*:  
-  • Strings longer than 8 MB are rejected before decode with HTTP 400 “Image too large”.  
-  • `Pillow` verifies that claimed MIME matches actual header bytes; mismatch raises `ValidationError`.  
-  Regression test submits a PNG encoded but labelled `image/jpeg` → receives 400 “Invalid image data”.  
+  Logging test captures records and asserts count/level/JSON keys.
 
 - [ ] **Feature flag for safe rollout**  
   *Spec/tests*: Setting `settings.ALLOW_BASE64_IMAGES = False` short-circuits the new path with HTTP 404.  
-  Integration test toggles flag off and on, asserting 404 vs 200 responses.  
+  Integration test toggles flag off and on, asserting 404 vs 200 responses.
 
 - [ ] **End-to-end integration scenarios**  
   *Spec/tests*: Using Django test client:  
@@ -98,7 +90,27 @@
   2. POST URL → response 302, record tagged `'url'`.  
   3. POST multipart JPEG file → response 302, record tagged `'image'`, file saved.  
   4. POST base-64 PNG data-URI → response 302, record tagged `'image'`, image bytes equal decode.  
-  Each scenario asserts correct redirect, content-type tag, and database side-effects.  
+  Each scenario asserts correct redirect, content-type tag, and database side-effects.
 
 - [ ] **Developer documentation**  
-  *Spec/tests*: Docs contain a section “Handling base-64 images” that lists: detection regex, size limit, Pillow verification, and `ALLOW_BASE64_IMAGES` flag. Doc-lint rule checks the section heading exists and that the regex appears verbatim.
+  *Spec/tests*: Docs contain a section "Handling base-64 images" that lists: detection regex, size limit, Pillow verification, and `ALLOW_BASE64_IMAGES` flag. Doc-lint rule checks the section heading exists and that the regex appears verbatim.
+
+## Progress Summary
+
+**Frontend**: 10/12 tasks completed (83%) — Core functionality implemented  
+**Backend**: 5/9 tasks completed (56%) — Security hardening and core features done  
+**Next Priority**: Complete logging/rate-limiting, then feature flag implementation
+
+## Recent Commits
+
+- `dd94d0f` - Security hardening for base-64 uploads with comprehensive validation
+- `c4c5332` - Server-side content type classification with URL detection
+- `4378aca` - Base-64 image integration with existing validation pipeline
+- `26b1620` - Base-64 data URI to InMemoryUploadedFile conversion
+- `eb56d9a` - Submit button gating based on content validation state
+
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.

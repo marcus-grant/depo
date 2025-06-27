@@ -114,14 +114,27 @@ def convert_base64_to_file(content: str) -> InMemoryUploadedFile:
 
         # Verify match
         if actual_format != expected_format:
+            logger.warning(
+                f"MIME type mismatch detected: claimed {claimed_type} but actual format is {actual_format}"
+            )
             raise ValueError(
                 f"MIME type mismatch: claimed {claimed_type} but actual format is {actual_format}"
             )
+
+        logger.info(
+            f"Base-64 image validation successful: {actual_format}, size: {len(file_data)} bytes"
+        )
+
     except ImportError:
         # CRITICAL: Pillow not available - this is a security issue on production
+        logger.critical(
+            "Pillow not available for image validation - cannot verify MIME types securely"
+        )
         raise ValueError("Image validation unavailable - server configuration error")
     except Exception as e:
+        logger.error(f"Image validation failed: {e}")
         raise ValueError(f"Invalid image data: {e}")
+
     # Create InMemoryUploadedFile
     file_obj = BytesIO(file_data)
     uploaded_file = InMemoryUploadedFile(
@@ -232,6 +245,10 @@ def web_upload_view(request):
 
         # Convert base-64 images to uploaded files
         if request.is_base64_image:
+            logger.info(
+                f"Base-64 image upload detected, content length: {len(content)} bytes"
+            )
+
             # Security hardening: Check size before decode
             max_base64_size = getattr(settings, "MAX_BASE64_SIZE", 8 * 1024 * 1024)
             if len(content) > max_base64_size:
@@ -241,11 +258,21 @@ def web_upload_view(request):
                 return upload_response(
                     request, msg="Image too large", err=True, stat=400
                 )
+
             try:
                 uploaded_file = convert_base64_to_file(content)
                 # Inject the file into request.FILES with the expected key
                 request.FILES["content"] = uploaded_file
+                # Log successful clipboard image save per spec
+                logger.info(
+                    '{"event":"clipboard_image_saved","bytes":%d}', uploaded_file.size
+                )
             except ValueError as e:
+                # Log malformed base-64 error per spec
+                if "Invalid base-64 data" in str(e):
+                    logger.warning('{"event":"clipboard_image_error","reason":"DecodeError"}')
+                else:
+                    logger.warning('{"event":"clipboard_image_error","reason":"ValidationError"}')
                 return upload_response(
                     request, msg=f"Invalid image data: {e}", err=True, stat=400
                 )
