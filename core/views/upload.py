@@ -245,6 +245,11 @@ def web_upload_view(request):
 
         # Convert base-64 images to uploaded files
         if request.is_base64_image:
+            # Feature flag check for safe rollout
+            if not getattr(settings, "ALLOW_BASE64_IMAGES", True):
+                return upload_response(
+                    request, msg="Feature not available", err=True, stat=404
+                )
             logger.info(
                 f"Base-64 image upload detected, content length: {len(content)} bytes"
             )

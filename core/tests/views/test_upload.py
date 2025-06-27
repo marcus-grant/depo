@@ -736,6 +736,116 @@ class SecurityHardeningTests(TestCase):
 
 
 # =============================================================================
+# Feature Flag Tests
+# =============================================================================
+
+
+class FeatureFlagTests(TestCase):
+    """Tests for ALLOW_BASE64_IMAGES feature flag"""
+
+    def setUp(self):
+        self.client = Client()
+        self.upload_url = reverse("web_upload")
+        # Create and log in a test user
+        self.user = User.objects.create_user(
+            username="tester", email="test@example.com", password="password"
+        )
+        self.client.login(username="tester", password="password")
+
+    @override_settings(ALLOW_BASE64_IMAGES=False)
+    def test_base64_disabled_returns_404(self):
+        """Test that setting ALLOW_BASE64_IMAGES=False returns 404 for base-64 uploads"""
+        import base64
+
+        # Create a valid PNG
+        png_bytes = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+        )
+        png_b64 = base64.b64encode(png_bytes).decode()
+        base64_png = f"data:image/png;base64,{png_b64}"
+
+        # POST the base-64 image
+        resp = self.client.post(self.upload_url, {"content": base64_png})
+
+        # Should return 404 when feature is disabled
+        self.assertEqual(resp.status_code, 404)
+        self.assertIn("Feature not available", resp.content.decode())
+
+    @override_settings(ALLOW_BASE64_IMAGES=True)
+    def test_base64_enabled_allows_upload(self):
+        """Test that setting ALLOW_BASE64_IMAGES=True allows base-64 uploads"""
+        import base64
+        from unittest.mock import patch
+
+        # Create a valid PNG
+        png_bytes = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+        )
+        png_b64 = base64.b64encode(png_bytes).decode()
+        base64_png = f"data:image/png;base64,{png_b64}"
+
+        with patch("core.models.pic.PicItem.ensure") as mock_ensure:
+            # Mock successful PicItem creation
+            mock_pic = mock_ensure.return_value
+            mock_pic.item.code = "TESTHASH"
+            mock_pic.format = "png"
+
+            # POST the base-64 image
+            resp = self.client.post(self.upload_url, {"content": base64_png})
+
+            # Should succeed when feature is enabled
+            self.assertEqual(resp.status_code, 200)
+            mock_ensure.assert_called_once_with(png_bytes)
+
+    def test_base64_default_enabled(self):
+        """Test that base-64 uploads are enabled by default (when setting not specified)"""
+        import base64
+        from unittest.mock import patch
+
+        # Create a valid PNG
+        png_bytes = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+        )
+        png_b64 = base64.b64encode(png_bytes).decode()
+        base64_png = f"data:image/png;base64,{png_b64}"
+
+        with patch("core.models.pic.PicItem.ensure") as mock_ensure:
+            # Mock successful PicItem creation
+            mock_pic = mock_ensure.return_value
+            mock_pic.item.code = "DEFAULTHASH"
+            mock_pic.format = "png"
+
+            # POST the base-64 image (without explicit setting)
+            resp = self.client.post(self.upload_url, {"content": base64_png})
+
+            # Should succeed by default
+            self.assertEqual(resp.status_code, 200)
+            mock_ensure.assert_called_once_with(png_bytes)
+
+    @override_settings(ALLOW_BASE64_IMAGES=False)
+    def test_regular_file_uploads_unaffected_by_flag(self):
+        """Test that regular file uploads work regardless of ALLOW_BASE64_IMAGES setting"""
+        from unittest.mock import patch
+
+        # Create a regular PNG file upload
+        png_content = b"\x89PNG\r\n\x1a\n"
+        upload_file = SimpleUploadedFile("test.png", png_content, content_type="image/png")
+
+        with patch("core.models.pic.PicItem.ensure") as mock_ensure:
+            # Mock successful PicItem creation
+            mock_pic = mock_ensure.return_value
+            mock_pic.item.code = "FILEHASH"
+            mock_pic.format = "png"
+
+            # POST regular file upload
+            resp = self.client.post(self.upload_url, {"content": upload_file})
+
+            # Should succeed even when base-64 is disabled
+            self.assertEqual(resp.status_code, 200)
+            mock_ensure.assert_called_once_with(png_content)
+
+
+# =============================================================================
 # API Endpoint Tests - POST (File Uploads)
 # =============================================================================
 # The following API tests are for a DRF-based upload endpoint (e.g. /api/upload).
