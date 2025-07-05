@@ -649,9 +649,9 @@ class SecurityHardeningTests(TestCase):
         )
         self.client.login(username="tester", password="password")
 
-    @override_settings(MAX_BASE64_SIZE=8 * 1024 * 1024)  # 8MB limit for base-64
+    @override_settings(DEPO_MAX_BASE64_SIZE=8 * 1024 * 1024)  # 8MB limit for base-64
     def test_base64_string_over_limit_rejected(self):
-        """Test that base-64 strings over MAX_BASE64_SIZE are rejected before decode"""
+        """Test that base-64 strings over DEPO_MAX_BASE64_SIZE are rejected before decode"""
         import base64
 
         # Create a string that when base-64 encoded exceeds 8MB
@@ -663,7 +663,7 @@ class SecurityHardeningTests(TestCase):
         # Verify the encoded string is over the limit
         from django.conf import settings
 
-        self.assertGreater(len(large_base64_uri), settings.MAX_BASE64_SIZE)
+        self.assertGreater(len(large_base64_uri), settings.DEPO_MAX_BASE64_SIZE)
 
         # POST the oversized base-64 string
         resp = self.client.post(self.upload_url, {"content": large_base64_uri})
@@ -706,7 +706,7 @@ class SecurityHardeningTests(TestCase):
         from django.conf import settings
 
         self.assertLess(
-            len(valid_uri), getattr(settings, "MAX_BASE64_SIZE", 8 * 1024 * 1024)
+            len(valid_uri), getattr(settings, "DEPO_MAX_BASE64_SIZE", 8 * 1024 * 1024)
         )
 
         with patch("core.models.pic.PicItem.ensure") as mock_ensure:
@@ -741,7 +741,7 @@ class SecurityHardeningTests(TestCase):
 
 
 class FeatureFlagTests(TestCase):
-    """Tests for ALLOW_BASE64_IMAGES feature flag"""
+    """Tests for DEPO_ALLOW_BASE64_IMAGES feature flag"""
 
     def setUp(self):
         self.client = Client()
@@ -752,9 +752,9 @@ class FeatureFlagTests(TestCase):
         )
         self.client.login(username="tester", password="password")
 
-    @override_settings(ALLOW_BASE64_IMAGES=False)
+    @override_settings(DEPO_ALLOW_BASE64_IMAGES=False)
     def test_base64_disabled_returns_404(self):
-        """Test that setting ALLOW_BASE64_IMAGES=False returns 404 for base-64 uploads"""
+        """Test that setting DEPO_ALLOW_BASE64_IMAGES=False returns 404 for base-64 uploads"""
         import base64
 
         # Create a valid PNG
@@ -771,9 +771,9 @@ class FeatureFlagTests(TestCase):
         self.assertEqual(resp.status_code, 404)
         self.assertIn("Feature not available", resp.content.decode())
 
-    @override_settings(ALLOW_BASE64_IMAGES=True)
+    @override_settings(DEPO_ALLOW_BASE64_IMAGES=True)
     def test_base64_enabled_allows_upload(self):
-        """Test that setting ALLOW_BASE64_IMAGES=True allows base-64 uploads"""
+        """Test that setting DEPO_ALLOW_BASE64_IMAGES=True allows base-64 uploads"""
         import base64
         from unittest.mock import patch
 
@@ -822,9 +822,9 @@ class FeatureFlagTests(TestCase):
             self.assertEqual(resp.status_code, 200)
             mock_ensure.assert_called_once_with(png_bytes)
 
-    @override_settings(ALLOW_BASE64_IMAGES=False)
+    @override_settings(DEPO_ALLOW_BASE64_IMAGES=False)
     def test_regular_file_uploads_unaffected_by_flag(self):
-        """Test that regular file uploads work regardless of ALLOW_BASE64_IMAGES setting"""
+        """Test that regular file uploads work regardless of DEPO_ALLOW_BASE64_IMAGES setting"""
         from unittest.mock import patch
 
         # Create a regular PNG file upload

@@ -246,7 +246,7 @@ def web_upload_view(request):
         # Convert base-64 images to uploaded files
         if request.is_base64_image:
             # Feature flag check for safe rollout
-            if not getattr(settings, "ALLOW_BASE64_IMAGES", True):
+            if not getattr(settings, "DEPO_ALLOW_BASE64_IMAGES", True):
                 return upload_response(
                     request, msg="Feature not available", err=True, stat=404
                 )
@@ -255,7 +255,7 @@ def web_upload_view(request):
             )
 
             # Security hardening: Check size before decode
-            max_base64_size = getattr(settings, "MAX_BASE64_SIZE", 8 * 1024 * 1024)
+            max_base64_size = getattr(settings, "DEPO_MAX_BASE64_SIZE", 8 * 1024 * 1024)
             if len(content) > max_base64_size:
                 logger.warning(
                     f"Base-64 upload rejected: size {len(content)} exceeds limit {max_base64_size}"

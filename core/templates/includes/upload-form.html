@@ -303,15 +303,27 @@ document.addEventListener('DOMContentLoaded', function() {
     if (contentTextarea) {
       contentTextarea.addEventListener('paste', function(e) {
         const clipboardData = e.clipboardData;
-        if (clipboardData && clipboardData.files) {
+        if (clipboardData && clipboardData.files && clipboardData.files.length > 0) {
+          // Prevent default paste behavior when we have image files
+          e.preventDefault();
+          
           for (let i = 0; i < clipboardData.files.length; i++) {
             const file = clipboardData.files[i];
             if (isValidImageType(file)) {
               if (isValidFileSize(file)) {
-                // Valid clipboard image detected - render thumbnail and queue
-                renderThumbnailAndQueue(file);
-                announceToScreenReader('Image pasted');
-                console.log('Valid image pasted:', file.name, file.size);
+                // Valid clipboard image detected - convert to base64
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                  // Set the base64 data URI in the textarea
+                  contentTextarea.value = event.target.result;
+                  // Update button state
+                  updateSubmitButtonState();
+                  // Render thumbnail for visual feedback
+                  renderThumbnailAndQueue(file);
+                  announceToScreenReader('Image pasted');
+                  console.log('Valid image pasted and converted to base64:', file.name, file.size);
+                };
+                reader.readAsDataURL(file);
               } else {
                 showToast('Only JPG or PNG under 32 MiB');
               }
