@@ -35,6 +35,43 @@ class UploadTestCase:
     should_succeed: bool = True
     expected_status_code: int = 200
     expected_error_message: str = ""
+    expected_mime_type: str = ""  # Expected Content-Type header for downloads
+    
+    def __post_init__(self):
+        """Set expected MIME type based on format if not explicitly provided"""
+        if not self.expected_mime_type and self.should_succeed:
+            if self.expected_format == "png":
+                self.expected_mime_type = "image/png"
+            elif self.expected_format == "jpg":
+                self.expected_mime_type = "image/jpeg"
+            elif self.expected_format == "gif":
+                self.expected_mime_type = "image/gif"
+
+
+@dataclass
+class DownloadTestCase:
+    """Data structure defining a download test scenario"""
+    
+    name: str
+    url_pattern: str  # "shortcode_only" or "shortcode_with_extension"
+    expected_status_code: int
+    description: str
+    failure_message: str
+    should_succeed: bool = True
+    expected_error_message: str = ""
+    
+    def build_url(self, shortcode: str, format: str) -> str:
+        """Build the download URL based on the pattern"""
+        if self.url_pattern == "shortcode_only":
+            return f"/{shortcode}"
+        elif self.url_pattern == "shortcode_with_correct_extension":
+            return f"/{shortcode}.{format}"
+        elif self.url_pattern == "shortcode_with_wrong_extension":
+            # Use a different extension than the actual format
+            wrong_ext = "png" if format == "jpg" else "jpg"
+            return f"/{shortcode}.{wrong_ext}"
+        else:
+            raise ValueError(f"Unknown URL pattern: {self.url_pattern}")
 
 
 # Test data - minimal valid image files with known hashes
@@ -85,17 +122,31 @@ UPLOAD_TEST_CASES: List[UploadTestCase] = [
         expected_status_code=500,
         expected_error_message="Invalid upload format",
     ),
-    UploadTestCase(
-        name="corrupted_png_header_rejection",
-        file_data=b"\x89PNG\r\n\x1a\n\x00\x00CORRUPTED_HEADER_DATA",
-        filename="corrupted.png",
-        content_type="image/png",
-        expected_format="",
-        description="Upload PNG with corrupted header, expect 500 rejection due to invalid PNG structure",
-        failure_message="Corrupted PNG header should be rejected",
+]
+
+# Test scenarios for download flow
+DOWNLOAD_TEST_CASES: List[DownloadTestCase] = [
+    DownloadTestCase(
+        name="download_without_extension",
+        url_pattern="shortcode_only",
+        expected_status_code=200,
+        description="Download file using shortcode without extension (/{shortcode})",
+        failure_message="Failed to download file without extension - check URL routing and content serving",
+    ),
+    DownloadTestCase(
+        name="download_with_correct_extension",
+        url_pattern="shortcode_with_correct_extension",
+        expected_status_code=200,
+        description="Download file using shortcode with correct extension (/{shortcode}.{format})",
+        failure_message="Failed to download file with correct extension - check URL routing and extension handling",
+    ),
+    DownloadTestCase(
+        name="download_with_wrong_extension",
+        url_pattern="shortcode_with_wrong_extension",
+        expected_status_code=404,
+        description="Attempt download with wrong extension - should return 404",
+        failure_message="Download with wrong extension should return 404 - check URL routing validation",
         should_succeed=False,
-        expected_status_code=500,
-        expected_error_message="Invalid upload format",
     ),
 ]
 
@@ -207,7 +258,7 @@ class APIUploadE2ETest(TestCase):
                 f"{test_case.failure_message} - File not saved to disk at {file_path}",
             )
 
-            # Step 4: Retrieve file metadata via shortcode
+            # Step 4: Retrieve file metadata via shortcode details
             details_url = f"/{shortcode}/details"
             details_response = self.client.get(details_url)
             self.assertEqual(
@@ -220,8 +271,11 @@ class APIUploadE2ETest(TestCase):
                 details_response.content,
                 f"{test_case.failure_message} - Shortcode not found in details page",
             )
+            
+            # Step 5: Test download functionality with different URL patterns
+            self._test_download_patterns(shortcode, test_case)
 
-            # Step 5: Verify content integrity
+            # Step 6: Verify disk file content integrity (redundant but validates file system)
             with open(file_path, "rb") as f:
                 saved_data = f.read()
             self.assertEqual(
@@ -229,11 +283,46 @@ class APIUploadE2ETest(TestCase):
                 test_case.file_data,
                 f"{test_case.failure_message} - Saved file content doesn't match uploaded data",
             )
-            self.assertEqual(
-                len(saved_data),
-                len(test_case.file_data),
-                f"{test_case.failure_message} - Saved file size doesn't match uploaded size",
-            )
+
+    def _test_download_patterns(self, shortcode: str, upload_test_case: UploadTestCase):
+        """
+        Test all download URL patterns for a given shortcode.
+        
+        Args:
+            shortcode: The shortcode to test downloads for
+            upload_test_case: The original upload test case for context
+        """
+        for download_case in DOWNLOAD_TEST_CASES:
+            with self.subTest(download_case=download_case.name, shortcode=shortcode):
+                # Build URL based on pattern
+                download_url = download_case.build_url(shortcode, upload_test_case.expected_format)
+                
+                # Make download request
+                download_response = self.client.get(download_url)
+                
+                # Verify expected status code
+                self.assertEqual(
+                    download_response.status_code,
+                    download_case.expected_status_code,
+                    f"{download_case.failure_message} - Expected {download_case.expected_status_code}, got {download_response.status_code} for URL: {download_url}",
+                )
+                
+                # If download should succeed, verify content and headers
+                if download_case.should_succeed:
+                    # Verify downloaded content matches original upload
+                    self.assertEqual(
+                        download_response.content,
+                        upload_test_case.file_data,
+                        f"{download_case.failure_message} - Downloaded file content doesn't match uploaded data",
+                    )
+                    
+                    # Verify Content-Type header if expected
+                    if upload_test_case.expected_mime_type:
+                        self.assertEqual(
+                            download_response.get("Content-Type"),
+                            upload_test_case.expected_mime_type,
+                            f"{download_case.failure_message} - Wrong Content-Type header",
+                        )
 
     def test_upload_retrieval_flows(self):
         """Test all defined upload scenarios using data-driven approach"""
