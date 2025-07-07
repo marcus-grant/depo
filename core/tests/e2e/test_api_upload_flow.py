@@ -63,13 +63,13 @@ class DownloadTestCase:
     def build_url(self, shortcode: str, format: str) -> str:
         """Build the download URL based on the pattern"""
         if self.url_pattern == "shortcode_only":
-            return f"/{shortcode}"
+            return f"/raw/{shortcode}"
         elif self.url_pattern == "shortcode_with_correct_extension":
-            return f"/{shortcode}.{format}"
+            return f"/raw/{shortcode}.{format}"
         elif self.url_pattern == "shortcode_with_wrong_extension":
             # Use a different extension than the actual format
             wrong_ext = "png" if format == "jpg" else "jpg"
-            return f"/{shortcode}.{wrong_ext}"
+            return f"/raw/{shortcode}.{wrong_ext}"
         else:
             raise ValueError(f"Unknown URL pattern: {self.url_pattern}")
 
@@ -130,14 +130,14 @@ DOWNLOAD_TEST_CASES: List[DownloadTestCase] = [
         name="download_without_extension",
         url_pattern="shortcode_only",
         expected_status_code=200,
-        description="Download file using shortcode without extension (/{shortcode})",
+        description="Download file using shortcode without extension (/raw/{shortcode})",
         failure_message="Failed to download file without extension - check URL routing and content serving",
     ),
     DownloadTestCase(
         name="download_with_correct_extension",
         url_pattern="shortcode_with_correct_extension",
         expected_status_code=200,
-        description="Download file using shortcode with correct extension (/{shortcode}.{format})",
+        description="Download file using shortcode with correct extension (/raw/{shortcode}.{format})",
         failure_message="Failed to download file with correct extension - check URL routing and extension handling",
     ),
     DownloadTestCase(
