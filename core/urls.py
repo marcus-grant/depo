@@ -8,6 +8,7 @@ from core.views.index import web_index
 from core.views.shortcode import (
     shortcode_details as item_details,
 )  # TODO: Rename view function
+from core.views.raw_download import raw_download_view
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -19,6 +20,11 @@ urlpatterns = [
         "<str:shortcode>/details",
         item_details,
         name="item_details",
+    ),
+    path(
+        "raw/<str:shortcode>",
+        raw_download_view,
+        name="raw_download",
     ),
     # TODO: Refactor to new upload loc
 ]
