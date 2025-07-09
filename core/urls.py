@@ -22,7 +22,7 @@ urlpatterns = [
         name="item_details",
     ),
     path(
-        "raw/<str:shortcode>",
+        "raw/<path:shortcode_with_ext>",
         raw_download_view,
         name="raw_download",
     ),
