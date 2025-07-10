@@ -24,6 +24,10 @@ def raw_download_view(request, shortcode_with_ext):
     except PicItem.DoesNotExist:
         raise Http404("File not found")
 
+    # Validate extension if provided
+    if ext and ext != pic_item.format:
+        raise Http404("Invalid file extension")
+
     # Read file from disk
     file_path = Path(settings.UPLOAD_DIR) / f"{item.code}.{pic_item.format}"
     if not file_path.exists():
@@ -32,5 +36,13 @@ def raw_download_view(request, shortcode_with_ext):
     with open(file_path, "rb") as f:
         content = f.read()
 
-    return HttpResponse(content)
+    # Determine content type
+    content_type_map = {
+        "png": "image/png",
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "gif": "image/gif",
+    }
+    content_type = content_type_map.get(pic_item.format, "application/octet-stream")
 
+    return HttpResponse(content, content_type=content_type)
