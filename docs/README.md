@@ -12,7 +12,7 @@ APIs.
 
 - [Development Setup](development.md) - Getting started with local development
 - [Testing](testing.md) - Running tests and understanding test output
-- [API Reference](api.md) - REST API endpoints and usage
+- [API & Routes Reference](api.md) - HTTP routes and REST API endpoints
 
 ### For Administrators
 
