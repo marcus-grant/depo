@@ -36,7 +36,7 @@ class UploadTestCase:
     expected_status_code: int = 200
     expected_error_message: str = ""
     expected_mime_type: str = ""  # Expected Content-Type header for downloads
-    
+
     def __post_init__(self):
         """Set expected MIME type based on format if not explicitly provided"""
         if not self.expected_mime_type and self.should_succeed:
@@ -51,7 +51,7 @@ class UploadTestCase:
 @dataclass
 class DownloadTestCase:
     """Data structure defining a download test scenario"""
-    
+
     name: str
     url_pattern: str  # "shortcode_only" or "shortcode_with_extension"
     expected_status_code: int
@@ -59,7 +59,7 @@ class DownloadTestCase:
     failure_message: str
     should_succeed: bool = True
     expected_error_message: str = ""
-    
+
     def build_url(self, shortcode: str, format: str) -> str:
         """Build the download URL based on the pattern"""
         if self.url_pattern == "shortcode_only":
@@ -76,12 +76,12 @@ class DownloadTestCase:
 
 # Test data - minimal valid image files with known hashes
 PNG_1X1_RED = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x00\x01\x00\x00\x00\x00IEND\xaeB`\x82"
-JPEG_1X1_BLACK = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.' \",#\x1c\x1c(7),01444\x1f'9=82<.342\xff\xc0\x00\x0b\x08\x00\x01\x00\x01\x01\x01\x11\x00\xff\xc4\x00\x1f\x00\x00\x01\x05\x01\x01\x01\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\xff\xc4\x00\xb5\x10\x00\x02\x01\x03\x03\x02\x04\x03\x05\x05\x04\x04\x00\x00\x01}\x01\x02\x03\x00\x04\x11\x05\x12!1A\x06\x13Qa\x07\"q\x142\x81\x91\xa1\x08#B\xb1\xc1\x15R\xd1\xf0$3br\x82\t\n\x16\x17\x18\x19\x1a%&'()*456789:CDEFGHIJSTUVWXYZcdefghijstuvwxyz\x83\x84\x85\x86\x87\x88\x89\x8a\x92\x93\x94\x95\x96\x97\x98\x99\x9a\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xfb\xd5N\xe1\x18\xd2I\xfd\xd7\xc7&\xff\xd9"
+JPG_1X1_BLK = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.' \",#\x1c\x1c(7),01444\x1f'9=82<.342\xff\xc0\x00\x0b\x08\x00\x01\x00\x01\x01\x01\x11\x00\xff\xc4\x00\x1f\x00\x00\x01\x05\x01\x01\x01\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\xff\xc4\x00\xb5\x10\x00\x02\x01\x03\x03\x02\x04\x03\x05\x05\x04\x04\x00\x00\x01}\x01\x02\x03\x00\x04\x11\x05\x12!1A\x06\x13Qa\x07\"q\x142\x81\x91\xa1\x08#B\xb1\xc1\x15R\xd1\xf0$3br\x82\t\n\x16\x17\x18\x19\x1a%&'()*456789:CDEFGHIJSTUVWXYZcdefghijstuvwxyz\x83\x84\x85\x86\x87\x88\x89\x8a\x92\x93\x94\x95\x96\x97\x98\x99\x9a\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xfb\xd5N\xe1\x18\xd2I\xfd\xd7\xc7&\xff\xd9"
 
 # Test scenarios for upload flow
 UPLOAD_TEST_CASES: List[UploadTestCase] = [
     UploadTestCase(
-        name="png_1x1_red_pixel",
+        name="png_red",
         file_data=PNG_1X1_RED,
         filename="red_pixel.png",
         content_type="image/png",
@@ -90,8 +90,8 @@ UPLOAD_TEST_CASES: List[UploadTestCase] = [
         failure_message="Failed to upload/retrieve 1x1 red PNG - check PNG header validation and file I/O",
     ),
     UploadTestCase(
-        name="jpeg_1x1_black_pixel",
-        file_data=JPEG_1X1_BLACK,
+        name="jpg_black",
+        file_data=JPG_1X1_BLK,
         filename="black_pixel.jpg",
         content_type="image/jpeg",
         expected_format="jpg",
@@ -99,7 +99,7 @@ UPLOAD_TEST_CASES: List[UploadTestCase] = [
         failure_message="Failed to upload/retrieve 1x1 black JPEG - check JPEG header validation and format detection",
     ),
     UploadTestCase(
-        name="empty_file_rejection",
+        name="empty_reject",
         file_data=b"",
         filename="empty.png",
         content_type="image/png",
@@ -111,7 +111,7 @@ UPLOAD_TEST_CASES: List[UploadTestCase] = [
         expected_error_message="No file uploaded",
     ),
     UploadTestCase(
-        name="invalid_image_data_rejection",
+        name="invalid_reject",
         file_data=b"This is not an image file at all, just plain text pretending to be PNG",
         filename="fake.png",
         content_type="image/png",
@@ -127,21 +127,21 @@ UPLOAD_TEST_CASES: List[UploadTestCase] = [
 # Test scenarios for download flow
 DOWNLOAD_TEST_CASES: List[DownloadTestCase] = [
     DownloadTestCase(
-        name="download_without_extension",
+        name="no_ext",
         url_pattern="shortcode_only",
         expected_status_code=200,
         description="Download file using shortcode without extension (/raw/{shortcode})",
         failure_message="Failed to download file without extension - check URL routing and content serving",
     ),
     DownloadTestCase(
-        name="download_with_correct_extension",
+        name="correct_ext",
         url_pattern="shortcode_with_correct_extension",
         expected_status_code=200,
         description="Download file using shortcode with correct extension (/raw/{shortcode}.{format})",
         failure_message="Failed to download file with correct extension - check URL routing and extension handling",
     ),
     DownloadTestCase(
-        name="download_with_wrong_extension",
+        name="wrong_ext",
         url_pattern="shortcode_with_wrong_extension",
         expected_status_code=404,
         description="Attempt download with wrong extension - should return 404",
@@ -271,7 +271,7 @@ class APIUploadE2ETest(TestCase):
                 details_response.content,
                 f"{test_case.failure_message} - Shortcode not found in details page",
             )
-            
+
             # Step 5: Test download functionality with different URL patterns
             self._test_download_patterns(shortcode, test_case)
 
@@ -287,7 +287,7 @@ class APIUploadE2ETest(TestCase):
     def _test_download_patterns(self, shortcode: str, upload_test_case: UploadTestCase):
         """
         Test all download URL patterns for a given shortcode.
-        
+
         Args:
             shortcode: The shortcode to test downloads for
             upload_test_case: The original upload test case for context
@@ -295,18 +295,20 @@ class APIUploadE2ETest(TestCase):
         for download_case in DOWNLOAD_TEST_CASES:
             with self.subTest(download_case=download_case.name, shortcode=shortcode):
                 # Build URL based on pattern
-                download_url = download_case.build_url(shortcode, upload_test_case.expected_format)
-                
+                download_url = download_case.build_url(
+                    shortcode, upload_test_case.expected_format
+                )
+
                 # Make download request
                 download_response = self.client.get(download_url)
-                
+
                 # Verify expected status code
                 self.assertEqual(
                     download_response.status_code,
                     download_case.expected_status_code,
                     f"{download_case.failure_message} - Expected {download_case.expected_status_code}, got {download_response.status_code} for URL: {download_url}",
                 )
-                
+
                 # If download should succeed, verify content and headers
                 if download_case.should_succeed:
                     # Verify downloaded content matches original upload
@@ -315,7 +317,7 @@ class APIUploadE2ETest(TestCase):
                         upload_test_case.file_data,
                         f"{download_case.failure_message} - Downloaded file content doesn't match uploaded data",
                     )
-                    
+
                     # Verify Content-Type header if expected
                     if upload_test_case.expected_mime_type:
                         self.assertEqual(
@@ -328,4 +330,3 @@ class APIUploadE2ETest(TestCase):
         """Test all defined upload scenarios using data-driven approach"""
         for test_case in UPLOAD_TEST_CASES:
             self._execute_upload_flow(test_case)
-
