@@ -58,7 +58,7 @@ class RawDownloadViewTests(TestCase):
     def test_download_existing_shortcode_returns_200(self):
         """Test that downloading with valid shortcode returns 200"""
         item, pic_item, test_file = self._create_test_item_and_file()
-        
+
         # Make request
         response = self.client.get(f"/raw/{self.test_code}")
 
@@ -68,7 +68,7 @@ class RawDownloadViewTests(TestCase):
     def test_download_with_correct_extension(self):
         """Test that downloading with shortcode + correct extension works"""
         item, pic_item, test_file = self._create_test_item_and_file()
-        
+
         # Test with correct extension
         response = self.client.get(f"/raw/{self.test_code}.{self.test_format}")
         self.assertEqual(response.status_code, 200)
@@ -81,7 +81,7 @@ class RawDownloadViewTests(TestCase):
         """Test that downloading returns the actual file bytes"""
         # Create test image data
         test_image = b"\x89PNG\r\n\x1a\n" + b"\x00" * 20  # Minimal PNG header
-        
+
         item, pic_item, test_file = self._create_test_item_and_file(test_image)
 
         # Make request
@@ -94,7 +94,7 @@ class RawDownloadViewTests(TestCase):
     def test_download_returns_correct_content_type(self):
         """Test that downloading returns correct Content-Type header"""
         item, pic_item, test_file = self._create_test_item_and_file()
-        
+
         # Make request
         response = self.client.get(f"/raw/{self.test_code}")
 
@@ -105,7 +105,7 @@ class RawDownloadViewTests(TestCase):
     def test_download_wrong_extension_returns_404(self):
         """Test that downloading with wrong extension returns 404"""
         item, pic_item, test_file = self._create_test_item_and_file()
-        
+
         # Request with wrong extension (jpg instead of png)
         wrong_ext = "jpg" if self.test_format == "png" else "png"
         response = self.client.get(f"/raw/{self.test_code}.{wrong_ext}")
