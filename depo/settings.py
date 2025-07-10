@@ -60,27 +60,96 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 32 * 1024 * 1024  # 32 MiB
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"
 # Logging
-# TODO: Determine if we need this, use above to define custom logger
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
+import os
+import sys
+
+# Check if we're running tests
+TESTING = 'test' in sys.argv or os.environ.get('DEPO_TESTING', '').lower() in ('1', 'true', 'yes')
+
+# Check if verbose logging is requested (for debugging)
+DEPO_VERBOSE_LOGGING = os.environ.get('DEPO_VERBOSE_LOGGING', '').lower() in ('1', 'true', 'yes')
+
+if TESTING and not DEPO_VERBOSE_LOGGING:
+    # Quiet logging by default - suppress noisy output
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "handlers": {
+            "null": {
+                "class": "logging.NullHandler",
+            },
         },
-    },
-    "root": {
-        "handlers": ["console"],
-        "level": "INFO",
-    },
-    "loggers": {
-        "core": {
+        "root": {
+            "handlers": ["null"],
+            "level": "CRITICAL",
+        },
+        "loggers": {
+            # Suppress Django's request logging (404, 500, etc.)
+            "django.request": {
+                "handlers": ["null"],
+                "level": "CRITICAL",
+                "propagate": False,
+            },
+            # Suppress Django's security logging
+            "django.security": {
+                "handlers": ["null"],
+                "level": "CRITICAL", 
+                "propagate": False,
+            },
+            # Suppress our app's logging by default
+            "core": {
+                "handlers": ["null"],
+                "level": "CRITICAL",
+                "propagate": False,
+            },
+            # Suppress specific depo loggers
+            "depo.core.views.upload": {
+                "handlers": ["null"],
+                "level": "CRITICAL",
+                "propagate": False,
+            },
+            "depo.core.views.index": {
+                "handlers": ["null"],
+                "level": "CRITICAL",
+                "propagate": False,
+            },
+            # Catch-all for any depo.* loggers
+            "depo": {
+                "handlers": ["null"],
+                "level": "CRITICAL", 
+                "propagate": False,
+            },
+        },
+    }
+    
+    # Suppress system check warnings during tests
+    SILENCED_SYSTEM_CHECKS = [
+        "staticfiles.W004",  # Missing static directory
+        "urls.W005",         # Non-unique URL namespace
+    ]
+else:
+    # Normal logging for production/development
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+            },
+        },
+        "root": {
             "handlers": ["console"],
             "level": "INFO",
-            "propagate": False,
         },
-    },
-}
+        "loggers": {
+            # All depo.* loggers (including depo.core.views.upload)
+            "depo": {
+                "handlers": ["console"],
+                "level": "INFO",
+                "propagate": False,
+            },
+        },
+    }
 
 # Default Django Vars
 INSTALLED_APPS = [
