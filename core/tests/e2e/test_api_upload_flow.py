@@ -35,10 +35,10 @@ class UploadTestCase:
     succeed: bool = True
     status: int = 200
     err_msg: str = ""
-    mime: str = ""  # Expected Content-Type header for downloads
+    mime: str = ""  # Expected Content-Type for downloads
 
     def __post_init__(self):
-        """Set expected MIME type based on format if not explicitly provided"""
+        """Set expected MIME type based on format if not provided"""
         if not self.mime and self.succeed:
             if self.fmt == "png":
                 self.mime = "image/png"
@@ -53,7 +53,7 @@ class DownloadTestCase:
     """Data structure defining a download test scenario"""
 
     name: str
-    suffix: str = ""  # String to append to /raw/{shortcode}, e.g. ".jpg"
+    suffix: str = ""  # Append to /raw/{shortcode}, e.g. ".jpg"
     expected_status_code: int = 200
     description: str = ""
     failure_message: str = ""
@@ -61,7 +61,7 @@ class DownloadTestCase:
     expected_error_message: str = ""
 
     def build_url(self, shortcode: str, format: str) -> str:
-        """Build the download URL by appending suffix"""
+        """Build download URL by appending suffix"""
         if self.suffix == ".{format}":
             return f"/raw/{shortcode}.{format}"
         elif self.suffix == ".{wrong_ext}":
@@ -85,8 +85,8 @@ UPLOAD_TEST_CASES: List[UploadTestCase] = [
         filename="red_pixel.png",
         ctype="image/png",
         fmt="png",
-        desc="Upload 1x1 red PNG pixel (70 bytes), verify hash-based filename generation and file persistence",
-        fail_msg="Failed to upload/retrieve 1x1 red PNG - check PNG header validation and file I/O",
+        desc="Upload 1x1 red PNG (70 bytes), verify hash filename & persistence",
+        fail_msg="Failed PNG upload/retrieve - check header validation & file I/O",
     ),
     UploadTestCase(
         name="jpg_black",
@@ -94,8 +94,8 @@ UPLOAD_TEST_CASES: List[UploadTestCase] = [
         filename="black_pixel.jpg",
         ctype="image/jpeg",
         fmt="jpg",
-        desc="Upload 1x1 black JPEG pixel (299 bytes), verify JPEG processing and metadata extraction",
-        fail_msg="Failed to upload/retrieve 1x1 black JPEG - check JPEG header validation and format detection",
+        desc="Upload 1x1 black JPEG (299 bytes), verify processing & metadata",
+        fail_msg="Failed JPEG upload/retrieve - check header validation & format detection",
     ),
     UploadTestCase(
         name="empty_reject",
@@ -103,7 +103,7 @@ UPLOAD_TEST_CASES: List[UploadTestCase] = [
         filename="empty.png",
         ctype="image/png",
         fmt="",
-        desc="Upload empty file (0 bytes), expect 400 rejection with 'No file uploaded' message",
+        desc="Upload empty file (0 bytes), expect 400 rejection",
         fail_msg="Empty file should be rejected with 400 status",
         succeed=False,
         status=400,
@@ -115,7 +115,7 @@ UPLOAD_TEST_CASES: List[UploadTestCase] = [
         filename="fake.png",
         ctype="image/png",
         fmt="",
-        desc="Upload text file with PNG extension, expect 500 rejection due to invalid image format",
+        desc="Upload text file with PNG ext, expect 500 rejection for invalid format",
         fail_msg="Invalid image data should be rejected with 500 status",
         succeed=False,
         status=500,
@@ -177,18 +177,18 @@ class APIUploadE2ETest(TestCase):
         Execute complete upload and retrieval flow for a test case.
 
         Steps:
-        1. POST file_data to /api/upload/ as multipart form
-        2. Verify 200 response with X-Code and X-Format headers
-        3. Verify physical file saved to UPLOAD_DIR/{hash}.{format}
+        1. POST file data to /api/upload/ as multipart form
+        2. Verify response with X-Code and X-Format headers
+        3. Verify file saved to UPLOAD_DIR/{hash}.{format}
         4. GET /{shortcode}/details to retrieve metadata
-        5. Verify shortcode appears in details page response
-        6. Verify saved file content exactly matches uploaded bytes
+        5. Verify shortcode appears in details page
+        6. Verify saved content matches uploaded bytes
 
         Args:
             test_case: UploadTestCase defining file data and expectations
 
         Raises:
-            AssertionError: If any step fails with test_case.failure_message
+            AssertionError: If any step fails with test_case.fail_msg
         """
         with self.subTest(test_case=test_case.name):
             # Step 1: Upload file via API
@@ -214,7 +214,7 @@ class APIUploadE2ETest(TestCase):
                         upload_response.content,
                         f"{test_case.fail_msg} - Expected error message '{test_case.err_msg}' not found",
                     )
-                return  # Don't proceed with retrieval flow for failure cases
+                return  # Don't proceed for failure cases
 
             # Step 2: Verify response headers and extract metadata
             self.assertIn(
@@ -266,7 +266,7 @@ class APIUploadE2ETest(TestCase):
             # Step 5: Test download functionality with different URL patterns
             self._test_download_patterns(shortcode, test_case)
 
-            # Step 6: Verify disk file content integrity (redundant but validates file system)
+            # Step 6: Verify disk file content integrity
             with open(file_path, "rb") as f:
                 saved_data = f.read()
             self.assertEqual(
@@ -285,7 +285,7 @@ class APIUploadE2ETest(TestCase):
         """
         for download_case in DOWNLOAD_TEST_CASES:
             with self.subTest(download_case=download_case.name, shortcode=shortcode):
-                # Build URL based on pattern
+                # Build URL with suffix
                 download_url = download_case.build_url(
                     shortcode, upload_test_case.fmt
                 )
@@ -297,12 +297,12 @@ class APIUploadE2ETest(TestCase):
                 self.assertEqual(
                     download_response.status_code,
                     download_case.expected_status_code,
-                    f"Download {download_case.name} failed - Expected {download_case.expected_status_code}, got {download_response.status_code} for URL: {download_url}",
+                    f"Download {download_case.name} failed - Expected {download_case.expected_status_code}, got {download_response.status_code}",
                 )
 
                 # If download should succeed, verify content and headers
                 if download_case.should_succeed:
-                    # Verify downloaded content matches original upload
+                    # Verify content matches original upload
                     self.assertEqual(
                         download_response.content,
                         upload_test_case.data,
@@ -318,6 +318,6 @@ class APIUploadE2ETest(TestCase):
                         )
 
     def test_upload_retrieval_flows(self):
-        """Test all defined upload scenarios using data-driven approach"""
+        """Test all upload scenarios using data-driven approach"""
         for test_case in UPLOAD_TEST_CASES:
             self._execute_upload_flow(test_case)
