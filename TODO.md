@@ -134,3 +134,156 @@
 - [ ] Review test coverage (aim for 95%+).
 - [ ] Document API endpoints with Swagger/OpenAPI.
 - [ ] Update deployment scripts for new dependencies (e.g., `python-magic`).
+
+---
+
+## **Web E2E Test Rewrite**
+
+### Rewrite web E2E test with proper HTML parsing
+
+- [ ] Replace string manipulation with regex pattern matching for shortcode extraction
+  - Use pattern: `r'href="/([A-Z0-9]+)/details"'` to extract shortcodes
+  - Avoids false matches from CSS or other href attributes
+- [ ] Ensure single continuous flow (not separate test methods)
+  - Guest attempt → Login → Upload files → Extract shortcodes → Download/verify → Logout
+- [ ] Fix shortcode extraction logic that currently finds wrong href values
+- [ ] Test all upload types in single flow:
+  - PNG, JPG, GIF successful uploads
+  - Base64 image upload
+  - Duplicate detection
+  - Invalid file type rejection
+  - Empty file rejection
+- [ ] Verify downloaded content matches original bytes
+- [ ] Test details page access for each upload
+- [ ] Confirm guest can download but not upload after logout
+
+---
+
+## **Rich Link Preview Implementation**
+
+### Overview
+
+Implement Open Graph protocol meta tags for rich link previews in iMessage,
+social media platforms (BlueSky, Reddit, Mastodon), and other messaging apps.
+This will enable shared links to Depo shortcodes to display rich previews with
+images, titles, and descriptions.
+
+### Reference Materials
+
+- [Apple TN2444: Best Practices for Link Previews in Messages][tn2444]
+- [Open Graph Protocol Specification][ogp]
+- [Apple TN3156: Create Rich Previews for Messages][tn3156]
+
+[tn2444]: https://developer.apple.com/library/archive/technotes/tn2444/_index.html
+[ogp]: https://ogp.me/
+[tn3156]: https://developer.apple.com/documentation/technotes/tn3156-create-rich-previews-for-messages/
+
+### Requirements Analysis
+
+Based on Apple's TN2444 and Open Graph protocol specifications:
+
+- **Required**: `og:title`, `og:type`, `og:image`, `og:url`
+- **Images**: Minimum 900px width, avoid text in images, <10MB limit
+- **Implementation**: Meta tags must be directly in HTML (no JavaScript)
+- **Total resource limit**: 1MB for main page + 10MB for sub-resources
+
+### Implementation Tasks
+
+#### 1. Update Templates & Views
+
+- [ ] **Modify `shortcode-details.html` template:**
+  - Add Open Graph meta tags in `{% block head %}`
+  - Dynamic meta tags based on content type (image/URL/text)
+  - Include `og:title`, `og:description`, `og:image`, `og:url`, `og:type`,
+    `og:site_name`
+
+- [ ] **Update `shortcode_details` view:**
+  - Enhance context to include Open Graph data
+  - Generate appropriate titles/descriptions per content type
+  - Handle image URLs, dimensions, and MIME types
+
+#### 2. Content-Specific Meta Tags
+
+- [ ] **Image Content (`ctype="pic"`):**
+  - `og:type` = "website" 
+  - `og:image` = raw download URL (`/raw/{shortcode}`)
+  - `og:title` = "Image {shortcode}" or filename if available
+  - `og:description` = "View {format} image ({size} bytes)"
+
+- [ ] **URL Content (`ctype="url"`):**
+  - `og:type` = "website"
+  - `og:title` = "Redirect to {domain}"
+  - `og:description` = "Click to visit {url}"
+  - `og:image` = default Depo logo/icon
+
+- [ ] **Text Content (`ctype="txt"`):**
+  - `og:type` = "article"
+  - `og:title` = "Text Content {shortcode}"
+  - `og:description` = First 100 chars of text content
+  - `og:image` = default Depo logo/icon
+
+#### 3. Models Enhancement
+
+- [ ] **Extend context methods:**
+  - Add `open_graph_context()` method to `Item` and child models
+  - Include computed titles, descriptions, image URLs
+  - Handle URL generation with proper domain/protocol
+
+- [ ] **PicItem enhancements:**
+  - Add image dimension detection (width/height)
+  - Ensure images meet minimum size requirements
+  - Add `og:image:width`, `og:image:height`, `og:image:type`
+
+#### 4. Static Assets
+
+- [ ] **Create default images:**
+  - Depo logo/icon (minimum 900px wide for high-res devices)
+  - Fallback image for non-image content
+  - Store in `static/images/og-defaults/`
+
+#### 5. Testing
+
+- [ ] **Unit tests:**
+  - Verify correct meta tags for each content type
+  - Test image dimensions and MIME types
+  - Validate URL generation
+
+- [ ] **E2E tests:**
+  - Test rich previews in actual messaging apps
+  - Verify meta tag rendering in production
+  - Check image loading and sizing
+
+#### 6. Configuration
+
+- [ ] **Settings additions:**
+  - `OG_SITE_NAME` = "Depo"
+  - `OG_DEFAULT_IMAGE` for fallback
+  - Domain configuration for absolute URLs
+
+### File Changes Required
+
+1. **Templates:**
+   - `core/templates/shortcode-details.html` - Add meta tags
+   - `core/templates/base.html` - Ensure proper head structure
+
+2. **Views:**
+   - `core/views/shortcode.py` - Enhanced context
+   
+3. **Models:**
+   - `core/models/item.py` - Add `open_graph_context()`
+   - `core/models/pic.py` - Add image dimensions
+
+4. **Static files:**
+   - `static/images/og-defaults/` - Default images
+
+5. **Tests:**
+   - `core/tests/views/test_open_graph.py` - New test file
+   - Update existing E2E tests
+
+### Success Criteria
+
+- [ ] Shared Depo links show rich previews in iMessage/iOS Messages
+- [ ] Image shortcodes display actual images in previews
+- [ ] Text/URL content shows appropriate fallback images
+- [ ] Meta tags comply with Open Graph specification
+- [ ] Images meet Apple's minimum size requirements (900px+)
