@@ -139,11 +139,16 @@
 
 ## **Web E2E Test Rewrite**
 
+Do all of this in a step by step flow.
+Write parts of the test that can be done first,
+then run the test and ensure it verifies the expected behavior.
+Then continue with the next part of the test.
+
 ### Rewrite web E2E test with proper HTML parsing
 
-- [ ] Replace string manipulation with regex pattern matching for shortcode extraction
-  - Use pattern: `r'href="/([A-Z0-9]+)/details"'` to extract shortcodes
-  - Avoids false matches from CSS or other href attributes
+- [ ] Replace string manipulation with deserialized HTML into objects.
+  - Use BeautifulSoup or similar library for HTML parsing.
+  - Use to create test artifacts that can be asserted against for expected specs.
 - [ ] Ensure single continuous flow (not separate test methods)
   - Guest attempt → Login → Upload files → Extract shortcodes → Download/verify → Logout
 - [ ] Fix shortcode extraction logic that currently finds wrong href values
@@ -205,7 +210,7 @@ Based on Apple's TN2444 and Open Graph protocol specifications:
 #### 2. Content-Specific Meta Tags
 
 - [ ] **Image Content (`ctype="pic"`):**
-  - `og:type` = "website" 
+  - `og:type` = "website"
   - `og:image` = raw download URL (`/raw/{shortcode}`)
   - `og:title` = "Image {shortcode}" or filename if available
   - `og:description` = "View {format} image ({size} bytes)"
@@ -268,7 +273,7 @@ Based on Apple's TN2444 and Open Graph protocol specifications:
 
 2. **Views:**
    - `core/views/shortcode.py` - Enhanced context
-   
+
 3. **Models:**
    - `core/models/item.py` - Add `open_graph_context()`
    - `core/models/pic.py` - Add image dimensions
