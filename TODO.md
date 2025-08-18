@@ -292,3 +292,94 @@ Based on Apple's TN2444 and Open Graph protocol specifications:
 - [ ] Text/URL content shows appropriate fallback images
 - [ ] Meta tags comply with Open Graph specification
 - [ ] Images meet Apple's minimum size requirements (900px+)
+
+---
+
+## **Unified Content Upload Form**
+
+**Goal:** Smart content input form that accepts URLs, text, and pasted images in a single textarea.
+
+### Frontend Remaining Tasks
+
+- [ ] **Gracefully degrade without JS**  
+  - With JavaScript disabled, fallback URL, text, and file inputs are visible and functional
+  - End-to-end no-JS run confirms elements render and form submits
+
+- [ ] **Add developer documentation**  
+  - Document public events (`content:classified`, `file:queued`, `file:validationError`)
+  - Document tweakable constants (size limit, accepted types)
+  - Add notes on extending to the future "chip list"
+
+### Backend Remaining Tasks
+
+- [ ] **Developer documentation**  
+  - Document "Handling base-64 images" section
+  - Include: detection regex, size limit, Pillow verification, `ALLOW_BASE64_IMAGES` flag
+
+### End-to-End Integration & Testing
+
+#### Core Integration Scenarios
+
+- [ ] **Basic content type routing**
+  - POST plain text → response 302 redirect, DB record tagged `'text'`
+  - POST URL → response 302 redirect, DB record tagged `'url'`  
+  - POST multipart JPEG file → response 302 redirect, DB record tagged `'image'`, file saved to disk
+  - POST base-64 PNG data-URI → response 302 redirect, DB record tagged `'image'`, image bytes match decode
+
+#### Browser-Level Integration Testing
+
+- [ ] **Frontend JavaScript functionality**
+  - Real browser testing (Selenium/Playwright) for:
+    - Drag and drop file handling with real files
+    - Clipboard paste events with actual images  
+    - Form submission and response handling
+    - Error display and user feedback
+    - Progressive enhancement without JavaScript
+
+- [ ] **Cross-browser compatibility**
+  - Chrome/Firefox/Safari desktop and mobile
+  - File API support and fallbacks
+  - Clipboard API variations
+  - Form submission edge cases
+
+#### System Integration Testing
+
+- [ ] **File system integration**
+  - Actual file writes to `UPLOAD_DIR`
+  - File permissions and disk space handling
+  - Concurrent upload scenarios
+  - File cleanup and management
+
+- [ ] **Database integration**
+  - `PicItem.ensure()` with actual file hashing
+  - Content type persistence and retrieval
+  - Database constraints and error handling
+  - Migration compatibility
+
+#### Performance & Load Testing
+
+- [ ] **Upload performance benchmarks**
+  - Large file upload handling (up to MAX_UPLOAD_SIZE)
+  - Base-64 encoding/decoding performance
+  - Concurrent upload capacity
+  - Memory usage patterns
+
+#### Security Integration Testing
+
+- [ ] **End-to-end security validation**
+  - File type spoofing attempts with real malicious files
+  - Size limit enforcement under load
+  - CSRF protection with real browser sessions
+  - Authentication and authorization flows
+
+### Implementation Details
+
+**Key features already implemented:**
+- Base-64 clipboard image detection using `data:image/(png|jpeg|jpg);base64,` regex patterns
+- Security hardening with pre-decode size limits (`MAX_BASE64_SIZE` setting, 8MB default)
+- Pillow-based MIME type verification to prevent image spoofing attacks
+- Structured JSON logging for clipboard operations
+- Feature flag implementation (`ALLOW_BASE64_IMAGES`) for safe production rollout
+- Server-side content classification logic
+- Base-64 to `InMemoryUploadedFile` conversion pipeline with error handling
+- Integration with existing validation and persistence through `PicItem.ensure()`
