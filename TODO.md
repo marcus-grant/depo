@@ -1,5 +1,18 @@
 # Depo API Implementation Checklist
 
+## Current Tasks
+
+**Active Task**: E2E Web Test Rewrite - File Upload Tests
+- Need to create `core/tests/fixtures.py` module to consolidate test image constants
+  - Extract PNG_DATA, JPEG_DATA from `test_api_upload_simple.py`
+  - Add GIF_DATA, PNG_DATA_RED, PNG_BASE64 constants
+  - Include magic bytes and invalid file constants
+- Then implement file upload tests in `test_web_user_journey.py`:
+  - Successful uploads: PNG, JPG, GIF
+  - Invalid file rejection: .txt, .xyz, empty files
+  - Proper shortcode extraction using BeautifulSoup
+- Currently completed: Login flow tests (guest, failed login, successful login)
+
 ## Upload Endpoint Foundation**
 
 ### Basic POST Endpoint**

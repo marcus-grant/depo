@@ -48,3 +48,8 @@ This file contains instructions and guidelines for Claude when working on the De
 - This is a Django file-sharing application called "Depo"
 - Supports web uploads, API uploads, deduplication, and various content types
 - Current focus areas are tracked in TODO.md
+- Keep TODO.md updated:
+  - Update "Current Tasks" section when starting/stopping work
+  - Mark completed items with [x]
+  - Add new tasks as they're discovered
+  - Document progress for easy resumption
