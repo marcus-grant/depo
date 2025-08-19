@@ -9,6 +9,14 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 
+from core.tests.fixtures import (
+    PNG_MAGIC,
+    JPEG_MAGIC,
+    GIF_MAGIC_89A,
+    PNG_BASE64,
+    PNG_BASE64_DATA_URI,
+)
+
 User = get_user_model()
 
 # =============================================================================
@@ -220,15 +228,15 @@ class WebUploadViewPostTests(TestCase):
     def test_ensure_call_with_file_content(self, mock):
         """Verify PicItem.ensure is called with the exact file content."""
         mock = self.mock_ensure_pic(mock, code="DUMYHASH", fmt="png")
-        upload_file = self.mock_picfile("dummy.png", b"\x89PNG\r\n\x1a\n")
+        upload_file = self.mock_picfile("dummy.png", PNG_MAGIC)
         self.client_file_upload(upload_file)
-        mock.assert_called_once_with(b"\x89PNG\r\n\x1a\n")
+        mock.assert_called_once_with(PNG_MAGIC)
 
     @patch("core.models.pic.PicItem.ensure")
     def test_file_saved_as_hash_filename_fmt_ext(self, mock):
         """Uploaded file should be saved with a filename derived from PicItem.ensure (hash and file format)."""
         mock = self.mock_ensure_pic(mock, code="DUMYHASH", fmt="gif")
-        upload_file = self.mock_picfile("dummy.gif", b"GIF89a")
+        upload_file = self.mock_picfile("dummy.gif", GIF_MAGIC_89A)
         self.client_file_upload(upload_file)
         expected_filename = f"{mock().item.code}.{mock().format}"
         expected_filepath = self.upload_dir / expected_filename
@@ -238,7 +246,7 @@ class WebUploadViewPostTests(TestCase):
     def test_response_contains_model_details(self, mock):
         """Response should include model details (e.g., code and file format) in its plain text output."""
         mock = self.mock_ensure_pic(mock, code="DUMYHASH", fmt="jpg")
-        upload = self.mock_picfile("dummy.jpg", b"\xff\xd8\xff")
+        upload = self.mock_picfile("dummy.jpg", JPEG_MAGIC)
         resp = self.client_file_upload(upload)
         resp_text = resp.content.decode()
         self.assertIn(mock().item.code, resp_text)
@@ -248,9 +256,9 @@ class WebUploadViewPostTests(TestCase):
     def test_upload_accepts_allowed_file_types(self, mock):
         """Allowed file types (jpg, png, gif) should be processed correctly."""
         mock = self.mock_ensure_pic(mock)
-        file_jpg = self.mock_picfile("t.jpg", b"\xff\xd8\xff")
-        file_png = self.mock_picfile("t.png", b"\x89PNG\r\n\x1a\n")
-        file_gif = self.mock_picfile("t.gif", b"GIF89a")
+        file_jpg = self.mock_picfile("t.jpg", JPEG_MAGIC)
+        file_png = self.mock_picfile("t.png", PNG_MAGIC)
+        file_gif = self.mock_picfile("t.gif", GIF_MAGIC_89A)
         resp_jpg = self.client_file_upload(file_jpg)
         resp_png = self.client_file_upload(file_png)
         resp_gif = self.client_file_upload(file_gif)
@@ -287,7 +295,7 @@ class WebUploadViewPostTests(TestCase):
     def test_file_write_error_returns_server_error(self, mock):
         """Simulate a file write error to ensure a 500 error is returned."""
         mock = self.mock_ensure_pic(mock, code="ERRHASH", fmt="jpg")
-        upload = self.mock_picfile("dummy.jpg", b"\xff\xd8\xff")
+        upload = self.mock_picfile("dummy.jpg", JPEG_MAGIC)
         with patch("core.views.upload.open", side_effect=OSError("Disk error")):
             resp = self.client_file_upload(upload)
         self.assertEqual(resp.status_code, 500)
@@ -300,7 +308,7 @@ class WebUploadViewPostTests(TestCase):
     def test_successful_upload_returns_custom_headers(self, mock):
         """Upon a successful upload, the response HTML should include a success message and detail link."""
         mock = self.mock_ensure_pic(mock, code="HEADERHASH", fmt="png")
-        upload = self.mock_picfile("test.png", b"\x89PNG\r\n\x1a\n")
+        upload = self.mock_picfile("test.png", PNG_MAGIC)
         resp = self.client_file_upload(upload)
         expected_filename = f"{mock().item.code}.{mock().format}"
         self.assertEqual(resp.status_code, 200)
@@ -351,7 +359,7 @@ class WebUploadViewPostTests(TestCase):
         it should be saved using a safe, hashed filename.
         """
         mock = self.mock_ensure_pic(mock, code="SAFEHASH", fmt="png")
-        upload = self.mock_picfile("../../evil.jpg", b"\x89PNG\r\n\x1a\n")
+        upload = self.mock_picfile("../../evil.jpg", PNG_MAGIC)
         resp = self.client_file_upload(upload)
         self.assertEqual(resp.status_code, 200)
         self.assertIn("SAFEHASH.png", resp.content.decode())
@@ -359,7 +367,7 @@ class WebUploadViewPostTests(TestCase):
 
     def test_upload_without_authentication(self):
         """If a user is not authenticated, the upload request should redirect to the login page."""
-        content = b"\x89PNG\r\n\x1a\n"
+        content = PNG_MAGIC
         upload_file = self.mock_picfile("test.png", content)
         self.client.logout()
         resp = self.client.post(self.upload_url, {"content": upload_file})
@@ -371,7 +379,7 @@ class WebUploadViewPostTests(TestCase):
         from unittest.mock import patch
 
         # Test with a minimal base-64 PNG data URI
-        base64_png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+        base64_png = PNG_BASE64_DATA_URI
 
         # Mock the view to capture the request object
         with patch(
@@ -421,12 +429,10 @@ class WebUploadViewPostTests(TestCase):
         from unittest.mock import patch
 
         # Test with a minimal base-64 PNG data URI
-        base64_png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+        base64_png = PNG_BASE64_DATA_URI
 
         # Decode to get expected bytes
-        expected_bytes = base64.b64decode(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
-        )
+        expected_bytes = base64.b64decode(PNG_BASE64)
 
         with patch("core.views.upload.upload_view_post") as mock_post:
 
@@ -491,9 +497,7 @@ class WebUploadViewPostTests(TestCase):
 
         # Create a valid PNG that's larger than 50 bytes
         # Use a real PNG and add padding to make it larger
-        small_png = base64.b64decode(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
-        )
+        small_png = base64.b64decode(PNG_BASE64)
         # Add extra data to make it > 50 bytes when base64 encoded
         large_image_bytes = small_png + b"A" * 30  # Will make the base64 string longer
         large_b64 = base64.b64encode(large_image_bytes).decode()
@@ -517,9 +521,7 @@ class WebUploadViewPostTests(TestCase):
         from unittest.mock import patch
 
         # Create a valid PNG with proper magic bytes
-        png_bytes = base64.b64decode(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
-        )
+        png_bytes = base64.b64decode(PNG_BASE64)
         png_b64 = base64.b64encode(png_bytes).decode()
         base64_png = f"data:image/png;base64,{png_b64}"
 
@@ -560,9 +562,7 @@ class WebUploadViewPostTests(TestCase):
         from unittest.mock import patch
 
         # Create a valid PNG
-        png_bytes = base64.b64decode(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
-        )
+        png_bytes = base64.b64decode(PNG_BASE64)
         png_b64 = base64.b64encode(png_bytes).decode()
         base64_png = f"data:image/png;base64,{png_b64}"
 
@@ -584,7 +584,7 @@ class WebUploadViewPostTests(TestCase):
         from unittest.mock import patch
 
         # Create a regular file upload
-        upload_file = self.mock_picfile("test.png", b"\x89PNG\r\n\x1a\n")
+        upload_file = self.mock_picfile("test.png", PNG_MAGIC)
 
         with patch("core.views.upload.classify_content_type") as mock_classify:
             # POST the regular file
@@ -677,7 +677,7 @@ class SecurityHardeningTests(TestCase):
         import base64
 
         # Create a PNG image but label it as JPEG
-        png_bytes = b"\x89PNG\r\n\x1a\n" + b"dummy_png_data"
+        png_bytes = PNG_MAGIC + b"dummy_png_data"
         png_b64 = base64.b64encode(png_bytes).decode()
         # Deliberately mislabel as JPEG
         mislabeled_uri = f"data:image/jpeg;base64,{png_b64}"
@@ -696,9 +696,7 @@ class SecurityHardeningTests(TestCase):
 
         # Create a minimal valid PNG (1x1 transparent pixel)
         # This is a real, minimal PNG file that Pillow can process
-        png_bytes = base64.b64decode(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
-        )
+        png_bytes = base64.b64decode(PNG_BASE64)
         png_b64 = base64.b64encode(png_bytes).decode()
         valid_uri = f"data:image/png;base64,{png_b64}"
 
@@ -758,9 +756,7 @@ class FeatureFlagTests(TestCase):
         import base64
 
         # Create a valid PNG
-        png_bytes = base64.b64decode(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
-        )
+        png_bytes = base64.b64decode(PNG_BASE64)
         png_b64 = base64.b64encode(png_bytes).decode()
         base64_png = f"data:image/png;base64,{png_b64}"
 
@@ -778,9 +774,7 @@ class FeatureFlagTests(TestCase):
         from unittest.mock import patch
 
         # Create a valid PNG
-        png_bytes = base64.b64decode(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
-        )
+        png_bytes = base64.b64decode(PNG_BASE64)
         png_b64 = base64.b64encode(png_bytes).decode()
         base64_png = f"data:image/png;base64,{png_b64}"
 
@@ -803,9 +797,7 @@ class FeatureFlagTests(TestCase):
         from unittest.mock import patch
 
         # Create a valid PNG
-        png_bytes = base64.b64decode(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
-        )
+        png_bytes = base64.b64decode(PNG_BASE64)
         png_b64 = base64.b64encode(png_bytes).decode()
         base64_png = f"data:image/png;base64,{png_b64}"
 
@@ -828,8 +820,10 @@ class FeatureFlagTests(TestCase):
         from unittest.mock import patch
 
         # Create a regular PNG file upload
-        png_content = b"\x89PNG\r\n\x1a\n"
-        upload_file = SimpleUploadedFile("test.png", png_content, content_type="image/png")
+        png_content = PNG_MAGIC
+        upload_file = SimpleUploadedFile(
+            "test.png", png_content, content_type="image/png"
+        )
 
         with patch("core.models.pic.PicItem.ensure") as mock_ensure:
             # Mock successful PicItem creation

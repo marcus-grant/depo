@@ -1,4 +1,4 @@
-# core/pic/test.py
+# core/tests/models/test_pic.py
 
 from datetime import datetime
 from django.test import TestCase

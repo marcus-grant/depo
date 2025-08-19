@@ -7,6 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 import logging
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from core.tests.fixtures import PNG_MAGIC
 
 
 # TODO: Offload filesaving to submodule, simplifying testing to mocks
@@ -87,11 +88,11 @@ class UploadAPITest(TestCase):
         """Verify that PicItem.ensure is called with the exact file content uploaded and the response carries details in headers and body text."""
         picitem = self.pic_mock()
         mock_ensure.return_value = picitem
-        upload_file = self.mock_picfile("dummy.png", b"\x89PNG\r\n\x1a\n")
+        upload_file = self.mock_picfile("dummy.png", PNG_MAGIC)
         resp = self.client_file_upload(upload_file)
 
         # Verify ensure was called with the file content.
-        mock_ensure.assert_called_once_with(b"\x89PNG\r\n\x1a\n")
+        mock_ensure.assert_called_once_with(PNG_MAGIC)
 
         # Verify that the response is successful and non-JSON.
         self.assertEqual(resp.status_code, 200)
@@ -107,7 +108,7 @@ class UploadAPITest(TestCase):
         """Verify that if an exception occurs during file processing, a 500 error is returned."""
         # Force PicItem.ensure to raise an Exception.
         mock_ensure.side_effect = Exception("Processing error")
-        upload_file = self.mock_picfile("dummy.png", b"\x89PNG\r\n\x1a\n")
+        upload_file = self.mock_picfile("dummy.png", PNG_MAGIC)
         resp = self.client_file_upload(upload_file)
 
         self.assertEqual(resp.status_code, 500)
