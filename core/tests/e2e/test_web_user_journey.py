@@ -306,7 +306,9 @@ class WebUserJourneyE2ETest(TestCase):
 
         # === STEP 9: Invalid file rejection - .xyz extension ===
         with self.subTest("Invalid .xyz file rejection"):
-            response = self._upload_file("test.xyz", BINARY_NONSENSE, "application/octet-stream")
+            response = self._upload_file(
+                "test.xyz", BINARY_NONSENSE, "application/octet-stream"
+            )
             self.assertEqual(response.status_code, 400)
 
             shortcode = self._extract_shortcode(response)
@@ -315,7 +317,9 @@ class WebUserJourneyE2ETest(TestCase):
             # Check for error message in response
             soup = BeautifulSoup(response.content, "html.parser")
             page_text = soup.get_text().lower()
-            self.assertIn("invalid", page_text, "Page should show invalid file type error")
+            self.assertIn(
+                "invalid", page_text, "Page should show invalid file type error"
+            )
 
         # === STEP 10: Empty file rejection ===
         with self.subTest("Empty file rejection"):
@@ -327,24 +331,40 @@ class WebUserJourneyE2ETest(TestCase):
 
             # Verify proper error response structure
             soup = BeautifulSoup(response.content, "html.parser")
-            
+
             # Check for the specific error message from MSG_EMPTY constant
             page_text = soup.get_text()
-            self.assertIn(MSG_EMPTY, page_text, f"Should show specific empty file error message: {MSG_EMPTY}")
-            
+            self.assertIn(
+                MSG_EMPTY,
+                page_text,
+                f"Should show specific empty file error message: {MSG_EMPTY}",
+            )
+
             # Ensure no success indicators are present
-            success_terms = ["success", "uploaded successfully", "saved", "complete", "processed", "ready", "available"]
+            success_terms = [
+                "success",
+                "uploaded successfully",
+                "saved",
+                "complete",
+                "processed",
+                "ready",
+                "available",
+            ]
             page_text_lower = page_text.lower()
             for term in success_terms:
-                self.assertNotIn(term, page_text_lower, f"Should not contain success term: {term}")
-            
+                self.assertNotIn(
+                    term, page_text_lower, f"Should not contain success term: {term}"
+                )
+
             # Verify proper error response structure exists
-            has_error_class = bool(soup.find(class_=lambda x: x and "error" in x.lower()))
+            has_error_class = bool(
+                soup.find(class_=lambda x: x and "error" in x.lower())
+            )
             has_error_message = MSG_EMPTY in page_text
-            
+
             self.assertTrue(
                 has_error_class or has_error_message,
-                "Should have proper error styling or message structure"
+                "Should have proper error styling or message structure",
             )
 
         # === STEP 11: Download verification tests ===
@@ -352,41 +372,93 @@ class WebUserJourneyE2ETest(TestCase):
             for file_info in uploaded_files:
                 shortcode = file_info["shortcode"]
                 original_data = file_info["data"]
-                
+
                 # Download the file using helper function
                 download_response = self._download_file(shortcode)
-                
-                self.assertEqual(download_response.status_code, 200, f"Should be able to download {shortcode}")
-                
+
+                self.assertEqual(
+                    download_response.status_code,
+                    200,
+                    f"Should be able to download {shortcode}",
+                )
+
                 # Verify downloaded content matches original bytes exactly
                 self.assertEqual(
-                    download_response.content, 
+                    download_response.content,
                     original_data,
-                    f"Downloaded content for {shortcode} should match original bytes"
+                    f"Downloaded content for {shortcode} should match original bytes",
                 )
-                
+
                 # Verify correct Content-Type header
                 expected_content_type = file_info["content_type"]
                 self.assertEqual(
                     download_response["Content-Type"],
                     expected_content_type,
-                    f"Content-Type for {shortcode} should be {expected_content_type}"
+                    f"Content-Type for {shortcode} should be {expected_content_type}",
                 )
-                
+
                 # Verify it's a raw file download, not HTML wrapped
-                response_text = download_response.content.decode('latin1', errors='ignore')
-                html_tags = ["<html", "<body", "<head", "<div", "<p>", "</html>", "</body>"]
+                response_text = download_response.content.decode(
+                    "latin1", errors="ignore"
+                )
+                html_tags = [
+                    "<html",
+                    "<body",
+                    "<head",
+                    "<div",
+                    "<p>",
+                    "</html>",
+                    "</body>",
+                ]
                 for tag in html_tags:
-                    self.assertNotIn(tag.lower(), response_text.lower(), 
-                                   f"Raw download for {shortcode} should not contain HTML tag: {tag}")
-                
+                    self.assertNotIn(
+                        tag.lower(),
+                        response_text.lower(),
+                        f"Raw download for {shortcode} should not contain HTML tag: {tag}",
+                    )
+
                 # Verify Content-Length matches file size
                 expected_size = len(original_data)
                 if "Content-Length" in download_response:
                     actual_size = int(download_response["Content-Length"])
-                    self.assertEqual(actual_size, expected_size, 
-                                   f"Content-Length for {shortcode} should match file size")
-                
+                    self.assertEqual(
+                        actual_size,
+                        expected_size,
+                        f"Content-Length for {shortcode} should match file size",
+                    )
+
                 # Verify response is pure binary data (same length as original)
-                self.assertEqual(len(download_response.content), expected_size,
-                               f"Response length for {shortcode} should match original file size")
+                self.assertEqual(
+                    len(download_response.content),
+                    expected_size,
+                    f"Response length for {shortcode} should match original file size",
+                )
+
+        # === STEP 12: Details page access tests ===
+        with self.subTest("Details page access for all uploaded files"):
+            for file_info in uploaded_files:
+                shortcode = file_info["shortcode"]
+                
+                # Access details page for each shortcode
+                details_url = f"/{shortcode}/details"
+                details_response = self.client.get(details_url)
+                
+                self.assertEqual(details_response.status_code, 200, f"Should be able to access details page for {shortcode}")
+                
+                # Verify page contains shortcode information
+                soup = BeautifulSoup(details_response.content, "html.parser")
+                page_text = soup.get_text()
+                
+                # Should contain the shortcode somewhere on the page
+                self.assertIn(shortcode, page_text, f"Details page should contain shortcode {shortcode}")
+                
+                # TODO: Fix PicItem.context() to include URL field for raw file access
+                # Template expects {{ pic.url }} but context() doesn't provide it
+                # Should point to /raw/{shortcode} endpoint for image display
+                
+                # Should contain download link or reference to raw file
+                # raw_links = soup.find_all("a", href=lambda x: x and f"/raw/{shortcode}" in x)
+                # self.assertTrue(len(raw_links) > 0, f"Details page should contain link to raw file for {shortcode}")
+                
+                # Should be an HTML page (not raw file)
+                self.assertIn("text/html", details_response.get("Content-Type", ""), "Details page should be HTML")

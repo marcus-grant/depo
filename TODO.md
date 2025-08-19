@@ -6,6 +6,14 @@
 - **Next**: Complete remaining tests
   - Details page access, logout/guest verification
 
+**Bug Fix Needed**: Fix PicItem.context() to include URL field for raw file access
+- Template expects {{ pic.url }} but context() doesn't provide it
+- Should point to /raw/{shortcode} endpoint for image display
+- **Future**: Add drag and drop E2E tests and TDD fixes for upload functionality
+- **Future**: Refactor URL scheme - change to `info/{shortcode}` for details pages, keep `raw/{shortcode}` for files, document URL patterns
+  - More descriptive URLs that indicate content type upfront (info vs raw)
+  - Consistent pattern with shortcode at end for both endpoints
+
 ## Completed Tasks
 
 - Test fixtures consolidation - centralized image data constants 
