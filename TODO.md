@@ -2,15 +2,17 @@
 
 ## Current Tasks
 
-**Active Task**: E2E Web Test Rewrite - File Upload Tests
-- **Next**: Complete remaining upload tests
-  - Invalid file rejection, download verification, details page access
+**Active Task**: E2E Web Test Rewrite - Final Tests
+- **Next**: Complete remaining tests
+  - Details page access, logout/guest verification
 
 ## Completed Tasks
 
 - Test fixtures consolidation - centralized image data constants 
 - Login flow tests - guest verification, failed/successful login
 - File upload tests - PNG, JPG, GIF uploads with helper functions
+- Invalid file rejection tests - .txt, .xyz, empty files with proper error verification
+- Download verification tests - raw file downloads with content matching and no HTML
 - Upload Endpoint Foundation - basic POST endpoint with hash calculation
 - Duplicate Detection - idempotent uploads with X-Duplicate headers
 - Logging Module - DepoLogger class with PROJECT_TAG constant

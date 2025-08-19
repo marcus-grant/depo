@@ -97,6 +97,12 @@ class WebUserJourneyE2ETest(TestCase):
 
         return None
 
+    def _download_file(self, shortcode):
+        """Helper to download a file by shortcode and return the response"""
+        download_url = f"/raw/{shortcode}"
+        response = self.client.get(download_url)
+        return response
+
     def _verify_guest_index_page(self):
         """Verify index page for guest user - no upload form, login button present"""
         response = self.client.get(self.index_url)
@@ -340,3 +346,47 @@ class WebUserJourneyE2ETest(TestCase):
                 has_error_class or has_error_message,
                 "Should have proper error styling or message structure"
             )
+
+        # === STEP 11: Download verification tests ===
+        with self.subTest("Download verification - all uploaded files"):
+            for file_info in uploaded_files:
+                shortcode = file_info["shortcode"]
+                original_data = file_info["data"]
+                
+                # Download the file using helper function
+                download_response = self._download_file(shortcode)
+                
+                self.assertEqual(download_response.status_code, 200, f"Should be able to download {shortcode}")
+                
+                # Verify downloaded content matches original bytes exactly
+                self.assertEqual(
+                    download_response.content, 
+                    original_data,
+                    f"Downloaded content for {shortcode} should match original bytes"
+                )
+                
+                # Verify correct Content-Type header
+                expected_content_type = file_info["content_type"]
+                self.assertEqual(
+                    download_response["Content-Type"],
+                    expected_content_type,
+                    f"Content-Type for {shortcode} should be {expected_content_type}"
+                )
+                
+                # Verify it's a raw file download, not HTML wrapped
+                response_text = download_response.content.decode('latin1', errors='ignore')
+                html_tags = ["<html", "<body", "<head", "<div", "<p>", "</html>", "</body>"]
+                for tag in html_tags:
+                    self.assertNotIn(tag.lower(), response_text.lower(), 
+                                   f"Raw download for {shortcode} should not contain HTML tag: {tag}")
+                
+                # Verify Content-Length matches file size
+                expected_size = len(original_data)
+                if "Content-Length" in download_response:
+                    actual_size = int(download_response["Content-Length"])
+                    self.assertEqual(actual_size, expected_size, 
+                                   f"Content-Length for {shortcode} should match file size")
+                
+                # Verify response is pure binary data (same length as original)
+                self.assertEqual(len(download_response.content), expected_size,
+                               f"Response length for {shortcode} should match original file size")
