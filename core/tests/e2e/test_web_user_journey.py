@@ -27,6 +27,7 @@ from core.tests.fixtures import (
     TEXT_DATA,
     BINARY_NONSENSE,
 )
+from core.views.upload import MSG_EMPTY
 
 
 @override_settings(UPLOAD_DIR=settings.BASE_DIR / "test_uploads_web_e2e")
@@ -309,3 +310,33 @@ class WebUserJourneyE2ETest(TestCase):
             soup = BeautifulSoup(response.content, "html.parser")
             page_text = soup.get_text().lower()
             self.assertIn("invalid", page_text, "Page should show invalid file type error")
+
+        # === STEP 10: Empty file rejection ===
+        with self.subTest("Empty file rejection"):
+            response = self._upload_file("empty.png", b"", "image/png")
+            self.assertEqual(response.status_code, 400)
+
+            shortcode = self._extract_shortcode(response)
+            self.assertIsNone(shortcode, "Should not get shortcode for empty file")
+
+            # Verify proper error response structure
+            soup = BeautifulSoup(response.content, "html.parser")
+            
+            # Check for the specific error message from MSG_EMPTY constant
+            page_text = soup.get_text()
+            self.assertIn(MSG_EMPTY, page_text, f"Should show specific empty file error message: {MSG_EMPTY}")
+            
+            # Ensure no success indicators are present
+            success_terms = ["success", "uploaded successfully", "saved", "complete", "processed", "ready", "available"]
+            page_text_lower = page_text.lower()
+            for term in success_terms:
+                self.assertNotIn(term, page_text_lower, f"Should not contain success term: {term}")
+            
+            # Verify proper error response structure exists
+            has_error_class = bool(soup.find(class_=lambda x: x and "error" in x.lower()))
+            has_error_message = MSG_EMPTY in page_text
+            
+            self.assertTrue(
+                has_error_class or has_error_message,
+                "Should have proper error styling or message structure"
+            )
