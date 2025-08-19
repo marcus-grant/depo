@@ -25,9 +25,23 @@ This file contains instructions and guidelines for Claude when working on the De
 
 ### Testing Requirements
 - ALWAYS run tests before suggesting a commit
-- When implementing new features, write tests incrementally
-- Run tests after each significant change
-- Use the E2E test approach: implement → test → verify → continue
+- Follow E2E + TDD approach:
+  - E2E tests find larger missing or broken pieces
+  - TDD fills or fixes those pieces incrementally
+- TDD/E2E workflow:
+  - Build tests singularly first
+  - Ensure test fails as expected (red)
+  - Implement change to make test pass (green)
+  - Consider refactors for better solution (refactor)
+  - Move to next test when complete
+- Task management:
+  - Each test typically corresponds to a TODO task
+  - Some tasks require multiple tests
+  - After test(s) pass and refactors complete: update TODO.md, git commit
+- Implement in small steps with clear logical breaks:
+  - Add one test case or feature at a time
+  - Test immediately after each testable addition
+  - Never write massive amounts of code without testing
 
 ### Code Style
 - Follow existing patterns in the codebase
