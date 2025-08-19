@@ -296,3 +296,16 @@ class WebUserJourneyE2ETest(TestCase):
             self.assertIn(
                 "invalid", page_text, "Page should show invalid file type error"
             )
+
+        # === STEP 9: Invalid file rejection - .xyz extension ===
+        with self.subTest("Invalid .xyz file rejection"):
+            response = self._upload_file("test.xyz", BINARY_NONSENSE, "application/octet-stream")
+            self.assertEqual(response.status_code, 400)
+
+            shortcode = self._extract_shortcode(response)
+            self.assertIsNone(shortcode, "Should not get shortcode for .xyz file")
+
+            # Check for error message in response
+            soup = BeautifulSoup(response.content, "html.parser")
+            page_text = soup.get_text().lower()
+            self.assertIn("invalid", page_text, "Page should show invalid file type error")
