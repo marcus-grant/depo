@@ -20,6 +20,13 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.conf import settings
 from pathlib import Path
 from bs4 import BeautifulSoup
+from core.tests.fixtures import (
+    PNG_DATA,
+    JPEG_DATA,
+    GIF_DATA,
+    TEXT_DATA,
+    BINARY_NONSENSE,
+)
 
 
 @override_settings(UPLOAD_DIR=settings.BASE_DIR / "test_uploads_web_e2e")
@@ -54,6 +61,40 @@ class WebUserJourneyE2ETest(TestCase):
                 if file.is_file():
                     file.unlink()
             self.upload_dir.rmdir()
+
+    def _upload_file(self, filename, file_data, content_type):
+        """Helper to upload a file and return the response"""
+        uploaded_file = SimpleUploadedFile(
+            filename, file_data, content_type=content_type
+        )
+
+        response = self.client.post(
+            self.upload_url, {"content": uploaded_file}, follow=True
+        )
+        return response
+
+    def _extract_shortcode(self, response):
+        """Extract shortcode from upload response, return None if error"""
+        soup = BeautifulSoup(response.content, "html.parser")
+
+        # Check for error indicators first
+        page_text = soup.get_text().lower()
+        if "error" in page_text:
+            return None
+
+        # Look for success indicators
+        if "success" not in page_text:
+            return None
+
+        # Find the shortcode link
+        links = soup.find_all("a")
+        for link in links:
+            href = link.get("href", "")
+            # Look for links that appear to be shortcode details links
+            if "/details" in href and link.text.strip():
+                return link.text.strip()
+
+        return None
 
     def _verify_guest_index_page(self):
         """Verify index page for guest user - no upload form, login button present"""
@@ -185,4 +226,58 @@ class WebUserJourneyE2ETest(TestCase):
             )
             self.assertIsNotNone(
                 upload_form, "Upload form should be visible for authenticated users"
+            )
+
+        # Store uploaded files data for later verification
+        uploaded_files = []
+
+        # === STEP 5: Upload PNG file ===
+        with self.subTest("PNG file upload"):
+            response = self._upload_file("test.png", PNG_DATA, "image/png")
+            self.assertEqual(response.status_code, 200)
+
+            shortcode = self._extract_shortcode(response)
+            self.assertIsNotNone(shortcode, "Should get shortcode for PNG upload")
+
+            uploaded_files.append(
+                {
+                    "shortcode": shortcode,
+                    "filename": "test.png",
+                    "data": PNG_DATA,
+                    "content_type": "image/png",
+                }
+            )
+
+        # === STEP 6: Upload JPG file ===
+        with self.subTest("JPG file upload"):
+            response = self._upload_file("test.jpg", JPEG_DATA, "image/jpeg")
+            self.assertEqual(response.status_code, 200)
+
+            shortcode = self._extract_shortcode(response)
+            self.assertIsNotNone(shortcode, "Should get shortcode for JPG upload")
+
+            uploaded_files.append(
+                {
+                    "shortcode": shortcode,
+                    "filename": "test.jpg",
+                    "data": JPEG_DATA,
+                    "content_type": "image/jpeg",
+                }
+            )
+
+        # === STEP 7: Upload GIF file ===
+        with self.subTest("GIF file upload"):
+            response = self._upload_file("test.gif", GIF_DATA, "image/gif")
+            self.assertEqual(response.status_code, 200)
+
+            shortcode = self._extract_shortcode(response)
+            self.assertIsNotNone(shortcode, "Should get shortcode for GIF upload")
+
+            uploaded_files.append(
+                {
+                    "shortcode": shortcode,
+                    "filename": "test.gif",
+                    "data": GIF_DATA,
+                    "content_type": "image/gif",
+                }
             )
