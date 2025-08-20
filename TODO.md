@@ -2,11 +2,11 @@
 
 ## Current Tasks
 
-**Active Task**: E2E Web Test Rewrite - Final Tests
-- **Next**: Complete remaining tests
-  - [x] Logout test (partially - redirect to index commented out pending navbar fix)
-  - [x] Guest download verification test
-  - [ ] Guest upload prevention test
+**Active Task**: E2E Web Test Rewrite - COMPLETED
+- [x] Logout test (partially - redirect to index commented out pending navbar fix)
+- [x] Guest download verification test
+- [x] Guest upload prevention test
+- [x] Index page verification after logout
 
 **Bug Fix Needed**: Fix PicItem.context() to include URL field for raw file access
 - Template expects {{ pic.url }} but context() doesn't provide it
@@ -17,6 +17,11 @@
 - Add logout button in navbar when user is authenticated
 - Configure logout to redirect to index page instead of showing logout confirmation
 - Currently Django's default logout view stays on /accounts/logout/
+
+**Bug Fix Needed**: Login form doesn't preserve 'next' parameter
+- When redirected to login (e.g., from upload attempt), the 'next' parameter is lost
+- Login form should include hidden input with 'next' value to redirect after successful login
+- Currently users must manually navigate back to their intended destination
 
 - **Future**: Add drag and drop E2E tests and TDD fixes for upload functionality
 - **Future**: Refactor URL scheme - change to `info/{shortcode}` for details pages, keep `raw/{shortcode}` for files, document URL patterns

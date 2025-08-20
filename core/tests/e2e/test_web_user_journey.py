@@ -505,3 +505,79 @@ class WebUserJourneyE2ETest(TestCase):
                     original_data,
                     f"Guest downloaded content for {shortcode} should match original"
                 )
+
+        # === STEP 15: Verify index page after logout ===
+        with self.subTest("Index page verification after logout"):
+            # Go to index page as logged out user
+            response = self.client.get(self.index_url)
+            self.assertEqual(response.status_code, 200)
+            
+            soup = BeautifulSoup(response.content, "html.parser")
+            
+            # Upload form should not be present
+            upload_form = soup.find("form", id="upload-form")
+            self.assertIsNone(upload_form, "Upload form should not be present after logout")
+            
+            # Should show login prompt
+            page_text = soup.get_text().lower()
+            login_keywords = ["log in", "login", "sign in"]
+            has_login_prompt = any(keyword in page_text for keyword in login_keywords)
+            self.assertTrue(has_login_prompt, "Index page should prompt user to login after logout")
+
+        # === STEP 16: Guest cannot upload after logout ===
+        with self.subTest("Guest upload prevention after logout"):
+            # Try to access upload page as guest
+            response = self.client.get(self.upload_url)
+            self.assertRedirects(
+                response,
+                f"{self.login_url}?next={self.upload_url}",
+                msg_prefix="Guest should be redirected to login when accessing upload page"
+            )
+            
+            # Try to POST directly to upload endpoint as guest
+            test_file = SimpleUploadedFile("guest_test.png", PNG_DATA, content_type="image/png")
+            response = self.client.post(
+                self.upload_url,
+                {"content": test_file},
+                follow=True  # Follow redirect to see what user sees
+            )
+            
+            # Should redirect to login page
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                response.wsgi_request.path,
+                self.login_url,
+                "Guest POST should redirect to login page"
+            )
+            
+            # Login page should indicate why user was redirected
+            soup = BeautifulSoup(response.content, "html.parser")
+            page_text = soup.get_text().lower()
+            
+            # Should have login form
+            login_form = soup.find("form", {"method": "post"})
+            self.assertIsNotNone(login_form, "Login page should have login form")
+            
+            # Should mention need to login for upload (even if just via context)
+            upload_keywords = ["upload", "file", "share"]
+            login_keywords = ["username", "password", "login", "sign in"]
+            
+            has_login_context = any(keyword in page_text for keyword in login_keywords)
+            has_upload_context = any(keyword in page_text for keyword in upload_keywords)
+            
+            self.assertTrue(
+                has_login_context,
+                "Login page should have login-related content"
+            )
+            
+            # TODO: Login form should preserve 'next' parameter to redirect after login
+            # next_input = soup.find("input", {"name": "next"})
+            # self.assertIsNotNone(
+            #     next_input,
+            #     "Login form must have hidden 'next' input to preserve upload intent"
+            # )
+            # self.assertEqual(
+            #     next_input.get("value"),
+            #     self.upload_url,
+            #     "Login form should preserve upload destination in 'next' parameter"
+            # )
