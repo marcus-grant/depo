@@ -462,3 +462,46 @@ class WebUserJourneyE2ETest(TestCase):
                 
                 # Should be an HTML page (not raw file)
                 self.assertIn("text/html", details_response.get("Content-Type", ""), "Details page should be HTML")
+
+        # === STEP 13: Logout ===
+        with self.subTest("User logout"):
+            # Logout the user
+            response = self.client.post(self.logout_url, follow=True)
+            
+            # TODO: Logout should redirect to index page, add login/logout buttons to navbar
+            # self.assertEqual(response.status_code, 200)
+            # self.assertEqual(
+            #     response.wsgi_request.path,
+            #     self.index_url,
+            #     "Should redirect to index page after logout"
+            # )
+            
+            # Verify user is logged out
+            self.assertFalse(
+                "_auth_user_id" in self.client.session,
+                "User should be logged out after logout"
+            )
+
+        # === STEP 14: Guest can still download files ===
+        with self.subTest("Guest download verification"):
+            # As a guest, try to download one of the previously uploaded files
+            if uploaded_files:
+                test_file = uploaded_files[0]
+                shortcode = test_file["shortcode"]
+                original_data = test_file["data"]
+                
+                # Guest should be able to download
+                download_response = self._download_file(shortcode)
+                
+                self.assertEqual(
+                    download_response.status_code,
+                    200,
+                    f"Guest should be able to download {shortcode}"
+                )
+                
+                # Verify content matches
+                self.assertEqual(
+                    download_response.content,
+                    original_data,
+                    f"Guest downloaded content for {shortcode} should match original"
+                )

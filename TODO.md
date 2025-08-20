@@ -4,11 +4,20 @@
 
 **Active Task**: E2E Web Test Rewrite - Final Tests
 - **Next**: Complete remaining tests
-  - Details page access, logout/guest verification
+  - [x] Logout test (partially - redirect to index commented out pending navbar fix)
+  - [x] Guest download verification test
+  - [ ] Guest upload prevention test
 
 **Bug Fix Needed**: Fix PicItem.context() to include URL field for raw file access
 - Template expects {{ pic.url }} but context() doesn't provide it
 - Should point to /raw/{shortcode} endpoint for image display
+
+**Bug Fix Needed**: Add login/logout buttons to navbar and fix logout redirect
+- Add login button in navbar when user is not authenticated
+- Add logout button in navbar when user is authenticated
+- Configure logout to redirect to index page instead of showing logout confirmation
+- Currently Django's default logout view stays on /accounts/logout/
+
 - **Future**: Add drag and drop E2E tests and TDD fixes for upload functionality
 - **Future**: Refactor URL scheme - change to `info/{shortcode}` for details pages, keep `raw/{shortcode}` for files, document URL patterns
   - More descriptive URLs that indicate content type upfront (info vs raw)
@@ -21,6 +30,7 @@
 - File upload tests - PNG, JPG, GIF uploads with helper functions
 - Invalid file rejection tests - .txt, .xyz, empty files with proper error verification
 - Download verification tests - raw file downloads with content matching and no HTML
+- Details page access tests - verify /{shortcode}/details endpoints work (bug documented)
 - Upload Endpoint Foundation - basic POST endpoint with hash calculation
 - Duplicate Detection - idempotent uploads with X-Duplicate headers
 - Logging Module - DepoLogger class with PROJECT_TAG constant

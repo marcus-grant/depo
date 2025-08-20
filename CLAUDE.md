@@ -22,6 +22,7 @@ This file contains instructions and guidelines for Claude when working on the De
   - `Ref:` for refactoring
   - `Doc:` for documentation
   - `Pln:` for planning/TODO updates
+- No signature block - do not include emoji, links, or Co-Authored-By lines
 
 ### Testing Requirements
 - ALWAYS run tests before suggesting a commit
