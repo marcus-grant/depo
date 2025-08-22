@@ -70,11 +70,11 @@ class PicItem(models.Model):
 
     def context(self) -> Dict:
         """Return standardized dict representation of PicItem."""
-        # Temporarily incomplete dict to simulate failure
         return {
             "item": self.item.context(),
             "format": self.format,
             "size": self.size,
+            "url": f"/raw/{self.item.code}.{self.format}",
         }
 
     # def __str__(self): -> str:

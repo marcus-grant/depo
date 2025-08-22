@@ -140,6 +140,20 @@ class PicItemContextTest(TestCase):
             },
             "size": 1024,
             "format": "jpg",
+            "url": "/raw/P1C1.jpg",
         }
 
         self.assertEqual(ctx, expected_context)
+
+    def test_context_includes_url_field(self):
+        """Test that context includes URL field pointing to raw download endpoint"""
+        # Arrange: Item instance
+        item = Item.objects.create(code="P2C2", hash="HASH2", ctype="pic")
+
+        # Act: Create pic then get context from it
+        pic = PicItem.objects.create(item=item, format="png", size=2048)
+        ctx = pic.context()
+
+        # Assert: URL field should be present with extension
+        self.assertIn("url", ctx)
+        self.assertEqual(ctx["url"], f"/raw/{item.code}.{pic.format}")

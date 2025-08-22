@@ -30,6 +30,12 @@ This document tracks completed changes to the Depo codebase, providing a histori
 - Duplicate Detection implementation
   - Duplicate uploads return 200 with X-Duplicate: true header
   - No duplicate files stored (same filename reused)
+- Fixed PicItem.context() to include URL field
+  - Added URL field pointing to /raw/{shortcode}.{format}
+  - Fixed template to check for 'pic' instead of 'image' ctype
+  - Updated view to properly structure context for PicItem
+  - Added unit tests for context structure and HTML rendering
+  - E2E test now verifies image tags are rendered with correct src
 
 ## 2025-08-20
 

@@ -457,8 +457,10 @@ class WebUserJourneyE2ETest(TestCase):
                 # Should point to /raw/{shortcode} endpoint for image display
                 
                 # Should contain download link or reference to raw file
-                # raw_links = soup.find_all("a", href=lambda x: x and f"/raw/{shortcode}" in x)
-                # self.assertTrue(len(raw_links) > 0, f"Details page should contain link to raw file for {shortcode}")
+                # For images, check for img tag with src pointing to raw file
+                img_tags = soup.find_all("img", src=lambda x: x and f"/raw/{shortcode}" in x)
+                
+                self.assertTrue(len(img_tags) > 0, f"Details page should contain image with src to raw file for {shortcode}")
                 
                 # Should be an HTML page (not raw file)
                 self.assertIn("text/html", details_response.get("Content-Type", ""), "Details page should be HTML")

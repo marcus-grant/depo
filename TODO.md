@@ -2,12 +2,6 @@
 
 ## Current Tasks
 
-**Bug Fix Needed**: Fix PicItem.context() to include URL field for raw file
-access
-
-- Template expects {{ pic.url }} but context() doesn't provide it
-- Should point to /raw/{shortcode} endpoint for image display
-
 **Bug Fix Needed**: Add login/logout buttons to navbar and fix logout redirect
 
 - Add login button in navbar when user is not authenticated
@@ -30,6 +24,15 @@ access
   pages, keep `raw/{shortcode}` for files, document URL patterns
   - More descriptive URLs that indicate content type upfront (info vs raw)
   - Consistent pattern with shortcode at end for both endpoints
+- **Future**: Investigate shortcode routing flexibility
+  - Make shortcode routes accept URLs without extensions and redirect to
+    extension-containing versions
+  - Following API design principle: "Be flexible in what you expect and explicit
+    in what you give"
+  - For example: `/raw/{shortcode}` could redirect to `/raw/{shortcode}.{ext}`
+  - Note: This may not always be desirable - details/info pages should not
+    redirect since they're about the shortcode item metadata, not the raw content
+  - Consider which routes should auto-redirect vs which should stay as-is
 
 ## Upload Endpoint Foundation
 
