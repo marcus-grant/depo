@@ -8,6 +8,11 @@ This document tracks completed changes to the Depo codebase, providing a histori
 
 ## 2025-08-22
 
+- Fixed login form to preserve 'next' parameter
+  - Added hidden 'next' input field to login template
+  - Login now redirects to intended destination after authentication
+  - Added unit test for 'next' parameter preservation
+  - E2E test verifies 'next' parameter functionality
 - Added login/logout buttons to navbar
   - Login button shown when user is not authenticated
   - Logout button shown when user is authenticated  

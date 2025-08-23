@@ -143,7 +143,7 @@ class WebUserJourneyE2ETest(TestCase):
             "Page should have at least one clickable login element",
         )
         
-        # TODO: Check specifically for navbar login button
+        # Check for navbar login button
         navbar = soup.find("nav", class_="navbar")
         self.assertIsNotNone(navbar, "Page should have navbar")
         navbar_login = navbar.find("a", href=lambda x: x and "/accounts/login" in x)
@@ -241,7 +241,7 @@ class WebUserJourneyE2ETest(TestCase):
                 upload_form, "Upload form should be visible for authenticated users"
             )
             
-            # TODO: Check specifically for navbar logout button after login
+            # Check for navbar logout button after login
             navbar = soup.find("nav", class_="navbar")
             self.assertIsNotNone(navbar, "Page should have navbar")
             navbar_logout = navbar.find("a", href=lambda x: x and "/accounts/logout" in x)
@@ -464,9 +464,6 @@ class WebUserJourneyE2ETest(TestCase):
                 # Should contain the shortcode somewhere on the page
                 self.assertIn(shortcode, page_text, f"Details page should contain shortcode {shortcode}")
                 
-                # TODO: Fix PicItem.context() to include URL field for raw file access
-                # Template expects {{ pic.url }} but context() doesn't provide it
-                # Should point to /raw/{shortcode} endpoint for image display
                 
                 # Should contain download link or reference to raw file
                 # For images, check for img tag with src pointing to raw file
@@ -482,7 +479,7 @@ class WebUserJourneyE2ETest(TestCase):
             # Logout the user
             response = self.client.post(self.logout_url, follow=True)
             
-            # TODO: Logout should redirect to index page, add login/logout buttons to navbar
+            # Verify logout redirects to index page
             self.assertEqual(response.status_code, 200)
             self.assertEqual(
                 response.wsgi_request.path,
@@ -495,6 +492,33 @@ class WebUserJourneyE2ETest(TestCase):
                 "_auth_user_id" in self.client.session,
                 "User should be logged out after logout"
             )
+            
+            # TODO: Fix logout state verification (dev server shows 504 instead of redirect)
+            # soup = BeautifulSoup(response.content, "html.parser")
+            # 
+            # # Verify we're at index page with proper guest state
+            # self.assertEqual(response.wsgi_request.path, self.index_url, "Should be at index after logout")
+            # 
+            # # Check navbar has login button and no logout button
+            # navbar = soup.find("nav", class_="navbar")
+            # self.assertIsNotNone(navbar, "Index page should have navbar")
+            # 
+            # # Should have login button in navbar
+            # navbar_login = navbar.find("a", href=lambda x: x and "/accounts/login" in x)
+            # self.assertIsNotNone(navbar_login, "Navbar should contain login button after logout")
+            # 
+            # # Should NOT have logout button in navbar  
+            # navbar_logout = navbar.find("a", href=lambda x: x and "/accounts/logout" in x)
+            # self.assertIsNone(navbar_logout, "Navbar should not contain logout button after logout")
+            # 
+            # # Upload form should not be present for logged out user
+            # upload_form = soup.find("form", id="upload-form")
+            # self.assertIsNone(upload_form, "Upload form should not be present after logout")
+            # 
+            # # Verify auth cookies/session are properly cleared
+            # self.assertFalse("_auth_user_id" in self.client.session, "Auth session should be cleared")
+            # self.assertFalse("sessionid" in self.client.cookies or not self.client.cookies["sessionid"].value, 
+            #                  "Session cookie should be cleared or invalid")
 
         # === STEP 14: Guest can still download files ===
         with self.subTest("Guest download verification"):
@@ -584,14 +608,14 @@ class WebUserJourneyE2ETest(TestCase):
                 "Login page should have login-related content"
             )
             
-            # TODO: Login form should preserve 'next' parameter to redirect after login
-            # next_input = soup.find("input", {"name": "next"})
-            # self.assertIsNotNone(
-            #     next_input,
-            #     "Login form must have hidden 'next' input to preserve upload intent"
-            # )
-            # self.assertEqual(
-            #     next_input.get("value"),
-            #     self.upload_url,
-            #     "Login form should preserve upload destination in 'next' parameter"
-            # )
+            # Verify login form preserves 'next' parameter to redirect after login
+            next_input = soup.find("input", {"name": "next"})
+            self.assertIsNotNone(
+                next_input,
+                "Login form must have hidden 'next' input to preserve upload intent"
+            )
+            self.assertEqual(
+                next_input.get("value"),
+                self.upload_url,
+                "Login form should preserve upload destination in 'next' parameter"
+            )
