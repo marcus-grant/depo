@@ -5,6 +5,7 @@ from django.conf import settings
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from bs4 import BeautifulSoup
 
 User = get_user_model()
 
@@ -62,6 +63,30 @@ class WebLoginViewTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         # We assume an error indicator is present, for example an element with a class "error"
         self.assertIn("error", content.lower())
+    
+    def test_login_form_preserves_next_parameter(self):
+        """Test that login form includes hidden 'next' input when redirected with next parameter"""
+        # Make request to login with 'next' parameter (simulating redirect from protected page)
+        upload_url = reverse("web_upload")
+        response = self.client.get(f"{self.login_url}?next={upload_url}")
+        
+        self.assertEqual(response.status_code, 200)
+        
+        # Parse HTML to find the form
+        soup = BeautifulSoup(response.content, "html.parser")
+        
+        # Find login form
+        login_form = soup.find("form", {"method": "post"})
+        self.assertIsNotNone(login_form, "Login page should have a POST form")
+        
+        # Look for hidden 'next' input
+        next_input = soup.find("input", {"name": "next", "type": "hidden"})
+        self.assertIsNotNone(next_input, "Login form should have hidden 'next' input")
+        self.assertEqual(
+            next_input.get("value"), 
+            upload_url, 
+            "Next input should preserve the upload URL"
+        )
 
     # TODO: Let's tighten up the allowed methods later when we know more what final version will be
     # def test_non_post_get_request_returns_error(self):

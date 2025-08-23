@@ -45,7 +45,7 @@ class UploadAPIView(APIView):
             return Response("Invalid upload format", status=stat)
 
         filename = f"{picitem.item.code}.{picitem.format}"
-        filepath = settings.UPLOAD_DIR / filename
+        filepath = Path(settings.UPLOAD_DIR) / filename
 
         # If no duplicate Items were hashed, save the file
         response = Response(filename, status=status.HTTP_200_OK)

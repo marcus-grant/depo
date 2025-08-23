@@ -20,6 +20,9 @@
           </a>
         </p>
       {% endif %}
+      {% if filename %}
+        <p>Filename: {{ filename }}</p>
+      {% endif %}
     {% endif %}
     <a class="button is-link" href="{% url 'web_upload' %}">
       Upload another image

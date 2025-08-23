@@ -59,6 +59,7 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 32 * 1024 * 1024  # 32 MiB
 # Default Django Auth
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/"
 # Logging
 import os
 import sys

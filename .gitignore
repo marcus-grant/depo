@@ -17,6 +17,9 @@ uploads/*
 ./tmp
 tmp/*
 
+.claude
+CLAUDE.local.md
+
 # Test artifacts
 test.bin
 *test_image.gif

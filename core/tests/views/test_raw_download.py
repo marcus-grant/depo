@@ -6,6 +6,7 @@ from django.conf import settings
 from pathlib import Path
 from core.models import Item, PicItem
 import hashlib
+from core.tests.fixtures import PNG_MAGIC
 
 
 class RawDownloadViewTests(TestCase):
@@ -80,7 +81,7 @@ class RawDownloadViewTests(TestCase):
     def test_download_returns_actual_file_content(self):
         """Test that downloading returns the actual file bytes"""
         # Create test image data
-        test_image = b"\x89PNG\r\n\x1a\n" + b"\x00" * 20  # Minimal PNG header
+        test_image = PNG_MAGIC + b"\x00" * 20  # Minimal PNG header
 
         item, pic_item, test_file = self._create_test_item_and_file(test_image)
 

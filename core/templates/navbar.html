@@ -9,6 +9,22 @@
 
   <div class="navbar-end">
     <div class="navbar-item">
+      <!-- Authentication buttons -->
+      {% if user.is_authenticated %}
+        <form method="post" action="{% url 'logout' %}" style="display: inline;">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.path }}">
+          <button type="submit" class="button is-light">
+            Logout
+          </button>
+        </form>
+      {% else %}
+        <a href="{% url 'login' %}" class="button is-primary">
+          Login
+        </a>
+      {% endif %}
+    </div>
+    <div class="navbar-item">
       <!-- Theme/Dark-mode toggle switch -->
       <div class="field">
         <input type="checkbox" id="theme-toggle" class="switch is-rounded is-small">
