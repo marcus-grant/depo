@@ -11,8 +11,8 @@ from core.tests.fixtures import PNG_MAGIC
 
 
 # TODO: Offload filesaving to submodule, simplifying testing to mocks
+@override_settings(UPLOAD_DIR=settings.BASE_DIR / "testupload")
 class UploadAPITest(TestCase):
-    @override_settings(UPLOAD_DIR=settings.BASE_DIR / "testupload")
     def setUp(self):
         self.client = Client()
         self.url = reverse("api_upload")  # match 'name' in urls.py

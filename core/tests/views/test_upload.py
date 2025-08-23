@@ -637,17 +637,31 @@ class WebUploadViewPostTests(TestCase):
 # =============================================================================
 
 
+@override_settings(UPLOAD_DIR=Path(settings.BASE_DIR) / "tmp")
 class SecurityHardeningTests(TestCase):
     """Tests for security hardening checks on base-64 uploads"""
 
     def setUp(self):
         self.client = Client()
         self.upload_url = reverse("web_upload")
+        self.upload_dir = Path(settings.UPLOAD_DIR)
+        # Ensure the temporary upload directory exists.
+        self.upload_dir.mkdir(parents=True, exist_ok=True)
         # Create and log in a test user
         self.user = User.objects.create_user(
             username="tester", email="test@example.com", password="password"
         )
         self.client.login(username="tester", password="password")
+
+    def tearDown(self):
+        # Remove all files and the temporary directory.
+        if self.upload_dir.exists():
+            for file in self.upload_dir.iterdir():
+                if file.is_file():
+                    file.unlink()
+                elif file.is_dir():
+                    file.rmdir()
+            self.upload_dir.rmdir()
 
     @override_settings(DEPO_MAX_BASE64_SIZE=8 * 1024 * 1024)  # 8MB limit for base-64
     def test_base64_string_over_limit_rejected(self):
@@ -738,17 +752,31 @@ class SecurityHardeningTests(TestCase):
 # =============================================================================
 
 
+@override_settings(UPLOAD_DIR=Path(settings.BASE_DIR) / "tmp")
 class FeatureFlagTests(TestCase):
     """Tests for DEPO_ALLOW_BASE64_IMAGES feature flag"""
 
     def setUp(self):
         self.client = Client()
         self.upload_url = reverse("web_upload")
+        self.upload_dir = Path(settings.UPLOAD_DIR)
+        # Ensure the temporary upload directory exists.
+        self.upload_dir.mkdir(parents=True, exist_ok=True)
         # Create and log in a test user
         self.user = User.objects.create_user(
             username="tester", email="test@example.com", password="password"
         )
         self.client.login(username="tester", password="password")
+
+    def tearDown(self):
+        # Remove all files and the temporary directory.
+        if self.upload_dir.exists():
+            for file in self.upload_dir.iterdir():
+                if file.is_file():
+                    file.unlink()
+                elif file.is_dir():
+                    file.rmdir()
+            self.upload_dir.rmdir()
 
     @override_settings(DEPO_ALLOW_BASE64_IMAGES=False)
     def test_base64_disabled_returns_404(self):

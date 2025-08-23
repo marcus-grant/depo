@@ -3,6 +3,7 @@ import base64
 import logging
 import time
 from io import BytesIO
+from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -178,7 +179,7 @@ def process_file_upload(file_data: bytes) -> dict:
 
     pic_item = PicItem.ensure(file_data)
     fname = f"{pic_item.item.code}.{pic_item.format}"
-    fpath = settings.UPLOAD_DIR / fname
+    fpath = Path(settings.UPLOAD_DIR) / fname
 
     if fpath.exists():
         return {
