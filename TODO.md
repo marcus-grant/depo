@@ -2,11 +2,6 @@
 
 ## Current Tasks
 
-**Bug Fix Needed**: Add login/logout buttons to navbar
-
-- Add login button in navbar when user is not authenticated
-- Add logout button in navbar when user is authenticated
-
 **Bug Fix Needed**: Login form doesn't preserve 'next' parameter
 
 - When redirected to login (e.g., from upload attempt), the 'next' parameter

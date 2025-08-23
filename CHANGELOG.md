@@ -8,6 +8,11 @@ This document tracks completed changes to the Depo codebase, providing a histori
 
 ## 2025-08-22
 
+- Added login/logout buttons to navbar
+  - Login button shown when user is not authenticated
+  - Logout button shown when user is authenticated  
+  - Added unit tests for both authenticated and unauthenticated states
+  - E2E test now verifies navbar buttons are present
 - Fixed logout redirect to index page
   - Added LOGOUT_REDIRECT_URL = "/" to settings
   - Created unit test for logout redirect behavior

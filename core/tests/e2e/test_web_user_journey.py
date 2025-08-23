@@ -142,6 +142,12 @@ class WebUserJourneyE2ETest(TestCase):
             len(login_elements) > 0,
             "Page should have at least one clickable login element",
         )
+        
+        # TODO: Check specifically for navbar login button
+        navbar = soup.find("nav", class_="navbar")
+        self.assertIsNotNone(navbar, "Page should have navbar")
+        navbar_login = navbar.find("a", href=lambda x: x and "/accounts/login" in x)
+        self.assertIsNotNone(navbar_login, "Navbar should contain login button for guests")
 
         return soup
 
@@ -234,6 +240,12 @@ class WebUserJourneyE2ETest(TestCase):
             self.assertIsNotNone(
                 upload_form, "Upload form should be visible for authenticated users"
             )
+            
+            # TODO: Check specifically for navbar logout button after login
+            navbar = soup.find("nav", class_="navbar")
+            self.assertIsNotNone(navbar, "Page should have navbar")
+            navbar_logout = navbar.find("a", href=lambda x: x and "/accounts/logout" in x)
+            self.assertIsNotNone(navbar_logout, "Navbar should contain logout button for authenticated users")
 
         # Store uploaded files data for later verification
         uploaded_files = []
