@@ -4,32 +4,55 @@
 
 ### **ACTIVE: View Architecture Refactoring**
 
-**Problem**: Upload view (`core/views/upload.py`) has 290+ lines with business logic mixed into view code, making rapid changes difficult.
+**Problem**: Upload view (`core/views/upload.py`) has 290+ lines with
+business logic mixed into view code, making rapid changes difficult.
 
 **Implementation Tasks**:
+
 - Create `core/services/` directory with service modules:
-  - `file_processor.py` - Extract `validate_upload_bytes()`, `process_file_upload()` functions from upload.py lines 160-210
-  - `content_classifier.py` - Extract base64 detection logic from lines 45-85 in upload.py  
-  - `upload_handler.py` - Consolidate file saving, error handling from both upload.py and upload_api.py
-- Refactor `web_upload_view()` and `upload_view_post()` to be thin controllers calling service methods
-- Extract test logic: split `test_upload.py` (800+ lines) into focused test modules by functionality
-- Standardize error response patterns across `upload.py`, `upload_api.py`, `raw_download.py`
+  - `file_processor.py` functions from upload.py lines 160-210:
+    - Extract:
+      - `validate_upload_bytes()`
+      - `process_file_upload()`
+  - `content_classifier.py`
+    - Extract base64 detection logic from lines 45-85 in upload.py  
+  - `upload_handler.py`
+    - Consolidate file saving, error handling from both upload.py and upload_api.py
+- Refactor `web_upload_view()` & `upload_view_post()` to be...
+  - thin controllers calling service methods
+- Extract test logic: split `test_upload.py` (800+ lines) into...
+  - focused test modules by functionality
+- Standardize error response patterns across
+  - `upload.py`
+  - `upload_api.py`
+  - `raw_download.py`
 
 **Files to modify**:
+
 - `core/views/upload.py` - reduce from 290 to ~50 lines
 - `core/views/upload_api.py` - extract shared logic with upload.py
 - `core/tests/views/test_upload.py` - split into multiple focused test files
-- Create new: `core/services/file_processor.py`, `core/services/content_classifier.py`, `core/services/upload_handler.py`
+- Create new:
+  - `core/services/file_processor.py`
+  - `core/services/content_classifier.py`
+  - `core/services/upload_handler.py`
 
-**Acceptance criteria**: Views are <100 lines, business logic in testable service modules, no code duplication between web and API upload paths
+**Acceptance criteria**:
+
+- Views are <100 lines
+- business logic in testable service modules
+- no code duplication between web and API upload paths
 
 ### **ACTIVE: Database Schema Finalization**  
 
-**Problem**: Item model has naming inconsistencies and TODO comments that affect database structure, risking nasty migrations post-MVP.
+**Problem**: Item model has naming inconsistencies and TODO comments that
+affect database structure, risking nasty migrations post-MVP.
 
 **Implementation Tasks**:
+
 - Fix field naming in `core/models/item.py`:
-  - Rename `mtime` to `ctime` (line 47-49 TODO comment - metadata change time, not content change)  
+  - Rename `mtime` to `ctime`
+    - *(line 47-49 TODO comment - metadata change time, not content change)*
   - Review `code`/`hash` field split logic in `ensure()` method (lines 104-124)
   - Standardize field lengths and constraints across Item/PicItem/LinkItem
 - Address model inheritance concerns:
@@ -41,19 +64,64 @@
   - Test that schema supports planned URL/text content types
 
 **Files to modify**:
+
 - `core/models/item.py` - field renames, method cleanup
 - `core/models/pic.py` - ensure consistency with Item base class  
 - `core/models/link.py` - review relationship structure
 - Create migration for `mtime` -> `ctime` rename
 - Update all references to renamed fields in views/tests
 
-**Acceptance criteria**: No TODO comments affecting DB schema, consistent field naming patterns, migration plan documented, all tests pass with new schema
+**Acceptance criteria**: No TODO comments affecting:
+
+- DB schema
+- consistent field naming patterns
+- migration plan documented
+- all tests pass with new schema
+
+### **ACTIVE: Basic Project Documentation**
+
+**Problem**: Need maintainable documentation before MVP deployment to support
+future development when returning to project less frequently.
+
+**Implementation Tasks**:
+
+- Create `docs/architecture.md` with concise overview:
+  - Models: Item, PicItem, LinkItem - purpose and key fields
+  - Views: upload, shortcode, auth flows - what each does
+  - URLs: routing patterns and shortcode system
+  - Templates: base structure and key templates
+  - Key settings: UPLOAD_DIR, authentication, file handling
+- Document deployment basics in `docs/deployment.md`:
+  - Environment setup requirements
+  - Database migration process
+  - Static file handling
+  - Production settings overview
+- Update README.md with:
+  - Project purpose and core functionality
+  - Quick setup instructions
+  - Link to detailed documentation
+
+**Files to create/modify**:
+
+- `docs/architecture.md` - Core system overview
+- `docs/deployment.md` - Deployment guide
+- `README.md` - Project overview and setup
+- Ensure docs/ directory structure
+
+**Acceptance criteria**: Developer can understand project structure from:
+
+- documentation
+- deployment process is documented
+- README explains what Depo does
 
 ### **ACTIVE: Deployment and Backup Strategy Implementation**
 
-**Problem**: Need deployment pipeline and backup procedures before family/early users start using the system. Must ensure zero data loss with 1-2 day acceptable restore window.
+**Problem**: Need deployment pipeline and backup procedures before
+family/early users start using the system.
+Must ensure zero data loss with 1-2 day acceptable restore window.
 
 **Deployment Implementation (Simple approach for controlled access)**:
+
 - Create single `Dockerfile` with production Django settings
 - Basic `docker-compose.yml` for consistent local/production environments  
 - Minimal Ansible playbook (`ansible/deploy.yml`) that:
@@ -67,6 +135,7 @@
   - Let's Encrypt SSL setup
 
 **Backup Implementation (100MB/month scale)**:
+
 - **Primary backup**: Borgbackup to homelab
   - Create `scripts/backup-borg.sh`:
     - Daily SQLite dump: `sqlite3 db.sqlite3 .dump > backup.sql`
@@ -83,6 +152,7 @@
   - Test restore procedure monthly
 
 **Files to create**:
+
 - `Dockerfile` - Simple production container
 - `docker-compose.yml` - Development environment
 - `docker-compose.prod.yml` - Production overrides
@@ -92,7 +162,12 @@
 - `scripts/restore.sh` - Restore helper script
 - `docs/operations.md` - Deployment, backup, restore documentation
 
-**Acceptance criteria**: Automated daily backups running, restore tested successfully, deployment reduces to single Ansible command, zero data loss verified
+**Acceptance criteria**:
+
+- Automated daily backups running
+- restore tested successfully
+- deployment reduces to single Ansible command
+- zero data loss verified
 
 - **Future**: Add drag and drop E2E tests and TDD fixes for upload
   functionality
