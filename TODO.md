@@ -49,6 +49,51 @@
 
 **Acceptance criteria**: No TODO comments affecting DB schema, consistent field naming patterns, migration plan documented, all tests pass with new schema
 
+### **ACTIVE: Deployment and Backup Strategy Implementation**
+
+**Problem**: Need deployment pipeline and backup procedures before family/early users start using the system. Must ensure zero data loss with 1-2 day acceptable restore window.
+
+**Deployment Implementation (Simple approach for controlled access)**:
+- Create single `Dockerfile` with production Django settings
+- Basic `docker-compose.yml` for consistent local/production environments  
+- Minimal Ansible playbook (`ansible/deploy.yml`) that:
+  - Takes database backup before deployment
+  - Builds and deploys new container
+  - Keeps previous container for rollback
+  - Handles environment variables via `.env` file
+- nginx configuration for:
+  - Reverse proxy to Django container
+  - Direct serving of static files
+  - Let's Encrypt SSL setup
+
+**Backup Implementation (100MB/month scale)**:
+- **Primary backup**: Borgbackup to homelab
+  - Create `scripts/backup-borg.sh`:
+    - Daily SQLite dump: `sqlite3 db.sqlite3 .dump > backup.sql`
+    - Borg backup of database dump + entire `uploads/` directory
+    - Retention: 7 daily, 4 weekly, 6 monthly snapshots
+  - Add to cron for daily 2am execution
+- **Secondary backup**: Weekly restic to object store  
+  - Create `scripts/backup-restic.sh`:
+    - Sync borg repository to object store for offsite copy
+    - Run weekly via cron
+- **Restore procedures**:
+  - Create `scripts/restore.sh` with options for borg/restic sources
+  - Document exact steps to restore database + files
+  - Test restore procedure monthly
+
+**Files to create**:
+- `Dockerfile` - Simple production container
+- `docker-compose.yml` - Development environment
+- `docker-compose.prod.yml` - Production overrides
+- `ansible/deploy.yml` - Basic deployment playbook
+- `scripts/backup-borg.sh` - Primary backup script
+- `scripts/backup-restic.sh` - Offsite backup script  
+- `scripts/restore.sh` - Restore helper script
+- `docs/operations.md` - Deployment, backup, restore documentation
+
+**Acceptance criteria**: Automated daily backups running, restore tested successfully, deployment reduces to single Ansible command, zero data loss verified
+
 - **Future**: Add drag and drop E2E tests and TDD fixes for upload
   functionality
 - **Future**: Refactor URL scheme - change to `info/{shortcode}` for details
