@@ -241,11 +241,11 @@ class WebUserJourneyE2ETest(TestCase):
                 upload_form, "Upload form should be visible for authenticated users"
             )
             
-            # Check for navbar logout button after login
+            # Check for navbar logout form after login
             navbar = soup.find("nav", class_="navbar")
             self.assertIsNotNone(navbar, "Page should have navbar")
-            navbar_logout = navbar.find("a", href=lambda x: x and "/accounts/logout" in x)
-            self.assertIsNotNone(navbar_logout, "Navbar should contain logout button for authenticated users")
+            navbar_logout = navbar.find("form", action=lambda x: x and "/accounts/logout" in x)
+            self.assertIsNotNone(navbar_logout, "Navbar should contain logout form for authenticated users")
 
         # Store uploaded files data for later verification
         uploaded_files = []
@@ -493,32 +493,37 @@ class WebUserJourneyE2ETest(TestCase):
                 "User should be logged out after logout"
             )
             
-            # TODO: Fix logout state verification (dev server shows 504 instead of redirect)
-            # soup = BeautifulSoup(response.content, "html.parser")
-            # 
-            # # Verify we're at index page with proper guest state
-            # self.assertEqual(response.wsgi_request.path, self.index_url, "Should be at index after logout")
-            # 
-            # # Check navbar has login button and no logout button
-            # navbar = soup.find("nav", class_="navbar")
-            # self.assertIsNotNone(navbar, "Index page should have navbar")
-            # 
-            # # Should have login button in navbar
-            # navbar_login = navbar.find("a", href=lambda x: x and "/accounts/login" in x)
-            # self.assertIsNotNone(navbar_login, "Navbar should contain login button after logout")
-            # 
-            # # Should NOT have logout button in navbar  
-            # navbar_logout = navbar.find("a", href=lambda x: x and "/accounts/logout" in x)
-            # self.assertIsNone(navbar_logout, "Navbar should not contain logout button after logout")
-            # 
-            # # Upload form should not be present for logged out user
-            # upload_form = soup.find("form", id="upload-form")
-            # self.assertIsNone(upload_form, "Upload form should not be present after logout")
-            # 
-            # # Verify auth cookies/session are properly cleared
-            # self.assertFalse("_auth_user_id" in self.client.session, "Auth session should be cleared")
-            # self.assertFalse("sessionid" in self.client.cookies or not self.client.cookies["sessionid"].value, 
-            #                  "Session cookie should be cleared or invalid")
+            soup = BeautifulSoup(response.content, "html.parser")
+            
+            # Verify we're at index page with proper guest state
+            self.assertEqual(response.wsgi_request.path, self.index_url, "Should be at index after logout")
+            
+            # Check navbar has login button and no logout button
+            navbar = soup.find("nav", class_="navbar")
+            self.assertIsNotNone(navbar, "Index page should have navbar")
+            
+            # Should have login button in navbar
+            navbar_login = navbar.find("a", href=lambda x: x and "/accounts/login" in x)
+            self.assertIsNotNone(navbar_login, "Navbar should contain login button after logout")
+            
+            # Should NOT have logout form in navbar  
+            navbar_logout = navbar.find("form", action=lambda x: x and "/accounts/logout" in x)
+            self.assertIsNone(navbar_logout, "Navbar should not contain logout form after logout")
+            
+            # Upload form should not be present for logged out user
+            upload_form = soup.find("form", id="upload-form")
+            self.assertIsNone(upload_form, "Upload form should not be present after logout")
+            
+            # Verify auth session is properly cleared
+            self.assertFalse("_auth_user_id" in self.client.session, "Auth session should be cleared")
+            
+            # Verify session cookie is properly invalidated
+            # Django logout sends an expired empty cookie to clear browser session
+            self.assertIn("sessionid", self.client.cookies, "Session cookie should be present to clear browser")
+            sessionid_cookie = self.client.cookies["sessionid"]
+            self.assertEqual(sessionid_cookie.value, "", "Session cookie should have empty value after logout")
+            self.assertEqual(sessionid_cookie["expires"], "Thu, 01 Jan 1970 00:00:00 GMT", 
+                           "Session cookie should be expired after logout")
 
         # === STEP 14: Guest can still download files ===
         with self.subTest("Guest download verification"):

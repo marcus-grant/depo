@@ -2,16 +2,6 @@
 
 ## Current Tasks
 
-**Bug Fix Needed**: Fix logout flow (dev server returns 504 instead of redirect)
-
-- Logout currently causes 504 error on dev server instead of redirecting to index
-- Need to investigate logout view configuration
-- After fixing, verify complete logout state:
-  - User redirected to index page 
-  - Navbar shows login button (not logout)
-  - Upload form not present
-  - Auth session properly cleared
-
 - **Future**: Add drag and drop E2E tests and TDD fixes for upload
   functionality
 - **Future**: Refactor URL scheme - change to `info/{shortcode}` for details

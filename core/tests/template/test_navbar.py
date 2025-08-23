@@ -55,13 +55,21 @@ class NavbarTemplateTests(TestCase):
         navbar = soup.find("nav", class_="navbar")
         self.assertIsNotNone(navbar, "Navbar should be present")
         
-        # Look for logout link/button in navbar
-        logout_links = navbar.find_all("a", href=lambda x: x and "/accounts/logout" in x)
+        # Look for logout form in navbar
+        logout_forms = navbar.find_all("form", action=lambda x: x and "/accounts/logout" in x)
         
         self.assertTrue(
-            len(logout_links) > 0,
-            "Navbar should contain a logout link when user is authenticated"
+            len(logout_forms) > 0,
+            "Navbar should contain a logout form when user is authenticated"
         )
+        
+        # Verify form has POST method
+        logout_form = logout_forms[0]
+        self.assertEqual(logout_form.get("method"), "post", "Logout form should use POST method")
+        
+        # Verify form has CSRF token
+        csrf_input = logout_form.find("input", {"name": "csrfmiddlewaretoken"})
+        self.assertIsNotNone(csrf_input, "Logout form should have CSRF token")
         
         # Verify login is NOT present
         login_links = navbar.find_all("a", href=lambda x: x and "/accounts/login" in x)

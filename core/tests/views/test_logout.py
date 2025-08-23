@@ -34,3 +34,14 @@ class LogoutViewTests(TestCase):
         
         # Verify user is logged out
         self.assertFalse("_auth_user_id" in self.client.session)
+    
+    def test_logout_get_request_not_allowed(self):
+        """Test that GET request to logout returns 405 Method Not Allowed"""
+        # Login first
+        self.client.login(username=self.username, password=self.password)
+        
+        # Try GET request to logout (what happens when using a link)
+        response = self.client.get(self.logout_url)
+        
+        # Should return 405 Method Not Allowed
+        self.assertEqual(response.status_code, 405)

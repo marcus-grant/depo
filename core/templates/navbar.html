@@ -11,9 +11,13 @@
     <div class="navbar-item">
       <!-- Authentication buttons -->
       {% if user.is_authenticated %}
-        <a href="{% url 'logout' %}" class="button is-light">
-          Logout
-        </a>
+        <form method="post" action="{% url 'logout' %}" style="display: inline;">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.path }}">
+          <button type="submit" class="button is-light">
+            Logout
+          </button>
+        </form>
       {% else %}
         <a href="{% url 'login' %}" class="button is-primary">
           Login

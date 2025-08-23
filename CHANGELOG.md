@@ -6,6 +6,17 @@ This document tracks completed changes to the Depo codebase, providing a histori
 
 ## Unreleased Changes
 
+## 2025-08-23
+
+- Fixed logout flow bug (405 Method Not Allowed error)
+  - Root cause: navbar logout used GET link but Django's logout view requires POST
+  - Solution: Changed navbar logout from `<a>` link to POST form with CSRF token
+  - Added comprehensive testing for session cookie invalidation verification
+  - All logout state verification now working: redirect, navbar state, session cleanup
+  - Updated navbar template tests to verify POST form instead of GET link
+  - Added unit test for GET request to logout returns 405 Method Not Allowed
+  - E2E test now properly verifies Django's session cookie expiration behavior
+
 ## 2025-08-22
 
 - Fixed login form to preserve 'next' parameter
