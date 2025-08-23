@@ -471,12 +471,12 @@ class WebUserJourneyE2ETest(TestCase):
             response = self.client.post(self.logout_url, follow=True)
             
             # TODO: Logout should redirect to index page, add login/logout buttons to navbar
-            # self.assertEqual(response.status_code, 200)
-            # self.assertEqual(
-            #     response.wsgi_request.path,
-            #     self.index_url,
-            #     "Should redirect to index page after logout"
-            # )
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                response.wsgi_request.path,
+                self.index_url,
+                "Should redirect to index page after logout"
+            )
             
             # Verify user is logged out
             self.assertFalse(
