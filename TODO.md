@@ -2,6 +2,53 @@
 
 ## Current Tasks
 
+### **ACTIVE: View Architecture Refactoring**
+
+**Problem**: Upload view (`core/views/upload.py`) has 290+ lines with business logic mixed into view code, making rapid changes difficult.
+
+**Implementation Tasks**:
+- Create `core/services/` directory with service modules:
+  - `file_processor.py` - Extract `validate_upload_bytes()`, `process_file_upload()` functions from upload.py lines 160-210
+  - `content_classifier.py` - Extract base64 detection logic from lines 45-85 in upload.py  
+  - `upload_handler.py` - Consolidate file saving, error handling from both upload.py and upload_api.py
+- Refactor `web_upload_view()` and `upload_view_post()` to be thin controllers calling service methods
+- Extract test logic: split `test_upload.py` (800+ lines) into focused test modules by functionality
+- Standardize error response patterns across `upload.py`, `upload_api.py`, `raw_download.py`
+
+**Files to modify**:
+- `core/views/upload.py` - reduce from 290 to ~50 lines
+- `core/views/upload_api.py` - extract shared logic with upload.py
+- `core/tests/views/test_upload.py` - split into multiple focused test files
+- Create new: `core/services/file_processor.py`, `core/services/content_classifier.py`, `core/services/upload_handler.py`
+
+**Acceptance criteria**: Views are <100 lines, business logic in testable service modules, no code duplication between web and API upload paths
+
+### **ACTIVE: Database Schema Finalization**  
+
+**Problem**: Item model has naming inconsistencies and TODO comments that affect database structure, risking nasty migrations post-MVP.
+
+**Implementation Tasks**:
+- Fix field naming in `core/models/item.py`:
+  - Rename `mtime` to `ctime` (line 47-49 TODO comment - metadata change time, not content change)  
+  - Review `code`/`hash` field split logic in `ensure()` method (lines 104-124)
+  - Standardize field lengths and constraints across Item/PicItem/LinkItem
+- Address model inheritance concerns:
+  - Review `get_child()` method composition vs inheritance (line 127 TODO)
+  - Ensure consistent `context()` methods across all Item subclasses
+- Migration planning:
+  - Identify any other field renames needed before MVP
+  - Verify foreign key relationships in PicItem/LinkItem are optimal
+  - Test that schema supports planned URL/text content types
+
+**Files to modify**:
+- `core/models/item.py` - field renames, method cleanup
+- `core/models/pic.py` - ensure consistency with Item base class  
+- `core/models/link.py` - review relationship structure
+- Create migration for `mtime` -> `ctime` rename
+- Update all references to renamed fields in views/tests
+
+**Acceptance criteria**: No TODO comments affecting DB schema, consistent field naming patterns, migration plan documented, all tests pass with new schema
+
 - **Future**: Add drag and drop E2E tests and TDD fixes for upload
   functionality
 - **Future**: Refactor URL scheme - change to `info/{shortcode}` for details
