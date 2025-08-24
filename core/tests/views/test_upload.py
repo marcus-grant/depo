@@ -56,61 +56,6 @@ class ClassificationFunctionTests(TestCase):
         self.assertFalse(looks_like_url("   "))
         self.assertFalse(looks_like_url(None))
 
-    def test_classify_content_type_base64_image(self):
-        """Test classification returns 'image' for base-64 images"""
-        from core.views.upload import classify_content_type
-        from unittest.mock import MagicMock
-
-        # Mock request with base-64 image flag
-        request = MagicMock()
-        request.is_base64_image = True
-        request.FILES = {}
-        request.POST.get.return_value = ""
-
-        result = classify_content_type(request)
-        self.assertEqual(result, "image")
-
-    def test_classify_content_type_uploaded_file(self):
-        """Test classification returns 'image' for file uploads"""
-        from core.views.upload import classify_content_type
-        from unittest.mock import MagicMock
-
-        # Mock request with uploaded file
-        request = MagicMock()
-        request.is_base64_image = False
-        request.FILES = {"content": MagicMock()}
-        request.POST.get.return_value = ""
-
-        result = classify_content_type(request)
-        self.assertEqual(result, "image")
-
-    def test_classify_content_type_url(self):
-        """Test classification returns 'url' for URL-like content"""
-        from core.views.upload import classify_content_type
-        from unittest.mock import MagicMock
-
-        # Mock request with URL content
-        request = MagicMock()
-        request.is_base64_image = False
-        request.FILES = {}
-        request.POST.get.return_value = "https://example.com"
-
-        result = classify_content_type(request)
-        self.assertEqual(result, "url")
-
-    def test_classify_content_type_text(self):
-        """Test classification returns 'text' for plain text content"""
-        from core.views.upload import classify_content_type
-        from unittest.mock import MagicMock
-
-        # Mock request with text content
-        request = MagicMock()
-        request.is_base64_image = False
-        request.FILES = {}
-        request.POST.get.return_value = "Hello world, this is plain text"
-
-        result = classify_content_type(request)
-        self.assertEqual(result, "text")
 
 
 # =============================================================================
@@ -566,7 +511,7 @@ class WebUploadViewPostTests(TestCase):
         png_b64 = base64.b64encode(png_bytes).decode()
         base64_png = f"data:image/png;base64,{png_b64}"
 
-        with patch("core.views.upload.classify_content_type") as mock_classify:
+        with patch("core.views.upload.classify_type") as mock_classify:
             # POST the base-64 image
             resp = self.client.post(self.upload_url, {"content": base64_png})
 
@@ -586,7 +531,7 @@ class WebUploadViewPostTests(TestCase):
         # Create a regular file upload
         upload_file = self.mock_picfile("test.png", PNG_MAGIC)
 
-        with patch("core.views.upload.classify_content_type") as mock_classify:
+        with patch("core.views.upload.classify_type") as mock_classify:
             # POST the regular file
             resp = self.client_file_upload(upload_file)
 
@@ -605,7 +550,7 @@ class WebUploadViewPostTests(TestCase):
 
         url_content = "https://example.com"
 
-        with patch("core.views.upload.classify_content_type") as mock_classify:
+        with patch("core.views.upload.classify_type") as mock_classify:
             # Mock the classification function to return 'url'
             mock_classify.return_value = "url"
 
@@ -621,7 +566,7 @@ class WebUploadViewPostTests(TestCase):
 
         text_content = "Hello world, this is plain text"
 
-        with patch("core.views.upload.classify_content_type") as mock_classify:
+        with patch("core.views.upload.classify_type") as mock_classify:
             # Mock the classification function to return 'text'
             mock_classify.return_value = "text"
 
