@@ -11,12 +11,13 @@ business logic mixed into view code, making rapid changes difficult.
 
 - Create `core/util/` directory with utility modules (IN PROGRESS):
   - [x] Created `core/util/validator.py` with `looks_like_url()` function
+  - [x] Created `core/util/content.py` with `classify_type()` function
   - `upload.py` functions from upload.py lines 160-210:
     - Extract:
       - `validate_upload_bytes()`
       - `process_file_upload()`
-  - `content.py`
-    - Extract base64 detection logic from lines 45-85 in upload.py  
+  - `content.py` remaining functions:
+    - Extract `convert_base64_to_file()` function from lines 48-120  
   - `files.py`
     - Consolidate file saving, error handling from both upload.py and upload_api.py
 - Refactor `web_upload_view()` & `upload_view_post()` to be...

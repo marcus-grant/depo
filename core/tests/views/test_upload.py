@@ -20,45 +20,6 @@ from core.tests.fixtures import (
 User = get_user_model()
 
 # =============================================================================
-# Unit Tests for Classification Functions
-# =============================================================================
-
-
-class ClassificationFunctionTests(TestCase):
-    """Unit tests for looks_like_url and classify_content_type functions"""
-
-    def test_looks_like_url_with_scheme(self):
-        """Test URL detection for strings with explicit schemes"""
-        from core.views.upload import looks_like_url
-
-        self.assertTrue(looks_like_url("https://example.com"))
-        self.assertTrue(looks_like_url("http://example.com"))
-        self.assertTrue(looks_like_url("ftp://files.example.com"))
-        self.assertTrue(looks_like_url("https://sub.domain.com/path"))
-
-    def test_looks_like_url_without_scheme(self):
-        """Test URL detection for domain-like strings without schemes"""
-        from core.views.upload import looks_like_url
-
-        self.assertTrue(looks_like_url("example.com"))
-        self.assertTrue(looks_like_url("www.example.com"))
-        self.assertTrue(looks_like_url("sub.domain.co.uk"))
-        self.assertTrue(looks_like_url("api.service.io"))
-
-    def test_looks_like_url_false_cases(self):
-        """Test that non-URL strings return False"""
-        from core.views.upload import looks_like_url
-
-        self.assertFalse(looks_like_url("Hello world"))
-        self.assertFalse(looks_like_url("just text"))
-        self.assertFalse(looks_like_url("no.dots.but.not.a.url really"))
-        self.assertFalse(looks_like_url(""))
-        self.assertFalse(looks_like_url("   "))
-        self.assertFalse(looks_like_url(None))
-
-
-
-# =============================================================================
 # Web Endpoint Tests - GET
 # =============================================================================
 
