@@ -16,7 +16,8 @@ business logic mixed into view code, making rapid changes difficult.
     - Extract:
       - `validate_upload_bytes()`
       - `process_file_upload()`
-  - `content.py` remaining functions:
+  - `content.py` remaining functions (IN PROGRESS):
+    - [x] Created unit tests for `convert_base64_to_file()` function
     - Extract `convert_base64_to_file()` function from lines 48-120  
   - `files.py`
     - Consolidate file saving, error handling from both upload.py and upload_api.py
