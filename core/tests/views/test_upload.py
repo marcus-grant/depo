@@ -197,6 +197,15 @@ class WebUploadViewPostTests(TestCase):
         self.assertIn("EMPTY", resp.content.decode().upper())
         mock.assert_not_called()
 
+    @patch("core.views.upload.file_empty")
+    def test_file_empty_validator_called_for_empty_file(self, mock_file_empty):
+        """Verify file_empty validator is called with empty file data"""
+        mock_file_empty.return_value = True
+        empty_file = self.mock_picfile("empty.png", b"")
+        resp = self.client_file_upload(empty_file)
+        mock_file_empty.assert_called_once_with(b"")
+        self.assertEqual(resp.status_code, 400)
+
     @patch("core.models.pic.PicItem.ensure")
     def test_file_write_error_returns_server_error(self, mock):
         """Simulate a file write error to ensure a 500 error is returned."""

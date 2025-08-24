@@ -1,4 +1,27 @@
+from typing import Optional, Union
 from urllib.parse import urlparse
+
+
+def file_empty(file_data: Union[bytes, None]) -> bool:
+    """Check if file data is empty"""
+    return file_data is None or file_data == b""
+
+
+def file_exceeds_max_size(file_data: bytes, max_size: int) -> bool:
+    """Check if file data exceeds maximum size"""
+    pass
+
+
+# TODO: Handle cases where we want text or ie SVG where it's XML text
+def validate_upload_bytes(upload_bytes: bytes) -> Optional[str]:
+    """Validate file type by checking magic bytes"""
+    if b"\xff\xd8\xff" in upload_bytes:
+        return "jpg"
+    if b"\x89PNG\r\n\x1a\n" in upload_bytes:
+        return "png"
+    if b"GIF89a" in upload_bytes or b"GIF87a" in upload_bytes:
+        return "gif"
+    return None
 
 
 def looks_like_url(text: str) -> bool:
@@ -26,3 +49,4 @@ def looks_like_url(text: str) -> bool:
         return False
     except Exception:
         return False
+

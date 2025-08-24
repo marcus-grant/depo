@@ -1,6 +1,25 @@
 from django.test import TestCase
 
-from core.util.validator import looks_like_url
+from core.util.validator import looks_like_url, validate_upload_bytes, file_empty
+
+
+class TestFileEmpty(TestCase):
+    """Unit tests for file_empty function"""
+
+    def test_file_empty_with_content(self):
+        """Test that files with content return False"""
+        result = file_empty(b"some file content")
+        self.assertFalse(result)
+
+    def test_file_empty_with_empty_bytes(self):
+        """Test that empty byte strings return True"""
+        result = file_empty(b"")
+        self.assertTrue(result)
+
+    def test_file_empty_with_none(self):
+        """Test that None values return True"""
+        result = file_empty(None)
+        self.assertTrue(result)
 
 
 class TestLooksLikeUrl(TestCase):
@@ -28,4 +47,26 @@ class TestLooksLikeUrl(TestCase):
         self.assertFalse(looks_like_url(""))
         self.assertFalse(looks_like_url("   "))
         self.assertFalse(looks_like_url(None))
+
+
+class TestValidateUploadBytes(TestCase):
+    """Unit tests for validate_upload_bytes function"""
+
+    def test_validate_jpg_bytes(self):
+        """Test that JPEG magic bytes are detected"""
+        
+        jpeg_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF"
+        
+        result = validate_upload_bytes(jpeg_bytes)
+        
+        self.assertEqual(result, "jpg")
+
+    def test_validate_png_bytes(self):
+        """Test that PNG magic bytes are detected"""
+        
+        png_bytes = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+        
+        result = validate_upload_bytes(png_bytes)
+        
+        self.assertEqual(result, "png")
 

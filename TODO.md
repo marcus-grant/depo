@@ -13,9 +13,12 @@ business logic mixed into view code, making rapid changes difficult.
   - [x] Created `core/util/validator.py` with `looks_like_url()` function
   - [x] Created `core/util/content.py` with `classify_type()` function
   - `upload.py` functions from upload.py lines 160-210:
-    - Extract:
-      - `validate_upload_bytes()`
-      - `process_file_upload()`
+    - [x] Moved `validate_upload_bytes()` to validator.py
+    - [x] Extracted empty file validation from `process_file_upload()` to `file_empty()` in validator.py
+    - Extract remaining parts of `process_file_upload()`:
+      - Size limit validation
+      - File type validation consolidation  
+      - File I/O operations
   - [x] `content.py` functions completed:
     - [x] Created unit tests for `convert_base64_to_file()` function
     - [x] Moved `convert_base64_to_file()` function from upload.py  
@@ -29,6 +32,10 @@ business logic mixed into view code, making rapid changes difficult.
   - `upload.py`
   - `upload_api.py`
   - `raw_download.py`
+- Clean up after refactoring:
+  - Remove dead code from upload.py after function moves
+  - Remove unused imports (base64, BytesIO, Optional, etc.)
+  - Verify no orphaned TODOs or comments
 
 **Files to modify**:
 

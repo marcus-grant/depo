@@ -14,6 +14,7 @@ from django.shortcuts import redirect, render
 
 from core.models.pic import PicItem
 from core.util.content import classify_type, convert_base64_to_file
+from core.util.validator import validate_upload_bytes, file_empty
 
 logger = logging.getLogger("depo." + __name__)
 
@@ -26,28 +27,10 @@ MSG_EMPTY = "Empty file uploaded"
 MSG_INVALID = "Invalid or unknown filetype, not allowed"
 
 
-
-
-
-
-
-# TODO: Move file byte validation to separate module
-# Should include all upload validations and potentially determining filetype
-# TODO: Handle cases where we want text or ie SVG where it's XML text
-def validate_upload_bytes(upload_bytes: bytes) -> Optional[str]:
-    if b"\xff\xd8\xff" in upload_bytes:
-        return "jpg"
-    if b"\x89PNG\r\n\x1a\n" in upload_bytes:
-        return "png"
-    if b"GIF89a" in upload_bytes or b"GIF87a" in upload_bytes:
-        return "gif"
-    return None
-
-
 # TODO: Logging should be moved out to own module and/or midware
 def process_file_upload(file_data: bytes) -> dict:
     """Extract core upload processing logic for reuse"""
-    if not file_data or file_data == b"":
+    if file_empty(file_data):
         return {"success": False, "message": MSG_EMPTY, "status": 400}
 
     if len(file_data) > settings.MAX_UPLOAD_SIZE:
@@ -157,9 +140,13 @@ def web_upload_view(request):
             except ValueError as e:
                 # Log malformed base-64 error per spec
                 if "Invalid base-64 data" in str(e):
-                    logger.warning('{"event":"clipboard_image_error","reason":"DecodeError"}')
+                    logger.warning(
+                        '{"event":"clipboard_image_error","reason":"DecodeError"}'
+                    )
                 else:
-                    logger.warning('{"event":"clipboard_image_error","reason":"ValidationError"}')
+                    logger.warning(
+                        '{"event":"clipboard_image_error","reason":"ValidationError"}'
+                    )
                 return upload_response(
                     request, msg=f"Invalid image data: {e}", err=True, stat=400
                 )
