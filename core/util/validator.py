@@ -12,8 +12,8 @@ def file_too_big(file_data: bytes, max_size: int) -> bool:
     return len(file_data) > max_size
 
 
-# TODO: Handle cases where we want text or ie SVG where it's XML text
-def validate_upload_bytes(upload_bytes: bytes) -> Optional[str]:
+# TODO: Handle cases where we want text or ie SVG where it's XML text  
+def file_type(upload_bytes: bytes) -> Optional[str]:
     """Validate file type by checking magic bytes"""
     if b"\xff\xd8\xff" in upload_bytes:
         return "jpg"

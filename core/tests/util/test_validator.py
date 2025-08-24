@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from core.util.validator import looks_like_url, validate_upload_bytes, file_empty, file_too_big
+from core.util.validator import looks_like_url, file_type, file_empty, file_too_big
 
 
 class TestFileEmpty(TestCase):
@@ -74,24 +74,24 @@ class TestLooksLikeUrl(TestCase):
         self.assertFalse(looks_like_url(None))
 
 
-class TestValidateUploadBytes(TestCase):
-    """Unit tests for validate_upload_bytes function"""
+class TestFileType(TestCase):
+    """Unit tests for file_type function"""
 
-    def test_validate_jpg_bytes(self):
+    def test_file_type_jpg_bytes(self):
         """Test that JPEG magic bytes are detected"""
         
         jpeg_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF"
         
-        result = validate_upload_bytes(jpeg_bytes)
+        result = file_type(jpeg_bytes)
         
         self.assertEqual(result, "jpg")
 
-    def test_validate_png_bytes(self):
+    def test_file_type_png_bytes(self):
         """Test that PNG magic bytes are detected"""
         
         png_bytes = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
         
-        result = validate_upload_bytes(png_bytes)
+        result = file_type(png_bytes)
         
         self.assertEqual(result, "png")
 

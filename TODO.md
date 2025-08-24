@@ -16,8 +16,9 @@ business logic mixed into view code, making rapid changes difficult.
     - [x] Moved `validate_upload_bytes()` to validator.py
     - [x] Extracted empty file validation from `process_file_upload()` to `file_empty()` in validator.py
     - [x] Extracted size limit validation from `process_file_upload()` to `file_too_big()` in validator.py
+    - [x] Renamed `validate_upload_bytes()` to `file_type()` for consistency
     - Extract remaining parts of `process_file_upload()`:
-      - File type validation consolidation and rename validate_upload_bytes()
+      - File type validation consolidation with boolean validator
       - File I/O operations
   - [x] `content.py` functions completed:
     - [x] Created unit tests for `convert_base64_to_file()` function

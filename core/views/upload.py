@@ -14,7 +14,7 @@ from django.shortcuts import redirect, render
 
 from core.models.pic import PicItem
 from core.util.content import classify_type, convert_base64_to_file
-from core.util.validator import validate_upload_bytes, file_empty, file_too_big
+from core.util.validator import file_type, file_empty, file_too_big
 
 logger = logging.getLogger("depo." + __name__)
 
@@ -37,7 +37,7 @@ def process_file_upload(file_data: bytes) -> dict:
         msg = f"File size {len(file_data)} exceeds limit of {settings.MAX_UPLOAD_SIZE} bytes"
         return {"success": False, "message": msg, "status": 400}
 
-    pic_type = validate_upload_bytes(file_data)
+    pic_type = file_type(file_data)
     if not pic_type:
         return {"success": False, "message": MSG_INVALID, "status": 400}
 
