@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from core.util.validator import looks_like_url, file_type, file_empty, file_too_big
+from core.util.validator import looks_like_url, file_type, file_empty, file_too_big, file_type_invalid
 
 
 class TestFileEmpty(TestCase):
@@ -45,6 +45,22 @@ class TestFileTooBig(TestCase):
         max_size = 100
         result = file_too_big(file_data, max_size)
         self.assertFalse(result)
+
+
+class TestFileTypeInvalid(TestCase):
+    """Unit tests for file_type_invalid function"""
+
+    def test_file_type_invalid_with_valid_jpg(self):
+        """Test that valid JPEG files return False"""
+        jpeg_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF"
+        result = file_type_invalid(jpeg_bytes)
+        self.assertFalse(result)
+
+    def test_file_type_invalid_with_invalid_file(self):
+        """Test that invalid file types return True"""
+        invalid_bytes = b"Not an image file"
+        result = file_type_invalid(invalid_bytes)
+        self.assertTrue(result)
 
 
 class TestLooksLikeUrl(TestCase):

@@ -188,6 +188,15 @@ class WebUploadViewPostTests(TestCase):
         self.assertIn("allow", msg)
         mock.assert_not_called()
 
+    @patch("core.views.upload.file_type_invalid")
+    def test_file_type_invalid_validator_called_for_invalid_file(self, mock_file_type_invalid):
+        """Verify file_type_invalid validator is called with invalid file data"""
+        mock_file_type_invalid.return_value = True
+        invalid_file = SimpleUploadedFile("bad.txt", b"Not an image", content_type="text/plain")
+        resp = self.client_file_upload(invalid_file)
+        mock_file_type_invalid.assert_called_once_with(b"Not an image")
+        self.assertEqual(resp.status_code, 400)
+
     @patch("core.models.pic.PicItem.ensure")
     def test_empty_file_upload_returns_error(self, mock):
         """Uploading an empty file should return a 400 error and not call PicItem.ensure."""
