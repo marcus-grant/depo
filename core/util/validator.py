@@ -24,11 +24,6 @@ def file_type(upload_bytes: bytes) -> Optional[str]:
     return None
 
 
-def file_type_invalid(file_data: bytes) -> bool:
-    """Check if file data has invalid/unsupported file type"""
-    return file_type(file_data) is None
-
-
 def looks_like_url(text: str) -> bool:
     """Check if text looks like a URL"""
     if not text or not isinstance(text, str):

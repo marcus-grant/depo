@@ -17,9 +17,15 @@ business logic mixed into view code, making rapid changes difficult.
     - [x] Extracted empty file validation from `process_file_upload()` to `file_empty()` in validator.py
     - [x] Extracted size limit validation from `process_file_upload()` to `file_too_big()` in validator.py
     - [x] Renamed `validate_upload_bytes()` to `file_type()` for consistency
-    - [x] Added `file_type_invalid()` boolean validator and updated process_file_upload()
+    - [x] Cleaned up file type validation to use single `file_type()` function with `if not file_type(data):`
     - Extract remaining parts of `process_file_upload()`:
       - File I/O operations
+    - **Future consideration**: Consolidate multiple if-statement validators into single function
+      that returns first failure message or None if valid, mapping validators to error messages
+    - **Future consideration**: Move `file_type()` from validator.py to content.py since it's 
+      content classification rather than validation
+    - **Important**: Current file type handling mixes classification and validation - need to
+      reconsider architecture since validators should only validate, not classify content
   - [x] `content.py` functions completed:
     - [x] Created unit tests for `convert_base64_to_file()` function
     - [x] Moved `convert_base64_to_file()` function from upload.py  

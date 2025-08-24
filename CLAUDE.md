@@ -68,3 +68,24 @@ This file contains instructions and guidelines for Claude when working on the De
   - Mark completed items with [x]
   - Add new tasks as they're discovered
   - Document progress for easy resumption
+
+### Function Refactoring Procedure
+
+When extracting business logic from views to utilities (established pattern):
+
+1. **Analyze function part-by-part** - identify each responsibility
+2. **Find existing integration tests** that cover the logic being extracted
+3. **Create utility function stub** with `pass` (red-green-refactor approach)
+4. **TDD approach**: Write failing unit test → implement → green → next test
+5. **Update calling code** to use new utility function
+6. **Add integration test** to verify new utility is called correctly with right parameters
+7. **Run full test suite** to ensure nothing breaks
+8. **Update TODO.md** and **commit frequently** (small, focused commits)
+
+**Key patterns established:**
+- Boolean validators: `file_empty()`, `file_too_big()`
+- Keep existing integration tests as safety net  
+- Unit tests focus on utility functions in isolation
+- Integration tests verify the wiring works
+- Mock where functions are used, not where defined
+- Mock parameter order matches decorator order (bottom-to-top)
