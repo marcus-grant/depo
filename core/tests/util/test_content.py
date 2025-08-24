@@ -2,8 +2,7 @@ from django.test import TestCase
 from unittest.mock import MagicMock
 import base64
 
-from core.util.content import classify_type as classify_content_type
-from core.views.upload import convert_base64_to_file
+from core.util.content import classify_type as classify_content_type, convert_base64_to_file
 
 
 class TestConvertBase64ToFile(TestCase):
