@@ -114,6 +114,35 @@ future development when returning to project less frequently.
 - deployment process is documented
 - README explains what Depo does
 
+### **ACTIVE: Basic Project Documentation**
+
+**Problem**: Need maintainable documentation before MVP deployment to support future development when returning to project less frequently.
+
+**Implementation Tasks**:
+- Create `docs/architecture.md` with concise overview:
+  - Models: Item, PicItem, LinkItem - purpose and key fields
+  - Views: upload, shortcode, auth flows - what each does
+  - URLs: routing patterns and shortcode system
+  - Templates: base structure and key templates
+  - Key settings: UPLOAD_DIR, authentication, file handling
+- Document deployment basics in `docs/deployment.md`:
+  - Environment setup requirements
+  - Database migration process
+  - Static file handling
+  - Production settings overview
+- Update README.md with:
+  - Project purpose and core functionality
+  - Quick setup instructions
+  - Link to detailed documentation
+
+**Files to create/modify**:
+- `docs/architecture.md` - Core system overview
+- `docs/deployment.md` - Deployment guide
+- `README.md` - Project overview and setup
+- Ensure docs/ directory structure
+
+**Acceptance criteria**: Developer can understand project structure from documentation, deployment process is documented, README explains what Depo does
+
 ### **ACTIVE: Deployment and Backup Strategy Implementation**
 
 **Problem**: Need deployment pipeline and backup procedures before
