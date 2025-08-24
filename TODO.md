@@ -9,17 +9,18 @@ business logic mixed into view code, making rapid changes difficult.
 
 **Implementation Tasks**:
 
-- Create `core/services/` directory with service modules:
-  - `file_processor.py` functions from upload.py lines 160-210:
+- Create `core/util/` directory with utility modules (IN PROGRESS):
+  - [x] Created `core/util/validator.py` with `looks_like_url()` function
+  - `upload.py` functions from upload.py lines 160-210:
     - Extract:
       - `validate_upload_bytes()`
       - `process_file_upload()`
-  - `content_classifier.py`
+  - `content.py`
     - Extract base64 detection logic from lines 45-85 in upload.py  
-  - `upload_handler.py`
+  - `files.py`
     - Consolidate file saving, error handling from both upload.py and upload_api.py
 - Refactor `web_upload_view()` & `upload_view_post()` to be...
-  - thin controllers calling service methods
+  - thin controllers calling utility functions
 - Extract test logic: split `test_upload.py` (800+ lines) into...
   - focused test modules by functionality
 - Standardize error response patterns across
@@ -33,14 +34,14 @@ business logic mixed into view code, making rapid changes difficult.
 - `core/views/upload_api.py` - extract shared logic with upload.py
 - `core/tests/views/test_upload.py` - split into multiple focused test files
 - Create new:
-  - `core/services/file_processor.py`
-  - `core/services/content_classifier.py`
-  - `core/services/upload_handler.py`
+  - `core/utils/upload.py`
+  - `core/utils/content.py`
+  - `core/utils/files.py`
 
 **Acceptance criteria**:
 
 - Views are <100 lines
-- business logic in testable service modules
+- business logic in testable utility modules
 - no code duplication between web and API upload paths
 
 ### **ACTIVE: Database Schema Finalization**  

@@ -5,7 +5,6 @@ import time
 from io import BytesIO
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlparse
 
 from django.conf import settings
 from django.contrib import messages
@@ -14,6 +13,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.shortcuts import redirect, render
 
 from core.models.pic import PicItem
+from core.util.validator import looks_like_url
 
 logger = logging.getLogger("depo." + __name__)
 
@@ -26,36 +26,6 @@ MSG_EMPTY = "Empty file uploaded"
 MSG_INVALID = "Invalid or unknown filetype, not allowed"
 
 
-def looks_like_url(text: str) -> bool:
-    """Check if text looks like a URL"""
-    if not text or not isinstance(text, str):
-        return False
-
-    text = text.strip()
-
-    # Try parsing as URL
-    try:
-        parsed = urlparse(text)
-        # Has scheme (http, https, ftp, etc.)
-        if parsed.scheme:
-            return True
-        # Try adding https:// and parsing again
-        parsed_with_https = urlparse(f"https://{text}")
-        # Check if it has a valid netloc (domain) and no spaces
-        if (
-            parsed_with_https.netloc
-            and "." in parsed_with_https.netloc
-            and " " not in text
-        ):
-            # Additional check: netloc should not be too long or contain obviously non-URL characters
-            netloc = parsed_with_https.netloc
-            if len(netloc) < 100 and not any(
-                char in netloc for char in [" ", "\t", "\n"]
-            ):
-                return True
-        return False
-    except Exception:
-        return False
 
 
 def classify_content_type(request) -> str:
