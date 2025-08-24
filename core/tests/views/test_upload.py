@@ -267,6 +267,16 @@ class WebUploadViewPostTests(TestCase):
         self.assertIn(expected_msg, resp.content.decode())
         mock.assert_not_called()
 
+    @override_settings(MAX_UPLOAD_SIZE=100)
+    @patch("core.views.upload.file_too_big")
+    def test_file_too_big_validator_called_for_oversized_file(self, mock_file_too_big):
+        """Verify file_too_big validator is called with oversized file data"""
+        mock_file_too_big.return_value = True
+        upload = self.mock_picfile("oversized.jpg", b"A" * 101)
+        resp = self.client_file_upload(upload)
+        mock_file_too_big.assert_called_once_with(b"A" * 101, 100)
+        self.assertEqual(resp.status_code, 400)
+
     @patch("core.models.pic.PicItem.ensure")
     def test_malicious_filename_is_ignored(self, mock):
         """

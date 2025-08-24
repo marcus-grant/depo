@@ -7,9 +7,9 @@ def file_empty(file_data: Union[bytes, None]) -> bool:
     return file_data is None or file_data == b""
 
 
-def file_exceeds_max_size(file_data: bytes, max_size: int) -> bool:
+def file_too_big(file_data: bytes, max_size: int) -> bool:
     """Check if file data exceeds maximum size"""
-    pass
+    return len(file_data) > max_size
 
 
 # TODO: Handle cases where we want text or ie SVG where it's XML text
