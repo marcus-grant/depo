@@ -192,10 +192,29 @@ class WebUploadViewPostTests(TestCase):
     def test_file_type_validator_called_for_invalid_file(self, mock_file_type):
         """Verify file_type validator is called and returns None for invalid file data"""
         mock_file_type.return_value = None
-        invalid_file = SimpleUploadedFile("bad.txt", b"Not an image", content_type="text/plain")
+        invalid_file = SimpleUploadedFile(
+            "bad.txt", b"Not an image", content_type="text/plain"
+        )
         resp = self.client_file_upload(invalid_file)
         mock_file_type.assert_called_once_with(b"Not an image")
         self.assertEqual(resp.status_code, 400)
+
+    @patch("core.views.upload.save_upload")
+    @patch("core.models.pic.PicItem.ensure")
+    def test_save_upload_called_with_correct_path_and_data(
+        self, mock_pic_ensure, mock_save_upload
+    ):
+        """Verify save_upload is called with correct file path and data"""
+        mock_pic_ensure = self.mock_ensure_pic(
+            mock_pic_ensure, code="TESTHASH", fmt="jpg"
+        )
+        upload_file = self.mock_picfile("test.jpg", JPEG_MAGIC)
+
+        resp = self.client_file_upload(upload_file)
+
+        expected_path = Path(settings.UPLOAD_DIR) / "TESTHASH.jpg"
+        mock_save_upload.assert_called_once_with(expected_path, JPEG_MAGIC)
+        self.assertEqual(resp.status_code, 200)
 
     @patch("core.models.pic.PicItem.ensure")
     def test_empty_file_upload_returns_error(self, mock):
@@ -220,7 +239,7 @@ class WebUploadViewPostTests(TestCase):
         """Simulate a file write error to ensure a 500 error is returned."""
         mock = self.mock_ensure_pic(mock, code="ERRHASH", fmt="jpg")
         upload = self.mock_picfile("dummy.jpg", JPEG_MAGIC)
-        with patch("core.views.upload.open", side_effect=OSError("Disk error")):
+        with patch("core.util.files.open", side_effect=OSError("Disk error")):
             resp = self.client_file_upload(upload)
         self.assertEqual(resp.status_code, 500)
         resp_text = resp.content.decode().upper()

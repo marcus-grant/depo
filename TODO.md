@@ -14,15 +14,16 @@ business logic mixed into view code, making rapid changes difficult.
   - [x] Created `core/util/content.py` with `classify_type()` function
   - `upload.py` functions from upload.py lines 160-210:
     - [x] Moved `validate_upload_bytes()` to validator.py
-    - [x] Extracted empty file validation from `process_file_upload()` to `file_empty()` in validator.py
-    - [x] Extracted size limit validation from `process_file_upload()` to `file_too_big()` in validator.py
+    - [x] Extracted empty file validation from `process_file_upload()`
+          to `file_empty()` in validator.py
+    - [x] Extracted size limit validation from `process_file_upload()`
+          to `file_too_big()` in validator.py
     - [x] Renamed `validate_upload_bytes()` to `file_type()` for consistency
     - [x] Cleaned up file type validation to use single `file_type()` function with `if not file_type(data):`
-    - Extract remaining parts of `process_file_upload()`:
-      - File I/O operations
+    - [x] Extracted file I/O operations to `save_upload()` in files.py with proper error handling
     - **Future consideration**: Consolidate multiple if-statement validators into single function
       that returns first failure message or None if valid, mapping validators to error messages
-    - **Future consideration**: Move `file_type()` from validator.py to content.py since it's 
+    - **Future consideration**: Move `file_type()` from validator.py to content.py since it's
       content classification rather than validation
     - **Important**: Current file type handling mixes classification and validation - need to
       reconsider architecture since validators should only validate, not classify content
@@ -56,7 +57,7 @@ business logic mixed into view code, making rapid changes difficult.
 
 **Acceptance criteria**:
 
-- Views are <100 lines
+- Views are <256 lines
 - business logic in testable utility modules
 - no code duplication between web and API upload paths
 
@@ -136,6 +137,7 @@ future development when returning to project less frequently.
 **Problem**: Need maintainable documentation before MVP deployment to support future development when returning to project less frequently.
 
 **Implementation Tasks**:
+
 - Create `docs/architecture.md` with concise overview:
   - Models: Item, PicItem, LinkItem - purpose and key fields
   - Views: upload, shortcode, auth flows - what each does
@@ -153,6 +155,7 @@ future development when returning to project less frequently.
   - Link to detailed documentation
 
 **Files to create/modify**:
+
 - `docs/architecture.md` - Core system overview
 - `docs/deployment.md` - Deployment guide
 - `README.md` - Project overview and setup

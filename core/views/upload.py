@@ -15,6 +15,7 @@ from django.shortcuts import redirect, render
 from core.models.pic import PicItem
 from core.util.content import classify_type, convert_base64_to_file
 from core.util.validator import file_type, file_empty, file_too_big
+from core.util.files import save_upload
 
 logger = logging.getLogger("depo." + __name__)
 
@@ -22,7 +23,6 @@ logger = logging.getLogger("depo." + __name__)
 
 # TODO: Reference theses constant messages in the response function
 ACCEPT_EXTS = ".jpg,.jpeg,.png,.gif"
-MSG_EXIST = "File already exists"
 MSG_EMPTY = "Empty file uploaded"
 MSG_INVALID = "Invalid or unknown filetype, not allowed"
 
@@ -44,17 +44,8 @@ def process_file_upload(file_data: bytes) -> dict:
     fname = f"{pic_item.item.code}.{pic_item.format}"
     fpath = Path(settings.UPLOAD_DIR) / fname
 
-    if fpath.exists():
-        return {
-            "success": True,
-            "message": MSG_EXIST,
-            "item": pic_item,
-            "filename": fname,
-        }
-
     try:
-        with open(fpath, "wb") as f:
-            f.write(file_data)
+        save_upload(fpath, file_data)
         msg = f"Uploaded file {fname} successfully!"
         return {"success": True, "message": msg, "item": pic_item, "filename": fname}
     except OSError as e:
