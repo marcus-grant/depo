@@ -21,6 +21,15 @@ business logic mixed into view code, making rapid changes difficult.
     - [x] Renamed `validate_upload_bytes()` to `file_type()` for consistency
     - [x] Cleaned up file type validation to use single `file_type()` function with `if not file_type(data):`
     - [x] Extracted file I/O operations to `save_upload()` in files.py with proper error handling
+    - **WIP**: Business logic placement for filename/filepath generation - multiple options identified:
+      - Option A: Pure utility function (no model changes) - best testability/separation
+      - Option B: Model filename property only - simple, good separation
+      - Option C: Separate file management service - added abstraction
+      - Option D: Settings-agnostic model + path builder - maximum flexibility
+      - Option E: Current approach (properties with settings) - hard to test, tight coupling
+      - Option F: Context-aware properties - good flexibility
+      Current implementation (Option E) causes test mocking issues, suggests wrong placement
+    - **Note**: Temporary checkpoint commit made - will be merged/replaced with final implementation
     - **Future consideration**: Consolidate multiple if-statement validators into single function
       that returns first failure message or None if valid, mapping validators to error messages
     - **Future consideration**: Move `file_type()` from validator.py to content.py since it's

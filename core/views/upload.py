@@ -41,20 +41,18 @@ def process_file_upload(file_data: bytes) -> dict:
         return {"success": False, "message": MSG_INVALID, "status": 400}
 
     pic_item = PicItem.ensure(file_data)
-    fname = f"{pic_item.item.code}.{pic_item.format}"
-    fpath = Path(settings.UPLOAD_DIR) / fname
 
     try:
-        save_upload(fpath, file_data)
-        msg = f"Uploaded file {fname} successfully!"
-        return {"success": True, "message": msg, "item": pic_item, "filename": fname}
+        save_upload(pic_item.filepath, file_data)
+        msg = f"Uploaded file {pic_item.filename} successfully!"
+        return {"success": True, "message": msg, "item": pic_item, "filename": pic_item.filename}
     except OSError as e:
         logger.error(f"Error during upload file save: {e}")
         return {
             "success": False,
             "message": "Error during upload file save",
             "status": 500,
-            "filename": fname,
+            "filename": pic_item.filename,
         }
 
 

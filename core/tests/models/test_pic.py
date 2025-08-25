@@ -157,3 +157,29 @@ class PicItemContextTest(TestCase):
         # Assert: URL field should be present with extension
         self.assertIn("url", ctx)
         self.assertEqual(ctx["url"], f"/raw/{item.code}.{pic.format}")
+
+
+class TestPicItemProperties(TestCase):
+    """Unit tests for PicItem properties"""
+
+    def test_filename_property(self):
+        """Test that filename property returns correct format"""
+        item = Item.objects.create(code="ABCD1234", hash="HASH1", ctype="pic")
+        pic_item = PicItem.objects.create(item=item, format="jpg", size=1024)
+        
+        result = pic_item.filename
+        
+        self.assertEqual(result, "ABCD1234.jpg")
+
+    def test_filepath_property(self):
+        """Test that filepath property returns correct Path"""
+        from django.conf import settings
+        from pathlib import Path
+        
+        item = Item.objects.create(code="EFGH5678", hash="HASH2", ctype="pic")
+        pic_item = PicItem.objects.create(item=item, format="png", size=2048)
+        
+        result = pic_item.filepath
+        
+        expected = Path(settings.UPLOAD_DIR) / "EFGH5678.png"
+        self.assertEqual(result, expected)
