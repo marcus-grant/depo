@@ -9,6 +9,24 @@ business logic mixed into view code, making rapid changes difficult.
 
 **Implementation Tasks**:
 
+- [x] **COMPLETED**: Refactor `file_too_big(file_data, max_size)` to `file_too_big(file_data)`
+  - Validator now handles settings internally for single responsibility
+  - Reduced coupling in tests and calling code
+  - Service implementation unblocked
+- [x] **COMPLETED**: Upload service implementation with TDD
+  - Created UploadResult dataclass for type-safe returns
+  - Implemented handle_file_upload with full validation pipeline
+  - Added comprehensive test coverage with mocking
+  - Service handles business logic and logging appropriately
+- [x] **COMPLETED**: Refactor save_upload utility for better separation
+  - Updated signature from (file_path: Path) to (filename: str) 
+  - Function now constructs paths using settings.UPLOAD_DIR internally
+  - Returns bool: True=saved, False=exists, raises OSError on failure
+  - Moved logging responsibility to service layer
+- **Future**: Refactor UploadResult to use associated model instance
+  - File type can be determined from PicItem.format property
+  - Eventually Item models will include FileItem base for all file-backed items
+  - This will simplify service interface and reduce duplication
 - Create `core/util/` directory with utility modules (IN PROGRESS):
   - [x] Created `core/util/validator.py` with `looks_like_url()` function
   - [x] Created `core/util/content.py` with `classify_type()` function
@@ -499,6 +517,15 @@ in a single textarea.
     `file:validationError`)
   - Document tweakable constants (size limit, accepted types)
   - Add notes on extending to the future "chip list"
+
+## Architecture Reconsiderations
+
+- **Django Service Layer**:
+  <https://github.com/HackSoftware/Django-Styleguide?tab=readme-ov-file#services>
+  - Read this guide and plan refactoring tasks around service layer patterns
+  - Focus on services, selectors, and proper separation of concerns
+  - Views and models  don't necessarily follow these guidelines yet
+  - Util modules - some might need rethinking into service modules/funcs/classes
 
 ### Backend Remaining Tasks
 
