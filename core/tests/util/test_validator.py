@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from core.util.validator import looks_like_url, file_type, file_empty, file_too_big
 
@@ -25,25 +25,25 @@ class TestFileEmpty(TestCase):
 class TestFileTooBig(TestCase):
     """Unit tests for file_too_big function"""
 
+    @override_settings(MAX_UPLOAD_SIZE=100)
     def test_file_too_big_with_small_file(self):
         """Test that files smaller than max size return False"""
         file_data = b"small file"
-        max_size = 100
-        result = file_too_big(file_data, max_size)
+        result = file_too_big(file_data)
         self.assertFalse(result)
 
+    @override_settings(MAX_UPLOAD_SIZE=100)
     def test_file_too_big_with_oversized_file(self):
         """Test that files larger than max size return True"""
         file_data = b"A" * 101
-        max_size = 100
-        result = file_too_big(file_data, max_size)
+        result = file_too_big(file_data)
         self.assertTrue(result)
 
+    @override_settings(MAX_UPLOAD_SIZE=100)
     def test_file_too_big_at_exact_limit(self):
         """Test that files exactly at max size return False"""
         file_data = b"A" * 100
-        max_size = 100
-        result = file_too_big(file_data, max_size)
+        result = file_too_big(file_data)
         self.assertFalse(result)
 
 

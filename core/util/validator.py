@@ -1,5 +1,6 @@
 from typing import Optional, Union
 from urllib.parse import urlparse
+from django.conf import settings
 
 
 def file_empty(file_data: Union[bytes, None]) -> bool:
@@ -7,12 +8,12 @@ def file_empty(file_data: Union[bytes, None]) -> bool:
     return file_data is None or file_data == b""
 
 
-def file_too_big(file_data: bytes, max_size: int) -> bool:
+def file_too_big(file_data: bytes) -> bool:
     """Check if file data exceeds maximum size"""
-    return len(file_data) > max_size
+    return len(file_data) > settings.MAX_UPLOAD_SIZE
 
 
-# TODO: Handle cases where we want text or ie SVG where it's XML text  
+# TODO: Handle cases where we want text or ie SVG where it's XML text
 def file_type(upload_bytes: bytes) -> Optional[str]:
     """Validate file type by checking magic bytes"""
     if b"\xff\xd8\xff" in upload_bytes:
@@ -49,4 +50,3 @@ def looks_like_url(text: str) -> bool:
         return False
     except Exception:
         return False
-
