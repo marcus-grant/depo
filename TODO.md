@@ -9,20 +9,11 @@ business logic mixed into view code, making rapid changes difficult.
 
 **Implementation Tasks**:
 
-- [x] **COMPLETED**: Refactor `file_too_big(file_data, max_size)` to `file_too_big(file_data)`
-  - Validator now handles settings internally for single responsibility
-  - Reduced coupling in tests and calling code
-  - Service implementation unblocked
-- [x] **COMPLETED**: Upload service implementation with TDD
-  - Created UploadResult dataclass for type-safe returns
-  - Implemented handle_file_upload with full validation pipeline
-  - Added comprehensive test coverage with mocking
-  - Service handles business logic and logging appropriately
-- [x] **COMPLETED**: Refactor save_upload utility for better separation
-  - Updated signature from (file_path: Path) to (filename: str) 
-  - Function now constructs paths using settings.UPLOAD_DIR internally
-  - Returns bool: True=saved, False=exists, raises OSError on failure
-  - Moved logging responsibility to service layer
+- **NEXT**: Integrate service into view layer
+  - Update upload view to use handle_file_upload service
+  - Replace existing business logic with service calls
+  - Fix failing integration test for save_upload signature change
+  - Ensure view becomes thin controller focused on HTTP concerns
 - **Future**: Refactor UploadResult to use associated model instance
   - File type can be determined from PicItem.format property
   - Eventually Item models will include FileItem base for all file-backed items

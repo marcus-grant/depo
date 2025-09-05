@@ -6,6 +6,27 @@ This document tracks completed changes to the Depo codebase, providing a histori
 
 ## Unreleased Changes
 
+## 2025-09-05
+
+- Upload Service Layer Implementation
+  - Created UploadResult dataclass for type-safe service returns
+  - Implemented handle_file_upload with complete validation pipeline
+  - Added comprehensive test coverage with mocking patterns
+  - Service handles business logic and logging responsibilities
+- Validator Refactoring for Single Responsibility
+  - Updated file_too_big() to handle settings internally
+  - Removed max_size parameter coupling from calling code
+  - Added override_settings tests for proper isolation
+- File Utility Modernization  
+  - Changed save_upload signature from (file_path: Path) to (filename: str)
+  - Function constructs paths using settings.UPLOAD_DIR internally
+  - Returns bool for saved/exists states, raises OSError for failures
+  - Moved logging responsibility from utility to service layer
+- Service Logging with Comprehensive Testing
+  - Added logging for successful saves, existing files, and storage errors
+  - Implemented keyword-based test assertions for robustness
+  - Verified appropriate log levels (info/error) usage
+
 ## 2025-08-23
 
 - Fixed logout flow bug (405 Method Not Allowed error)
