@@ -88,3 +88,63 @@ class TestHandleFileUpload(TestCase):
         self.assertFalse(result.success)
         self.assertEqual(result.error_type, "storage_error")
         self.assertIsNone(result.item)
+
+    @patch("core.services.upload.logger")
+    @patch("core.services.upload.save_upload")
+    @patch("core.services.upload.PicItem")
+    def test_service_logs_successful_save(self, mock_pic_item, mock_save_upload, mock_logger):
+        """Test that service logs when file is saved successfully"""
+        # Set up mocks
+        mock_instance = mock_pic_item.ensure.return_value
+        mock_instance.filename = "test123.jpg"
+        mock_save_upload.return_value = True  # File was saved
+        
+        file_data = b"\xff\xd8\xff\xe0"  # JPEG magic bytes
+        
+        handle_file_upload(file_data)
+        
+        # Verify logging contains expected keywords
+        mock_logger.info.assert_called_once()
+        call_args = mock_logger.info.call_args[0][0]
+        self.assertIn("test123.jpg", call_args)
+        self.assertIn("saved", call_args.lower())
+
+    @patch("core.services.upload.logger")
+    @patch("core.services.upload.save_upload")
+    @patch("core.services.upload.PicItem")
+    def test_service_logs_file_exists(self, mock_pic_item, mock_save_upload, mock_logger):
+        """Test that service logs when file already exists"""
+        # Set up mocks
+        mock_instance = mock_pic_item.ensure.return_value
+        mock_instance.filename = "existing.jpg"
+        mock_save_upload.return_value = False  # File already exists
+        
+        file_data = b"\xff\xd8\xff\xe0"  # JPEG magic bytes
+        
+        handle_file_upload(file_data)
+        
+        # Verify logging contains expected keywords
+        mock_logger.info.assert_called_once()
+        call_args = mock_logger.info.call_args[0][0]
+        self.assertIn("existing.jpg", call_args)
+        self.assertIn("exists", call_args.lower())
+
+    @patch("core.services.upload.logger")
+    @patch("core.services.upload.save_upload")
+    @patch("core.services.upload.PicItem")
+    def test_service_logs_storage_error(self, mock_pic_item, mock_save_upload, mock_logger):
+        """Test that service logs when storage error occurs"""
+        # Set up mocks
+        mock_instance = mock_pic_item.ensure.return_value
+        mock_instance.filename = "error.jpg"
+        mock_save_upload.side_effect = OSError("Disk full")
+        
+        file_data = b"\xff\xd8\xff\xe0"  # JPEG magic bytes
+        
+        handle_file_upload(file_data)
+        
+        # Verify logging contains expected keywords
+        mock_logger.error.assert_called_once()
+        call_args = mock_logger.error.call_args[0][0]
+        self.assertIn("error.jpg", call_args)
+        self.assertIn("failed", call_args.lower())
