@@ -302,7 +302,7 @@ class WebUploadViewPostTests(TestCase):
         mock_file_too_big.return_value = True
         upload = self.mock_picfile("oversized.jpg", b"A" * 101)
         resp = self.client_file_upload(upload)
-        mock_file_too_big.assert_called_once_with(b"A" * 101, 100)
+        mock_file_too_big.assert_called_once_with(b"A" * 101)
         self.assertEqual(resp.status_code, 400)
 
     @patch("core.models.pic.PicItem.ensure")

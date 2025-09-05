@@ -33,7 +33,7 @@ def process_file_upload(file_data: bytes) -> dict:
     if file_empty(file_data):
         return {"success": False, "message": MSG_EMPTY, "status": 400}
 
-    if file_too_big(file_data, settings.MAX_UPLOAD_SIZE):
+    if file_too_big(file_data):
         msg = f"File size {len(file_data)} exceeds limit of {settings.MAX_UPLOAD_SIZE} bytes"
         return {"success": False, "message": msg, "status": 400}
 
