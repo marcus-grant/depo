@@ -43,3 +43,48 @@ class TestHandleFileUpload(TestCase):
         self.assertFalse(result.success)
         self.assertEqual(result.error_type, "file_too_big")
         self.assertIsNone(result.item)
+
+    @patch("core.services.upload.save_upload")
+    @patch("core.services.upload.PicItem")
+    def test_handle_file_upload_with_valid_file(self, mock_pic_item, mock_save_upload):
+        """Test that valid files are processed successfully"""
+        # Set up mocks
+        mock_instance = mock_pic_item.ensure.return_value
+        mock_instance.filename = "test123.jpg"
+
+        file_data = b"\xff\xd8\xff\xe0"  # JPEG magic bytes
+
+        result = handle_file_upload(file_data)
+
+        # Verify all steps were called
+        mock_pic_item.ensure.assert_called_once_with(file_data)
+        mock_save_upload.assert_called_once_with(mock_instance.filename, file_data)
+
+        # Verify result
+        self.assertTrue(result.success)
+        self.assertEqual(result.error_type, "")
+        self.assertEqual(result.item, mock_instance)
+
+    @patch("core.services.upload.save_upload")
+    @patch("core.services.upload.PicItem")
+    def test_handle_file_upload_with_storage_error(
+        self, mock_pic_item, mock_save_upload
+    ):
+        """Test that storage errors are handled properly"""
+        # Set up mocks
+        mock_instance = mock_pic_item.ensure.return_value
+        mock_instance.filename = "test123.jpg"
+        mock_save_upload.side_effect = OSError("Disk full")
+
+        file_data = b"\xff\xd8\xff\xe0"  # JPEG magic bytes
+
+        result = handle_file_upload(file_data)
+
+        # Verify all steps were called
+        mock_pic_item.ensure.assert_called_once_with(file_data)
+        mock_save_upload.assert_called_once_with(mock_instance.filename, file_data)
+
+        # Verify result
+        self.assertFalse(result.success)
+        self.assertEqual(result.error_type, "storage_error")
+        self.assertIsNone(result.item)

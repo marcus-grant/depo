@@ -43,7 +43,7 @@ def process_file_upload(file_data: bytes) -> dict:
     pic_item = PicItem.ensure(file_data)
 
     try:
-        save_upload(pic_item.filepath, file_data)
+        save_upload(pic_item.filename, file_data)
         msg = f"Uploaded file {pic_item.filename} successfully!"
         return {"success": True, "message": msg, "item": pic_item, "filename": pic_item.filename}
     except OSError as e:

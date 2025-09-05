@@ -1,9 +1,7 @@
 # core/pic/model.py
 
-from pathlib import Path
 from django.db import models
 from django.core.exceptions import ValidationError
-from django.conf import settings
 from typing import Dict
 
 from core.models.item import Item
@@ -83,11 +81,6 @@ class PicItem(models.Model):
     def filename(self) -> str:
         """Filename used for disk storage"""
         return f"{self.item.code}.{self.format}"
-
-    @property
-    def filepath(self) -> "Path":
-        """Full path to file on disk"""
-        return Path(settings.UPLOAD_DIR) / self.filename
 
     # def __str__(self): -> str:
     #     return f"PicItem(code={self.item.code},format={self.format},size={self.size})"

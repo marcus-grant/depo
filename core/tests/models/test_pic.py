@@ -171,15 +171,3 @@ class TestPicItemProperties(TestCase):
         
         self.assertEqual(result, "ABCD1234.jpg")
 
-    def test_filepath_property(self):
-        """Test that filepath property returns correct Path"""
-        from django.conf import settings
-        from pathlib import Path
-        
-        item = Item.objects.create(code="EFGH5678", hash="HASH2", ctype="pic")
-        pic_item = PicItem.objects.create(item=item, format="png", size=2048)
-        
-        result = pic_item.filepath
-        
-        expected = Path(settings.UPLOAD_DIR) / "EFGH5678.png"
-        self.assertEqual(result, expected)
