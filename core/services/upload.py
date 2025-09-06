@@ -4,7 +4,6 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-from core.models.item import Item
 from core.models.pic import PicItem
 from core.util.files import save_upload
 from core.util.validator import file_empty, file_too_big, file_type
@@ -18,7 +17,7 @@ class UploadResult:
 
     success: bool
     error_type: str
-    item: Optional[Item]
+    item: Optional[PicItem]
     # TODO: Refactor to derive file type from item.format property
     # Future: When FileItem base is added, all file-backed items will have format
 

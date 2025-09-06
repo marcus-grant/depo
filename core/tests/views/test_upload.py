@@ -109,6 +109,7 @@ class WebUploadViewPostTests(TestCase):
         dummy.item.code = code
         dummy.format = fmt
         dummy.size = size
+        dummy.filename = f"{code}.{fmt}"
         mock.return_value = dummy
         return mock
 
@@ -188,33 +189,7 @@ class WebUploadViewPostTests(TestCase):
         self.assertIn("allow", msg)
         mock.assert_not_called()
 
-    @patch("core.views.upload.file_type")
-    def test_file_type_validator_called_for_invalid_file(self, mock_file_type):
-        """Verify file_type validator is called and returns None for invalid file data"""
-        mock_file_type.return_value = None
-        invalid_file = SimpleUploadedFile(
-            "bad.txt", b"Not an image", content_type="text/plain"
-        )
-        resp = self.client_file_upload(invalid_file)
-        mock_file_type.assert_called_once_with(b"Not an image")
-        self.assertEqual(resp.status_code, 400)
 
-    @patch("core.views.upload.save_upload")
-    @patch("core.models.pic.PicItem.ensure")
-    def test_save_upload_called_with_correct_path_and_data(
-        self, mock_pic_ensure, mock_save_upload
-    ):
-        """Verify save_upload is called with correct file path and data"""
-        mock_pic_ensure = self.mock_ensure_pic(
-            mock_pic_ensure, code="TESTHASH", fmt="jpg"
-        )
-        upload_file = self.mock_picfile("test.jpg", JPEG_MAGIC)
-
-        resp = self.client_file_upload(upload_file)
-
-        expected_path = Path(settings.UPLOAD_DIR) / "TESTHASH.jpg"
-        mock_save_upload.assert_called_once_with(expected_path, JPEG_MAGIC)
-        self.assertEqual(resp.status_code, 200)
 
     @patch("core.models.pic.PicItem.ensure")
     def test_empty_file_upload_returns_error(self, mock):
@@ -225,14 +200,6 @@ class WebUploadViewPostTests(TestCase):
         self.assertIn("EMPTY", resp.content.decode().upper())
         mock.assert_not_called()
 
-    @patch("core.views.upload.file_empty")
-    def test_file_empty_validator_called_for_empty_file(self, mock_file_empty):
-        """Verify file_empty validator is called with empty file data"""
-        mock_file_empty.return_value = True
-        empty_file = self.mock_picfile("empty.png", b"")
-        resp = self.client_file_upload(empty_file)
-        mock_file_empty.assert_called_once_with(b"")
-        self.assertEqual(resp.status_code, 400)
 
     @patch("core.models.pic.PicItem.ensure")
     def test_file_write_error_returns_server_error(self, mock):
@@ -295,15 +262,6 @@ class WebUploadViewPostTests(TestCase):
         self.assertIn(expected_msg, resp.content.decode())
         mock.assert_not_called()
 
-    @override_settings(MAX_UPLOAD_SIZE=100)
-    @patch("core.views.upload.file_too_big")
-    def test_file_too_big_validator_called_for_oversized_file(self, mock_file_too_big):
-        """Verify file_too_big validator is called with oversized file data"""
-        mock_file_too_big.return_value = True
-        upload = self.mock_picfile("oversized.jpg", b"A" * 101)
-        resp = self.client_file_upload(upload)
-        mock_file_too_big.assert_called_once_with(b"A" * 101)
-        self.assertEqual(resp.status_code, 400)
 
     @patch("core.models.pic.PicItem.ensure")
     def test_malicious_filename_is_ignored(self, mock):
@@ -326,6 +284,27 @@ class WebUploadViewPostTests(TestCase):
         resp = self.client.post(self.upload_url, {"content": upload_file})
         self.assertEqual(resp.status_code, 302)
         self.assertIn("/accounts/login/", resp["Location"])
+
+    @patch("core.views.upload.handle_file_upload")
+    def test_view_calls_handle_file_upload_service(self, mock_handle_upload):
+        """Verify that view delegates to handle_file_upload service"""
+        from core.services.upload import UploadResult
+        
+        # Mock successful upload result
+        mock_pic = MagicMock()
+        mock_pic.filename = "TESTHASH.jpg"
+        mock_handle_upload.return_value = UploadResult(
+            success=True, 
+            error_type="", 
+            item=mock_pic
+        )
+        
+        upload_file = self.mock_picfile("test.jpg", JPEG_MAGIC)
+        resp = self.client_file_upload(upload_file)
+        
+        # Verify service was called with file data
+        mock_handle_upload.assert_called_once_with(JPEG_MAGIC)
+        self.assertEqual(resp.status_code, 200)
 
     def test_base64_image_detection_flag_set_for_png(self):
         """Test that base-64 PNG data URIs set request.is_base64_image flag"""

@@ -94,6 +94,18 @@ affect database structure, risking nasty migrations post-MVP.
 - Address model inheritance concerns:
   - Review `get_child()` method composition vs inheritance (line 127 TODO)
   - Ensure consistent `context()` methods across all Item subclasses
+- Add FileItem abstraction for file-backed content types:
+  - Create intermediate model/mixin for items with file storage
+  - Move common file properties (filename, filepath, etc.) to FileItem
+  - PicItem should compose/inherit from FileItem
+  - Future file types (documents, videos) will use FileItem base
+  - This will fix type issues where services expect file properties
+  - **Architecture Decision**: Keep current composition pattern (OneToOne to Item)
+    but add FileItem as Python abstract base class/mixin for better type safety
+    - Avoids complex database migrations
+    - Provides clean Python interface via ABC or Protocol
+    - Services can type hint against FileItem interface
+    - Maintains flexibility of current schema
 - Migration planning:
   - Identify any other field renames needed before MVP
   - Verify foreign key relationships in PicItem/LinkItem are optimal

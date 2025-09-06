@@ -13,6 +13,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.shortcuts import redirect, render
 
 from core.models.pic import PicItem
+from core.services.upload import handle_file_upload
 from core.util.content import classify_type, convert_base64_to_file
 from core.util.validator import file_type, file_empty, file_too_big
 from core.util.files import save_upload
@@ -66,19 +67,34 @@ def upload_view_post(req):
         return upload_response(req, msg="No file uploaded", err=True, stat=400)
 
     file_data = pic_file.read()
-    result = process_file_upload(file_data)
+    result = handle_file_upload(file_data)
 
-    if not result["success"]:
-        logger.error(result["message"])
-        messages.error(req, result["message"])
-        return upload_response(
-            req, msg=result["message"], err=True, stat=result.get("status", 400)
-        )
+    if not result.success:
+        if result.error_type == "empty_file":
+            msg = MSG_EMPTY
+            status = 400
+        elif result.error_type == "file_too_big":
+            msg = f"File size {len(file_data)} exceeds limit of {settings.MAX_UPLOAD_SIZE} bytes"
+            status = 400
+        elif result.error_type == "invalid_file_type":
+            msg = MSG_INVALID
+            status = 400
+        elif result.error_type == "storage_error":
+            msg = "Error during upload file save"
+            status = 500
+        else:
+            msg = "Upload failed"
+            status = 400
+        
+        logger.error(msg)
+        messages.error(req, msg)
+        return upload_response(req, msg=msg, err=True, stat=status)
 
     time_elapsed = time.time() - time_start
-    fname = result["filename"]
+    fname = result.item.filename
     logger.info(f"Upload completed: {fname} in {time_elapsed:.2f}seconds")
-    return upload_response(req, msg=result["message"], stat=200, fname=fname)
+    msg = f"Uploaded file {fname} successfully!"
+    return upload_response(req, msg=msg, stat=200, fname=fname)
 
 
 # TODO: Handle pasting an image/binary data into textbox from clipboard
