@@ -54,6 +54,14 @@ business logic mixed into view code, making rapid changes difficult.
   - thin controllers calling utility functions
 - Extract test logic: split `test_upload.py` (800+ lines) into...
   - focused test modules by functionality
+  - **Evaluate test placement**: Many tests in view test file may belong elsewhere:
+    - Base64 conversion tests → utility/content test files
+    - File validation tests → service test files
+    - Security hardening tests → dedicated security test module
+    - Feature flag tests → integration test file
+    - Content classification tests → content utility test file
+  - **Goal**: View tests should focus on HTTP request/response behavior, not business logic
+  - Current 800+ lines for a thin view controller suggests misplaced tests
 - Standardize error response patterns across
   - `upload.py`
   - `upload_api.py`

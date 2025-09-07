@@ -19,6 +19,74 @@ from core.tests.fixtures import (
 
 User = get_user_model()
 
+
+# =============================================================================
+# Base Test Class with Common Functionality
+# =============================================================================
+
+
+class BaseUploadTestCase(TestCase):
+    """Base test class with common upload test functionality"""
+
+    def setUp(self):
+        """Common setup for upload tests"""
+        self.client = Client()
+        self.upload_url = reverse("web_upload")
+        self.upload_dir = Path(settings.UPLOAD_DIR)
+
+        # Ensure upload directory exists
+        self.upload_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create and login test user
+        self.user = User.objects.create_user(
+            username="tester", email="test@example.com", password="password"
+        )
+        self.client.login(username="tester", password="password")
+
+    def tearDown(self):
+        """Clean up upload directory after tests"""
+        if self.upload_dir.exists():
+            for file in self.upload_dir.iterdir():
+                if file.is_file():
+                    file.unlink()
+                elif file.is_dir():
+                    file.rmdir()
+            self.upload_dir.rmdir()
+
+    def mock_ensure_pic(self, mock, code="M0CKHASH", fmt="jpg", size=0):
+        """Helper to create a mock PicItem.ensure return value"""
+        dummy = MagicMock()
+        dummy.item.code = code
+        dummy.format = fmt
+        dummy.size = size
+        dummy.filename = f"{code}.{fmt}"
+        mock.return_value = dummy
+        return mock
+
+    def mock_picfile(self, fname, fcontent):
+        """Helper to create mock uploaded files with appropriate content types"""
+        fname_lower = fname.lower()
+        ctype = ""
+        if fname_lower.endswith((".jpg", ".jpeg")):
+            ctype = "image/jpeg"
+        elif fname_lower.endswith(".png"):
+            ctype = "image/png"
+        elif fname_lower.endswith(".gif"):
+            ctype = "image/gif"
+        return SimpleUploadedFile(fname, fcontent, content_type=ctype)
+
+    def client_file_upload(self, file):
+        """Helper to perform file upload to the web endpoint"""
+        return self.client.post(self.upload_url, {"content": file})
+
+    def create_base64_image_data(self, image_bytes, mime_type="image/png"):
+        """Helper to create base64 data URI from image bytes"""
+        import base64
+
+        b64_data = base64.b64encode(image_bytes).decode()
+        return f"data:{mime_type};base64,{b64_data}"
+
+
 # =============================================================================
 # Web Endpoint Tests - GET
 # =============================================================================
@@ -77,59 +145,10 @@ class WebUploadViewGETTests(TestCase):
 
 
 @override_settings(UPLOAD_DIR=Path(settings.BASE_DIR) / "tmp")
-class WebUploadViewPostTests(TestCase):
+class WebUploadViewPostTests(BaseUploadTestCase):
     """
     These tests simulate browser-based file uploads using session authentication.
     """
-
-    def setUp(self):
-        self.client = Client()
-        self.upload_url = reverse("web_upload")
-        self.upload_dir = Path(settings.UPLOAD_DIR)
-        # Ensure the temporary upload directory exists.
-        self.upload_dir.mkdir(parents=True, exist_ok=True)
-        # Create and log in a test user.
-        self.user = User.objects.create_user(  # type: ignore
-            username="tester", email="test@example.com", password="password"
-        )
-        self.client.login(username="tester", password="password")
-
-    def tearDown(self):
-        # Remove all files and the temporary directory.
-        if self.upload_dir.exists():
-            for file in self.upload_dir.iterdir():
-                if file.is_file():
-                    file.unlink()
-                elif file.is_dir():
-                    file.rmdir()
-            self.upload_dir.rmdir()
-
-    def mock_ensure_pic(self, mock, code="M0CKHASH", fmt="jpg", size=0):
-        dummy = MagicMock()
-        dummy.item.code = code
-        dummy.format = fmt
-        dummy.size = size
-        dummy.filename = f"{code}.{fmt}"
-        mock.return_value = dummy
-        return mock
-
-    def mock_picfile(self, fname, fcontent):
-        # Determine content type based on file extension.
-        fname_lower = fname.lower()
-        ctype = ""
-        if fname_lower.endswith((".jpg", ".jpeg")):
-            ctype = "image/jpeg"
-        elif fname_lower.endswith(".png"):
-            ctype = "image/png"
-        elif fname_lower.endswith(".gif"):
-            ctype = "image/gif"
-        return SimpleUploadedFile(fname, fcontent, content_type=ctype)
-
-    def client_file_upload(self, file):
-        """
-        Helper to perform file upload to the web endpoint using session authentication.
-        """
-        return self.client.post(self.upload_url, {"content": file})
 
     @patch("core.models.pic.PicItem.ensure")
     def test_ensure_call_with_file_content(self, mock):
@@ -189,8 +208,6 @@ class WebUploadViewPostTests(TestCase):
         self.assertIn("allow", msg)
         mock.assert_not_called()
 
-
-
     @patch("core.models.pic.PicItem.ensure")
     def test_empty_file_upload_returns_error(self, mock):
         """Uploading an empty file should return a 400 error and not call PicItem.ensure."""
@@ -199,7 +216,6 @@ class WebUploadViewPostTests(TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("EMPTY", resp.content.decode().upper())
         mock.assert_not_called()
-
 
     @patch("core.models.pic.PicItem.ensure")
     def test_file_write_error_returns_server_error(self, mock):
@@ -262,7 +278,6 @@ class WebUploadViewPostTests(TestCase):
         self.assertIn(expected_msg, resp.content.decode())
         mock.assert_not_called()
 
-
     @patch("core.models.pic.PicItem.ensure")
     def test_malicious_filename_is_ignored(self, mock):
         """
@@ -289,19 +304,17 @@ class WebUploadViewPostTests(TestCase):
     def test_view_calls_handle_file_upload_service(self, mock_handle_upload):
         """Verify that view delegates to handle_file_upload service"""
         from core.services.upload import UploadResult
-        
+
         # Mock successful upload result
         mock_pic = MagicMock()
         mock_pic.filename = "TESTHASH.jpg"
         mock_handle_upload.return_value = UploadResult(
-            success=True, 
-            error_type="", 
-            item=mock_pic
+            success=True, error_type="", item=mock_pic
         )
-        
+
         upload_file = self.mock_picfile("test.jpg", JPEG_MAGIC)
         resp = self.client_file_upload(upload_file)
-        
+
         # Verify service was called with file data
         mock_handle_upload.assert_called_once_with(JPEG_MAGIC)
         self.assertEqual(resp.status_code, 200)
@@ -396,8 +409,7 @@ class WebUploadViewPostTests(TestCase):
 
         # Test with a minimal base-64 JPEG data URI (just the JPEG header)
         jpeg_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF"
-        jpeg_b64 = base64.b64encode(jpeg_bytes).decode()
-        base64_jpeg = f"data:image/jpeg;base64,{jpeg_b64}"
+        base64_jpeg = self.create_base64_image_data(jpeg_bytes, "image/jpeg")
 
         with patch("core.views.upload.upload_view_post") as mock_post:
 
@@ -432,8 +444,7 @@ class WebUploadViewPostTests(TestCase):
         small_png = base64.b64decode(PNG_BASE64)
         # Add extra data to make it > 50 bytes when base64 encoded
         large_image_bytes = small_png + b"A" * 30  # Will make the base64 string longer
-        large_b64 = base64.b64encode(large_image_bytes).decode()
-        base64_large = f"data:image/png;base64,{large_b64}"
+        base64_large = self.create_base64_image_data(large_image_bytes)
 
         # POST the oversized base-64 image
         resp = self.client.post(self.upload_url, {"content": base64_large})
@@ -454,8 +465,7 @@ class WebUploadViewPostTests(TestCase):
 
         # Create a valid PNG with proper magic bytes
         png_bytes = base64.b64decode(PNG_BASE64)
-        png_b64 = base64.b64encode(png_bytes).decode()
-        base64_png = f"data:image/png;base64,{png_b64}"
+        base64_png = self.create_base64_image_data(png_bytes)
 
         with patch("core.models.pic.PicItem.ensure") as mock_ensure:
             # Mock successful PicItem creation
@@ -478,8 +488,7 @@ class WebUploadViewPostTests(TestCase):
 
         # Create invalid image data (no proper magic bytes)
         invalid_bytes = b"not_an_image_at_all"
-        invalid_b64 = base64.b64encode(invalid_bytes).decode()
-        base64_invalid = f"data:image/png;base64,{invalid_b64}"
+        base64_invalid = self.create_base64_image_data(invalid_bytes)
 
         # POST the invalid base-64 image
         resp = self.client.post(self.upload_url, {"content": base64_invalid})
@@ -497,8 +506,7 @@ class WebUploadViewPostTests(TestCase):
 
         # Create a valid PNG
         png_bytes = base64.b64decode(PNG_BASE64)
-        png_b64 = base64.b64encode(png_bytes).decode()
-        base64_png = f"data:image/png;base64,{png_b64}"
+        base64_png = self.create_base64_image_data(png_bytes)
 
         with patch("core.views.upload.classify_type") as mock_classify:
             # POST the base-64 image
@@ -572,30 +580,8 @@ class WebUploadViewPostTests(TestCase):
 
 
 @override_settings(UPLOAD_DIR=Path(settings.BASE_DIR) / "tmp")
-class SecurityHardeningTests(TestCase):
+class SecurityHardeningTests(BaseUploadTestCase):
     """Tests for security hardening checks on base-64 uploads"""
-
-    def setUp(self):
-        self.client = Client()
-        self.upload_url = reverse("web_upload")
-        self.upload_dir = Path(settings.UPLOAD_DIR)
-        # Ensure the temporary upload directory exists.
-        self.upload_dir.mkdir(parents=True, exist_ok=True)
-        # Create and log in a test user
-        self.user = User.objects.create_user(
-            username="tester", email="test@example.com", password="password"
-        )
-        self.client.login(username="tester", password="password")
-
-    def tearDown(self):
-        # Remove all files and the temporary directory.
-        if self.upload_dir.exists():
-            for file in self.upload_dir.iterdir():
-                if file.is_file():
-                    file.unlink()
-                elif file.is_dir():
-                    file.rmdir()
-            self.upload_dir.rmdir()
 
     @override_settings(DEPO_MAX_BASE64_SIZE=8 * 1024 * 1024)  # 8MB limit for base-64
     def test_base64_string_over_limit_rejected(self):
@@ -605,8 +591,7 @@ class SecurityHardeningTests(TestCase):
         # Create a string that when base-64 encoded exceeds 8MB
         # Base-64 encoding increases size by ~33%, so we need original data of about 6MB
         large_data = b"A" * (6 * 1024 * 1024)  # 6MB of data
-        large_b64 = base64.b64encode(large_data).decode()
-        large_base64_uri = f"data:image/png;base64,{large_b64}"
+        large_base64_uri = self.create_base64_image_data(large_data)
 
         # Verify the encoded string is over the limit
         from django.conf import settings
@@ -688,30 +673,8 @@ class SecurityHardeningTests(TestCase):
 
 
 @override_settings(UPLOAD_DIR=Path(settings.BASE_DIR) / "tmp")
-class FeatureFlagTests(TestCase):
+class FeatureFlagTests(BaseUploadTestCase):
     """Tests for DEPO_ALLOW_BASE64_IMAGES feature flag"""
-
-    def setUp(self):
-        self.client = Client()
-        self.upload_url = reverse("web_upload")
-        self.upload_dir = Path(settings.UPLOAD_DIR)
-        # Ensure the temporary upload directory exists.
-        self.upload_dir.mkdir(parents=True, exist_ok=True)
-        # Create and log in a test user
-        self.user = User.objects.create_user(
-            username="tester", email="test@example.com", password="password"
-        )
-        self.client.login(username="tester", password="password")
-
-    def tearDown(self):
-        # Remove all files and the temporary directory.
-        if self.upload_dir.exists():
-            for file in self.upload_dir.iterdir():
-                if file.is_file():
-                    file.unlink()
-                elif file.is_dir():
-                    file.rmdir()
-            self.upload_dir.rmdir()
 
     @override_settings(DEPO_ALLOW_BASE64_IMAGES=False)
     def test_base64_disabled_returns_404(self):
@@ -720,8 +683,7 @@ class FeatureFlagTests(TestCase):
 
         # Create a valid PNG
         png_bytes = base64.b64decode(PNG_BASE64)
-        png_b64 = base64.b64encode(png_bytes).decode()
-        base64_png = f"data:image/png;base64,{png_b64}"
+        base64_png = self.create_base64_image_data(png_bytes)
 
         # POST the base-64 image
         resp = self.client.post(self.upload_url, {"content": base64_png})
@@ -738,8 +700,7 @@ class FeatureFlagTests(TestCase):
 
         # Create a valid PNG
         png_bytes = base64.b64decode(PNG_BASE64)
-        png_b64 = base64.b64encode(png_bytes).decode()
-        base64_png = f"data:image/png;base64,{png_b64}"
+        base64_png = self.create_base64_image_data(png_bytes)
 
         with patch("core.models.pic.PicItem.ensure") as mock_ensure:
             # Mock successful PicItem creation
@@ -762,8 +723,7 @@ class FeatureFlagTests(TestCase):
 
         # Create a valid PNG
         png_bytes = base64.b64decode(PNG_BASE64)
-        png_b64 = base64.b64encode(png_bytes).decode()
-        base64_png = f"data:image/png;base64,{png_b64}"
+        base64_png = self.create_base64_image_data(png_bytes)
 
         with patch("core.models.pic.PicItem.ensure") as mock_ensure:
             # Mock successful PicItem creation
