@@ -1,22 +1,14 @@
 # core/views/upload.py
-import base64
 import logging
 import time
-from io import BytesIO
-from pathlib import Path
-from typing import Optional
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.files.uploadedfile import InMemoryUploadedFile
-from django.shortcuts import redirect, render
+from django.shortcuts import render
 
-from core.models.pic import PicItem
 from core.services.upload import handle_file_upload
 from core.util.content import classify_type, convert_base64_to_file
-from core.util.validator import file_type, file_empty, file_too_big
-from core.util.files import save_upload
 
 logger = logging.getLogger("depo." + __name__)
 
@@ -27,34 +19,13 @@ ACCEPT_EXTS = ".jpg,.jpeg,.png,.gif"
 MSG_EMPTY = "Empty file uploaded"
 MSG_INVALID = "Invalid or unknown filetype, not allowed"
 
-
-# TODO: Logging should be moved out to own module and/or midware
-def process_file_upload(file_data: bytes) -> dict:
-    """Extract core upload processing logic for reuse"""
-    if file_empty(file_data):
-        return {"success": False, "message": MSG_EMPTY, "status": 400}
-
-    if file_too_big(file_data):
-        msg = f"File size {len(file_data)} exceeds limit of {settings.MAX_UPLOAD_SIZE} bytes"
-        return {"success": False, "message": msg, "status": 400}
-
-    if not file_type(file_data):
-        return {"success": False, "message": MSG_INVALID, "status": 400}
-
-    pic_item = PicItem.ensure(file_data)
-
-    try:
-        save_upload(pic_item.filename, file_data)
-        msg = f"Uploaded file {pic_item.filename} successfully!"
-        return {"success": True, "message": msg, "item": pic_item, "filename": pic_item.filename}
-    except OSError as e:
-        logger.error(f"Error during upload file save: {e}")
-        return {
-            "success": False,
-            "message": "Error during upload file save",
-            "status": 500,
-            "filename": pic_item.filename,
-        }
+# Error message mapping for upload results
+ERROR_MESSAGES = {
+    "empty_file": MSG_EMPTY,
+    "file_too_big": lambda size: f"File size {size} exceeds limit of {settings.MAX_UPLOAD_SIZE} bytes",
+    "invalid_file_type": MSG_INVALID,
+    "storage_error": "Error during upload file save",
+}
 
 
 @login_required
@@ -70,21 +41,10 @@ def upload_view_post(req):
     result = handle_file_upload(file_data)
 
     if not result.success:
-        if result.error_type == "empty_file":
-            msg = MSG_EMPTY
-            status = 400
-        elif result.error_type == "file_too_big":
-            msg = f"File size {len(file_data)} exceeds limit of {settings.MAX_UPLOAD_SIZE} bytes"
-            status = 400
-        elif result.error_type == "invalid_file_type":
-            msg = MSG_INVALID
-            status = 400
-        elif result.error_type == "storage_error":
-            msg = "Error during upload file save"
-            status = 500
-        else:
-            msg = "Upload failed"
-            status = 400
+        # Get appropriate error message
+        msg_func = ERROR_MESSAGES.get(result.error_type, "Upload failed")
+        msg = msg_func(len(file_data)) if callable(msg_func) else msg_func
+        status = 500 if result.error_type == "storage_error" else 400
         
         logger.error(msg)
         messages.error(req, msg)

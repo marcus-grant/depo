@@ -9,11 +9,11 @@ business logic mixed into view code, making rapid changes difficult.
 
 **Implementation Tasks**:
 
-- **NEXT**: Integrate service into view layer
-  - Update upload view to use handle_file_upload service
-  - Replace existing business logic with service calls
-  - Fix failing integration test for save_upload signature change
-  - Ensure view becomes thin controller focused on HTTP concerns
+- **NEXT**: Extract base64 upload handling from view to service/utility
+  - Move 40+ lines of base64 security validation, conversion logic
+  - Create handle_base64_conversion() service with ConversionResult dataclass  
+  - View should only detect base64 content and delegate to service
+  - Enables proper unit testing of complex base64 business logic
 - **Future**: Refactor UploadResult to use associated model instance
   - File type can be determined from PicItem.format property
   - Eventually Item models will include FileItem base for all file-backed items
