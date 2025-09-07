@@ -462,6 +462,8 @@ class WebUploadViewPostTests(TestCase):
             mock_pic = mock_ensure.return_value
             mock_pic.item.code = "TESTHASH"
             mock_pic.format = "png"
+            mock_pic.filename = "TESTHASH.png"
+            mock_pic.filename = "TESTHASH.png"
 
             # POST the base-64 image
             resp = self.client.post(self.upload_url, {"content": base64_png})
@@ -658,6 +660,7 @@ class SecurityHardeningTests(TestCase):
             mock_pic = mock_ensure.return_value
             mock_pic.item.code = "VALIDHASH"
             mock_pic.format = "png"
+            mock_pic.filename = "VALIDHASH.png"
 
             # POST the valid image
             resp = self.client.post(self.upload_url, {"content": valid_uri})
@@ -743,6 +746,7 @@ class FeatureFlagTests(TestCase):
             mock_pic = mock_ensure.return_value
             mock_pic.item.code = "TESTHASH"
             mock_pic.format = "png"
+            mock_pic.filename = "TESTHASH.png"
 
             # POST the base-64 image
             resp = self.client.post(self.upload_url, {"content": base64_png})
@@ -766,6 +770,7 @@ class FeatureFlagTests(TestCase):
             mock_pic = mock_ensure.return_value
             mock_pic.item.code = "DEFAULTHASH"
             mock_pic.format = "png"
+            mock_pic.filename = "DEFAULTHASH.png"
 
             # POST the base-64 image (without explicit setting)
             resp = self.client.post(self.upload_url, {"content": base64_png})
@@ -790,6 +795,7 @@ class FeatureFlagTests(TestCase):
             mock_pic = mock_ensure.return_value
             mock_pic.item.code = "FILEHASH"
             mock_pic.format = "png"
+            mock_pic.filename = "FILEHASH.png"
 
             # POST regular file upload
             resp = self.client.post(self.upload_url, {"content": upload_file})
