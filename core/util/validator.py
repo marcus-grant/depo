@@ -2,6 +2,8 @@ from typing import Optional, Union
 from urllib.parse import urlparse
 from django.conf import settings
 
+IMAGE_URI_PREFIXES = ["data:image/png;base64", "data:image/jpeg;base64"]  # noqa
+
 
 def file_empty(file_data: Union[bytes, None]) -> bool:
     """Check if file data is empty"""
@@ -14,6 +16,7 @@ def file_too_big(file_data: bytes) -> bool:
 
 
 # TODO: Handle cases where we want text or ie SVG where it's XML text
+# TODO: Add module simply to store magic byte constants
 def file_type(upload_bytes: bytes) -> Optional[str]:
     """Validate file type by checking magic bytes"""
     if b"\xff\xd8\xff" in upload_bytes:
@@ -25,7 +28,7 @@ def file_type(upload_bytes: bytes) -> Optional[str]:
     return None
 
 
-def looks_like_url(text: str) -> bool:
+def looks_like_url(text: Optional[str]) -> bool:
     """Check if text looks like a URL"""
     if not text or not isinstance(text, str):
         return False
@@ -50,3 +53,19 @@ def looks_like_url(text: str) -> bool:
         return False
     except Exception:
         return False
+
+
+def is_base64_image_format(content: str) -> bool:
+    """Check if content is a base64-encoded image string"""
+    for prefix in IMAGE_URI_PREFIXES:
+        if content.startswith(prefix):
+            return True
+    return False
+
+
+def is_within_base64_size_limit(content: str) -> bool:
+    """Check if base64 content is within size limit"""
+    max__size = getattr(settings, "DEPO_MAX_BASE64_SIZE", 8 * 1024 * 1024)
+    if len(content) > max__size:
+        return False
+    return True
