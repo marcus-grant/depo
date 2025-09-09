@@ -1,6 +1,8 @@
 import base64
+from dataclasses import dataclass
 import logging
 from io import BytesIO
+from typing import Optional
 
 from django.core.files.uploadedfile import InMemoryUploadedFile
 
@@ -99,3 +101,12 @@ def classify_type(request) -> str:
         return "url"
 
     return "text"
+
+
+@dataclass
+class Base64ConversionResult:
+    """Result of base64 to bytes conversion"""
+
+    success: bool
+    file_data: Optional[bytes] = None
+    error_type: Optional[str] = None
