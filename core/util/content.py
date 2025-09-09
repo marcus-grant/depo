@@ -6,7 +6,7 @@ from typing import Optional
 
 from django.core.files.uploadedfile import InMemoryUploadedFile
 
-from core.util.validator import looks_like_url
+import core.util.validator as validator
 
 logger = logging.getLogger("depo." + __name__)
 
@@ -97,7 +97,7 @@ def classify_type(request) -> str:
 
     # Check raw input for URL vs text
     raw_input = request.POST.get("content", "").strip()
-    if looks_like_url(raw_input):
+    if validator.looks_like_url(raw_input):
         return "url"
 
     return "text"
@@ -110,3 +110,23 @@ class Base64ConversionResult:
     success: bool
     file_data: Optional[bytes] = None
     error_type: Optional[str] = None
+
+
+def decode_data_uri(content: str) -> "Base64ConversionResult":
+    """Convert base64 string to bytes with validation"""
+    if not validator.is_base64_image_format(content):
+        return Base64ConversionResult(success=False, error_type="not_base64_image")
+    if not validator.is_within_base64_size_limit(content):
+        return Base64ConversionResult(success=False, error_type="base64_too_large")
+
+    try:
+        file_data = convert_base64_to_file(content)
+    except ValueError as e:
+        error_msg = str(e)
+        if "Invalid base-64 data" in error_msg:
+            err_type = "base64_decode_error"
+            return Base64ConversionResult(success=False, error_type=err_type)
+        else:
+            err_type = "mime_type_mismatch"
+            return Base64ConversionResult(success=False, error_type=err_type)
+    return Base64ConversionResult(success=True, file_data=file_data.read())

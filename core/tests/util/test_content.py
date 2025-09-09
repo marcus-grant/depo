@@ -1,9 +1,12 @@
+from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.test import TestCase
-from unittest.mock import MagicMock
+from io import BytesIO
+from unittest.mock import MagicMock, patch
 
 # from core.util.content import classify_type as classify_content_type
 # from core.util.content import Base64ConversionResult
 import core.util.content as content
+import core.tests.fixtures as fixtures
 
 
 class TestClassifyType(TestCase):
@@ -84,3 +87,73 @@ class TestBase64ConversionResult(TestCase):
         self.assertTrue(result.success)
         self.assertIsNone(result.file_data)
         self.assertIsNone(result.error_type)
+
+
+class TestDecodeDataUri(TestCase):
+    """Unit tests for decode_data_uri function"""
+
+    def test_valid_png_conversion_success(self):
+        """Test successful conversion of valid PNG data URI"""
+        uri_data = fixtures.PNG_BASE64_DATA_URI
+        result = content.decode_data_uri(uri_data)
+        self.assertTrue(result.success)
+        self.assertIsNotNone(result.file_data)
+        self.assertIsNone(result.error_type)
+
+    def test_invalid_format_returns_error(self):
+        """Test that unsupported document format returns proper error"""
+        invalid_content = "data:application/msword;base64,0M8R4KGxGuEAAAAAAAAAAAAA"
+        result = content.decode_data_uri(invalid_content)
+        self.assertFalse(result.success)
+        self.assertEqual(result.error_type, "not_base64_image")
+        self.assertIsNone(result.file_data)
+
+    @patch("core.util.content.validator.is_within_base64_size_limit")
+    def test_calls_size_validator_with_content(self, mock):
+        """Test that size validator is called with correct content"""
+        mock.return_value = True
+        result = content.decode_data_uri(fixtures.PNG_BASE64_DATA_URI)
+        mock.assert_called_once_with(fixtures.PNG_BASE64_DATA_URI)
+        self.assertTrue(result.success)
+
+    @patch("core.util.content.validator.is_base64_image_format")
+    def test_calls_format_validator_with_content(self, mock):
+        """Test that format validator is called with correct content"""
+        mock.return_value = True
+        content.decode_data_uri(fixtures.PNG_BASE64_DATA_URI)
+        mock.assert_called_once_with(fixtures.PNG_BASE64_DATA_URI)
+
+    @patch("core.util.content.convert_base64_to_file")
+    def test_calls_conversion_function_with_content(self, mock):
+        """Test that base64 conversion function is called with correct content"""
+        # Mock the conversion to return a file-like object
+        mock_file = InMemoryUploadedFile(
+            file=BytesIO(b"test data"),
+            field_name="image",
+            name="test.png",
+            content_type="image/png",
+            size=9,
+            charset=None,
+        )
+        mock.return_value = mock_file
+        content.decode_data_uri(fixtures.PNG_BASE64_DATA_URI)
+        mock.assert_called_once_with(fixtures.PNG_BASE64_DATA_URI)
+
+    @patch("core.util.content.convert_base64_to_file")
+    def test_base64_decode_error_handling(self, mock):
+        """Test that base64 decode errors are handled correctly"""
+        mock.side_effect = ValueError("Invalid base-64 data: some error")
+        result = content.decode_data_uri(fixtures.PNG_BASE64_DATA_URI)
+        self.assertFalse(result.success)
+        self.assertEqual(result.error_type, "base64_decode_error")
+        self.assertIsNone(result.file_data)
+
+    @patch("core.util.content.convert_base64_to_file")
+    def test_mime_type_mismatch_error_handling(self, mock):
+        """Test that MIME type mismatch errors are handled correctly"""
+        err_msg = "MIME type mismatch: claimed image/jpeg but actual format is png"
+        mock.side_effect = ValueError(err_msg)
+        result = content.decode_data_uri(fixtures.PNG_BASE64_DATA_URI)
+        self.assertFalse(result.success)
+        self.assertEqual(result.error_type, "mime_type_mismatch")
+        self.assertIsNone(result.file_data)
