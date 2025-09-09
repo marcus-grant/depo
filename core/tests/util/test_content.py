@@ -157,3 +157,28 @@ class TestDecodeDataUri(TestCase):
         self.assertFalse(result.success)
         self.assertEqual(result.error_type, "mime_type_mismatch")
         self.assertIsNone(result.file_data)
+
+
+class TestConvertBase64ToFile(TestCase):
+    """Tests for the convert_base64_to_file function"""
+
+    def test_convert_png_data_uri(self):
+        """Test converting PNG data URI to InMemoryUploadedFile"""
+        result = content.convert_base64_to_file(fixtures.PNG_BASE64_DATA_URI)
+        self.assertIsInstance(result, InMemoryUploadedFile)
+        self.assertEqual(result.name, "clipboard.png")
+        self.assertEqual(result.content_type, "image/png")
+
+    def test_unsupported_format_raises_error(self):
+        """Test that unsupported data URI format raises ValueError"""
+        bad_uri = "data:application/msword;base64,0M8R4KGxGuEAAAAAAAAAAAAA"
+        with self.assertRaises(ValueError) as cm:
+            content.convert_base64_to_file(bad_uri)
+        self.assertIn("Unsupported data URI format", str(cm.exception))
+
+    def test_invalid_base64_raises_error(self):
+        """Test that invalid base64 data raises ValueError"""
+        bad_uri = "data:image/png;base64,InvalidBase64Data!@#$"
+        with self.assertRaises(ValueError) as cm:
+            content.convert_base64_to_file(bad_uri)
+        self.assertIn("Invalid base-64 data", str(cm.exception))
