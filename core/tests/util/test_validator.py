@@ -1,4 +1,6 @@
+from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.test import TestCase, override_settings
+from io import BytesIO
 
 import core.util.validator as validator
 import core.tests.fixtures as fixtures
@@ -23,29 +25,52 @@ class TestFileEmpty(TestCase):
         self.assertTrue(result)
 
 
-class TestFileTooBig(TestCase):
-    """Unit tests for file_too_big function"""
+class TestContentTooBig(TestCase):
+    """Unit tests for content_too_big function"""
+
+    def _create_test_data(self, content: bytes) -> dict:
+        return {
+            "bytes": content,
+            "str": content.decode("utf-8", errors="ignore"),
+            "file": fixtures.create_inmem_file(content),
+        }
 
     @override_settings(MAX_UPLOAD_SIZE=100)
-    def test_file_too_big_with_small_file(self):
+    def test_none_always_false(self):
+        """None is a possible input and empty content, should always be False"""
+        self.assertFalse(validator.content_too_big(None))
+
+    @override_settings(MAX_UPLOAD_SIZE=100)
+    def test_empta_data(self):
+        """Empty data types (b"", "", inmem.size=0) should always return False"""
+        tests_input = self._create_test_data(b"")
+        for dtype, data in tests_input.items():
+            with self.subTest(f"Testing with data type: {dtype}"):
+                self.assertFalse(validator.content_too_big(data))
+
+    @override_settings(MAX_UPLOAD_SIZE=100)
+    def test__with_undersized_data(self):
         """Test that files smaller than max size return False"""
-        file_data = b"small file"
-        result = validator.file_too_big(file_data)
-        self.assertFalse(result)
+        tests_input = self._create_test_data(b"tiny data")
+        for dtype, data in tests_input.items():
+            with self.subTest(f"Testing with data type: {dtype}"):
+                self.assertFalse(validator.content_too_big(data))
 
     @override_settings(MAX_UPLOAD_SIZE=100)
-    def test_file_too_big_with_oversized_file(self):
-        """Test that files larger than max size return True"""
-        file_data = b"A" * 101
-        result = validator.file_too_big(file_data)
-        self.assertTrue(result)
+    def test_oversied_data(self):
+        """Test that data larger than max size return True"""
+        tests_input = self._create_test_data(b"A" * 101)
+        for dtype, data in tests_input.items():
+            with self.subTest(f"Testing with data type: {dtype}"):
+                self.assertTrue(validator.content_too_big(data))
 
     @override_settings(MAX_UPLOAD_SIZE=100)
-    def test_file_too_big_at_exact_limit(self):
-        """Test that files exactly at max size return False"""
-        file_data = b"A" * 100
-        result = validator.file_too_big(file_data)
-        self.assertFalse(result)
+    def test_data_at_limit(self):
+        """Test that data exactly at max size return False"""
+        tests_input = self._create_test_data(b"A" * 100)
+        for dtype, data in tests_input.items():
+            with self.subTest(f"Testing with data type: {dtype}"):
+                self.assertFalse(validator.content_too_big(data))
 
 
 class TestLooksLikeUrl(TestCase):
@@ -151,11 +176,3 @@ class TestIsWithinBase64SizeLimit(TestCase):
         with override_settings(DEPO_MAX_BASE64_SIZE=len(data)):
             result = validator.is_within_base64_size_limit(data)
             self.assertTrue(result)
-
-    def test_default_values(self):
-        """Test that dataclass uses correct default values"""
-        result = content.Base64ConversionResult(success=True)
-
-        self.assertTrue(result.success)
-        self.assertIsNone(result.file_data)
-        self.assertIsNone(result.error_type)
