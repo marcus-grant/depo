@@ -74,31 +74,6 @@ class TestContentTooBig(TestCase):
                 self.assertFalse(validator.content_too_big(data))
 
 
-class TestIsBase64ImageFormat(TestCase):
-    """Unit tests for is_base64_image_format function"""
-
-    def test_valid_png_format_returns_true(self):
-        """Test that valid PNG data URI format returns True"""
-        result = validator.is_base64_image_format(fixtures.PNG_BASE64_DATA_URI)
-        self.assertTrue(result)
-
-    def test_valid_jpeg_format_returns_true(self):
-        """Test that valid JPEG data URI format returns True"""
-        result = validator.is_base64_image_format(fixtures.JPEG_BASE64_DATA_URI)
-        self.assertTrue(result)
-
-    def test_unsupported_format_returns_false(self):
-        """Test that unsupported data URI format returns False"""
-        content = "data:text/plain;base64,SGVsbG8gV29ybGQ="
-        result = validator.is_base64_image_format(content)
-        self.assertFalse(result)
-
-    def test_no_data_uri_prefix_returns_false(self):
-        """Test that content without data URI prefix returns False"""
-        result = validator.is_base64_image_format(fixtures.PNG_BASE64)
-        self.assertFalse(result)
-
-
 class TestIsWithinBase64SizeLimit(TestCase):
     """Unit tests for is_within_base64_size_limit function"""
 

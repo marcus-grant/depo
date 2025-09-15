@@ -10,8 +10,16 @@ from core.util.classifier import (
     _classify_pic_format,
     _classify_content_string,
     is_url,
+    is_base64,
+    _classify_content_base64,
+    _classify_base64_image,
 )
 import core.tests.fixtures as fixtures
+
+
+# alias ContentClass for easier use
+def _CC(ctype, b64, ext):
+    return ContentClass(ctype=ctype, b64=b64, ext=ext)
 
 
 class TestClassifyPicFormat(TestCase):
@@ -116,10 +124,93 @@ class TestIsUrl(TestCase):
             "example.com:99999",  # Port too high
             "example.com:abc",  # Non-numeric port
         ]
-
         for invalid_case in invalid_cases:
             with self.subTest(case=invalid_case):
                 self.assertFalse(is_url(invalid_case))
+
+
+class TestIsBase64(TestCase):
+    """Test is_base64 function"""
+
+    def test_detects_base64_data_uri(self):
+        """Test that base64 data URIs are detected"""
+        test_cases = [
+            "data:image/png;base64,iVBORw0KGgo...",
+            "data:image/jpeg;base64,/9j/4AAQ...",
+            "data:application/pdf;base64,JVBERi0x...",
+            "data:text/plain;base64,SGVsbG8gV29ybGQ=",
+        ]
+
+        for case in test_cases:
+            with self.subTest(case=case[:20]):
+                self.assertTrue(is_base64(case))
+
+    def test_rejects_non_base64_content(self):
+        """Test that non-base64 content returns False"""
+        test_cases = [
+            "https://example.com",
+            "plain text content",
+            "data:image/png,not-base64-data",  # Missing base64 encoding
+            "data:image/png;charset=utf8,text",  # Wrong encoding
+            "",
+            "data:incomplete",
+        ]
+
+        for case in test_cases:
+            with self.subTest(case=case):
+                self.assertFalse(is_base64(case))
+
+
+class TestClassifyBase64Image(TestCase):
+    """Test _classify_base64_image function"""
+
+    def test_classifies_supported_image_formats(self):
+        """Test that supported image formats return proper ContentClass"""
+        case0 = "data:image/png;base64,iVBORw0KGgo..."
+        case1 = "data:image/jpeg;base64,/9j/4AAQ..."
+        case2 = "data:image/gif;base64,R0lGODlh..."
+        test_cases = [
+            (case0, _CC("pic", True, "png")),
+            (case1, _CC("pic", True, "jpg")),
+            (case2, _CC("pic", True, "gif")),
+        ]
+
+        for content, expected in test_cases:
+            with self.subTest(format=expected.ext):
+                result = _classify_base64_image(content)
+                self.assertEqual(result, expected)
+
+    def test_unsupported_base64_formats(self):
+        """Test that unsupported base64 formats return b64=True only"""
+        test_cases = [
+            "data:application/pdf;base64,JVBERi0x...",
+            "data:text/plain;base64,SGVsbG8gV29ybGQ=",
+            "data:video/mp4;base64,AAAAIGZ0eXA=",
+        ]
+
+        for case in test_cases:
+            with self.subTest(case=case[:30]):
+                result = _classify_base64_image(case)
+                self.assertEqual(result, ContentClass(b64=True))
+
+
+class TestClassifyContentBase64(TestCase):
+    """Test _classify_content_base64 function"""
+
+    @patch("core.util.classifier._classify_base64_image")
+    def test_returns_image_result_when_valid(self, mock_image):
+        """Test that valid image result is returned directly"""
+        mock_image.return_value = ContentClass(ctype="pic", b64=True, ext="png")
+        result = _classify_content_base64("data:image/png;base64,...")
+        mock_image.assert_called_once_with("data:image/png;base64,...")
+        self.assertEqual(result, ContentClass(ctype="pic", b64=True, ext="png"))
+
+    @patch("core.util.classifier._classify_base64_image")
+    def test_fallback_when_no_image_type(self, mock_image):
+        """Test fallback for unrecognized base64 content"""
+        mock_image.return_value = ContentClass(b64=True)  # No ctype detected
+        result = _classify_content_base64("data:application/pdf;base64,...")
+        self.assertEqual(result, ContentClass(ctype=None, b64=True, ext=None))
 
 
 class TestClassifyContentString(TestCase):
@@ -139,6 +230,24 @@ class TestClassifyContentString(TestCase):
         mock_url.assert_called_once_with("https://example.com")
         self.assertEqual(result, ContentClass(ctype="url"))
 
+    @patch("core.util.classifier.is_base64")
+    def test_classifies_base64_content(self, mock):
+        """Test that base64 content routes to base64 classifier"""
+        mock.return_value = True
+        result = _classify_content_string(fixtures.PNG_BASE64_DATA_URI)
+        mock.assert_called_once_with(fixtures.PNG_BASE64_DATA_URI)
+        self.assertTrue(result.b64)
+
+    @patch("core.util.classifier._classify_content_base64")
+    def test_routes_base64_content(self, mock_base64):
+        """Test that base64 content routes to base64 classifier"""
+        mock_base64.return_value = ContentClass(ctype="pic", b64=True, ext="png")
+
+        with patch("core.util.classifier.is_base64", return_value=True):
+            result = _classify_content_string("data:image/png;base64,...")
+            mock_base64.assert_called_once_with("data:image/png;base64,...")
+            self.assertEqual(result, ContentClass(ctype="pic", b64=True, ext="png"))
+
 
 class TestClassifyContent(TestCase):
     """Test main classify_content function - mock the helpers"""
@@ -152,7 +261,7 @@ class TestClassifyContent(TestCase):
         self.assertEqual(result, ContentClass(ctype="pic", ext="png"))
 
     @patch("core.util.classifier._classify_content_bytes")
-    def test_classifies_uploaded_file_content(self, mock_class):
+    def test_routes_file_content(self, mock_class):
         """Test that InMemoryUploadedFile routes to bytes classifier with proper file handling"""
         mock_class.return_value = ContentClass(ctype="pic", ext="png")
         # Create mock file

@@ -82,12 +82,39 @@ def is_url(text: str) -> bool:
         return False
 
 
-def _has_invalid_netloc_format(netloc: str) -> bool:
-    """Check for invalid netloc patterns"""
-    if netloc.startswith(".") or netloc.endswith("."):
-        return True
-    # Add port validation, subdomain depth checking, etc.
-    return False
+# Base64 URI prefixes with their corresponding formats
+BASE64_URI_PREFIXES: Dict[types.ValidExtensions, List[str]] = {
+    "png": ["data:image/png;base64,"],
+    "jpg": ["data:image/jpeg;base64,", "data:image/jpg;base64,"],
+    "gif": ["data:image/gif;base64,"],
+}
+
+
+def is_base64(content: str) -> bool:
+    """Check if content follows data URI base64 pattern (ignores MIME type)"""
+    # Check first ~48 characters for the pattern, avoid scanning entire string
+    prefix = content[:48]
+    return prefix.startswith("data:") and ";base64," in prefix
+
+
+def _classify_base64_image(content: str) -> ContentClass:
+    """Classify base64 image content - final classifier in the chain"""
+    prefix_portion = content[:48]
+    for ext, prefixes in BASE64_URI_PREFIXES.items():
+        if any(prefix_portion.startswith(prefix) for prefix in prefixes):
+            return ContentClass(ctype="pic", b64=True, ext=ext)
+    # It's base64 but not a recognized image format
+    return ContentClass(b64=True)
+
+
+def _classify_content_base64(content: str) -> ContentClass:
+    """Classify base64 content - handles images, future: PDFs, etc."""
+    # Try image classification first
+    image_result = _classify_base64_image(content)
+    if image_result.ctype:  # If it found a valid image type
+        return image_result
+    # Fallback for unrecognized base64 content
+    return ContentClass(ctype=None, b64=True, ext=None)
 
 
 def _classify_content_string(content: str) -> ContentClass:
@@ -96,6 +123,8 @@ def _classify_content_string(content: str) -> ContentClass:
     # TODO: Default to plain text
     if is_url(content):
         return ContentClass(ctype="url")
+    if is_base64(content):
+        return _classify_content_base64(content)
     return ContentClass(ctype="txt")
 
 

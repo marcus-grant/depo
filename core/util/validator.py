@@ -33,14 +33,7 @@ def content_too_big(content: Optional[types.Content]) -> bool:
     return False
 
 
-def is_base64_image_format(content: str) -> bool:
-    """Check if content is a base64-encoded image string"""
-    for prefix in IMAGE_URI_PREFIXES:
-        if content.startswith(prefix):
-            return True
-    return False
-
-
+# TODO: Move into validator as second pass validation
 def is_within_base64_size_limit(content: str) -> bool:
     """Check if base64 content is within size limit"""
     max__size = getattr(settings, "DEPO_MAX_BASE64_SIZE", 8 * 1024 * 1024)
