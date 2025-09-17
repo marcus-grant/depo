@@ -1,3 +1,4 @@
+# core/tests/util/test_content.py
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.test import TestCase
 from io import BytesIO
@@ -7,58 +8,6 @@ from unittest.mock import MagicMock, patch
 # from core.util.content import Base64ConversionResult
 import core.util.content as content
 import core.tests.fixtures as fixtures
-
-
-class TestClassifyType(TestCase):
-    """Unit tests for classify_type function"""
-
-    def test_classify_content_type_base64_image(self):
-        """Test classification returns 'image' for base-64 images"""
-        # Mock request with base-64 image flag
-        request = MagicMock()
-        request.is_base64_image = True
-        request.FILES = {}
-        request.POST.get.return_value = ""
-
-        result = content.classify_type(request)
-
-        self.assertEqual(result, "image")
-
-    def test_classify_content_type_uploaded_file(self):
-        """Test classification returns 'image' for file uploads"""
-        # Mock request with uploaded file
-        request = MagicMock()
-        request.is_base64_image = False
-        request.FILES = {"content": MagicMock()}
-        request.POST.get.return_value = ""
-
-        result = content.classify_type(request)
-
-        self.assertEqual(result, "image")
-
-    def test_classify_content_type_url(self):
-        """Test classification returns 'url' for URL-like content"""
-        # Mock request with URL content
-        request = MagicMock()
-        request.is_base64_image = False
-        request.FILES = {}
-        request.POST.get.return_value = "https://example.com"
-
-        result = content.classify_type(request)
-
-        self.assertEqual(result, "url")
-
-    def test_classify_content_type_text(self):
-        """Test classification returns 'text' for plain text content"""
-        # Mock request with text content
-        request = MagicMock()
-        request.is_base64_image = False
-        request.FILES = {}
-        request.POST.get.return_value = "Hello world, this is plain text"
-
-        result = content.classify_type(request)
-
-        self.assertEqual(result, "text")
 
 
 class TestBase64ConversionResult(TestCase):
@@ -182,3 +131,60 @@ class TestConvertBase64ToFile(TestCase):
         with self.assertRaises(ValueError) as cm:
             content.convert_base64_to_file(bad_uri)
         self.assertIn("Invalid base-64 data", str(cm.exception))
+
+
+class ReadContentIfFile(TestCase):
+    """Tests core.util.content.read_content_if_file function"""
+
+    def setUp(self):
+        self.test_strs = ["Hello, World!", "", " I LOVE YOU 200%💖"]
+        self.test_bytes = [b"\xde\xad\xbe\xef", b"\x00\xffABCDEFGHIJKLMNOPQRSTUVWXYZ"]
+        self.test_bytes += [fixtures.PNG_DATA, fixtures.JPEG_DATA, b""]
+        self.test_ctypes = ["application/octet-stream"] * 2
+        self.test_ctypes += ["image/png", "image/jpeg", "application/octet-stream"]
+
+    def _gen_inmem_file(self, data: bytes, ctype: str) -> InMemoryUploadedFile:
+        return InMemoryUploadedFile(
+            file=BytesIO(data),
+            field_name="file",
+            name="testfile.bin",
+            content_type=ctype,
+            size=len(data),
+            charset=None,
+        )
+
+    def test_str_input(self):
+        """Test that given string input, it returns the same string"""
+        for s in self.test_strs:
+            with self.subTest(s=s):
+                self.assertEqual(content.read_content_if_file(s), s)
+
+    def test_bytes_input(self):
+        """Test that bytes input returns same bytes"""
+        for b in self.test_bytes:
+            with self.subTest(b=b):
+                self.assertEqual(content.read_content_if_file(b), b)
+
+    def test_inmemfile_input(self):
+        """Test that bytes in InMemoryUploadedFile are read and returned"""
+        test_fn = content.read_content_if_file
+        test_gen = self._gen_inmem_file
+        for i in range(len(self.test_bytes)):
+            with self.subTest(case=i):
+                file = test_gen(self.test_bytes[i], self.test_ctypes[i])
+                self.assertEqual(test_fn(file), self.test_bytes[i])
+
+    @patch("django.core.files.uploadedfile.InMemoryUploadedFile.seek")
+    @patch("django.core.files.uploadedfile.InMemoryUploadedFile.read")
+    def test_inmemfile_seeks_reads(self, mock_read, mock_seek):
+        """Test that InMemoryUploadedFile is seeked to start then read"""
+        for i in range(len(self.test_bytes)):
+            with self.subTest(i=i):
+                file = self._gen_inmem_file(self.test_bytes[i], self.test_ctypes[i])
+                mock_read.return_value = self.test_bytes[i]
+                result = content.read_content_if_file(file)
+                self.assertEqual(result, self.test_bytes[i])
+                self.assertEqual(mock_seek.call_count, 2)
+                mock_read.assert_called_once_with()
+                mock_seek.reset_mock()
+                mock_read.reset_mock()

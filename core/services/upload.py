@@ -4,9 +4,12 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
+import core.util.types as types
 from core.models.pic import PicItem
 from core.util.files import save_upload
-from core.util.validator import file_empty, file_too_big, file_type
+from core.util.validator import content_empty, content_too_big  # , file_type
+from core.util.classifier import classify_content
+from core.util.content import read_content_if_file
 
 logger = logging.getLogger(__name__)
 
@@ -16,21 +19,19 @@ class UploadResult:
     """Result of file upload processing"""
 
     success: bool
-    error_type: str
-    item: Optional[PicItem]
+    error_type: Optional[str] = None
+    item: Optional[Item] = None
     # TODO: Refactor to derive file type from item.format property
     # Future: When FileItem base is added, all file-backed items will have format
 
 
-def handle_file_upload(file_data: bytes) -> UploadResult:
+def handle_file_upload(content: Optional[types.Content]) -> UploadResult:
     """
     Process file upload with full validation and storage.
     Returns UploadResult with success/failure details.
     """
-    if file_empty(file_data):
-        return UploadResult(success=False, error_type="empty_file", item=None)
-
-    if file_too_big(file_data):
+    # First pass of validation - check if size is ok
+    if content_too_big(content):  # Check maxsize 1st avoiding DDOS attempts
         return UploadResult(success=False, error_type="file_too_big", item=None)
 
     if not file_type(file_data):

@@ -1,14 +1,35 @@
 import base64
 from dataclasses import dataclass
+from enum import Enum
 import logging
 from io import BytesIO
-from typing import Optional
+from typing import Optional, Union
 
 from django.core.files.uploadedfile import InMemoryUploadedFile
 
 import core.util.validator as validator
+import core.util.types as types
 
 logger = logging.getLogger("depo." + __name__)
+
+
+@dataclass
+class Base64ConversionResult:
+    """Result of base64 to bytes conversion"""
+
+    success: bool
+    file_data: Optional[bytes] = None
+    error_type: Optional[str] = None
+
+
+def read_content_if_file(content: types.Content) -> Union[bytes, str]:
+    """Simply seeks & reads if InMemoryUPloadedFile, otherwise returns str or bytes as is"""
+    if isinstance(content, InMemoryUploadedFile):
+        content.seek(0)
+        content_bytes = content.read()
+        content.seek(0)  # Reset for potential future reads
+        return content_bytes
+    return content
 
 
 def convert_base64_to_file(content: str) -> InMemoryUploadedFile:
@@ -37,7 +58,7 @@ def convert_base64_to_file(content: str) -> InMemoryUploadedFile:
 
     # Security hardening: Verify MIME type matches actual image data using Pillow
     try:
-        from PIL import Image
+        from PIL import Image  # Import here since this is an optional dependency
 
         image = Image.open(BytesIO(file_data))
         actual_format = image.format.lower() if image.format else None
@@ -51,23 +72,20 @@ def convert_base64_to_file(content: str) -> InMemoryUploadedFile:
 
         # Verify match
         if actual_format != expected_format:
-            logger.warning(
-                f"MIME type mismatch detected: claimed {claimed_type} but actual format is {actual_format}"
-            )
-            raise ValueError(
-                f"MIME type mismatch: claimed {claimed_type} but actual format is {actual_format}"
-            )
+            msg = f"MIME type mismatch detected: claimed {claimed_type} but actual format is {actual_format}"
+            logger.warning(msg)
+            raise ValueError(msg)
 
-        logger.info(
-            f"Base-64 image validation successful: {actual_format}, size: {len(file_data)} bytes"
-        )
+        msg = "Base-64 image validation successful: "
+        msg += f"{actual_format}, size: {len(file_data)} bytes"
+        logger.info(msg)
 
     except ImportError:
         # CRITICAL: Pillow not available - this is a security issue on production
-        logger.critical(
-            "Pillow not available for image validation - cannot verify MIME types securely"
-        )
-        raise ValueError("Image validation unavailable - server configuration error")
+        msg = "Pillow not available for image validation - cannot verify MIME types securely"
+        logger.critical(msg)
+        msg = "Image validation unavailable - server configuration error"
+        raise ValueError(msg)
     except Exception as e:
         logger.error(f"Image validation failed: {e}")
         raise ValueError(f"Invalid image data: {e}")
@@ -84,32 +102,6 @@ def convert_base64_to_file(content: str) -> InMemoryUploadedFile:
     )
 
     return uploaded_file
-
-
-def classify_type(request) -> str:
-    """
-    Classify content type based on request data.
-    Returns 'image', 'url', or 'text'.
-    """
-    # Check if it's a base-64 image or has uploaded files
-    if getattr(request, "is_base64_image", False) or request.FILES:
-        return "image"
-
-    # Check raw input for URL vs text
-    raw_input = request.POST.get("content", "").strip()
-    if validator.looks_like_url(raw_input):
-        return "url"
-
-    return "text"
-
-
-@dataclass
-class Base64ConversionResult:
-    """Result of base64 to bytes conversion"""
-
-    success: bool
-    file_data: Optional[bytes] = None
-    error_type: Optional[str] = None
 
 
 def decode_data_uri(content: str) -> "Base64ConversionResult":
@@ -130,3 +122,15 @@ def decode_data_uri(content: str) -> "Base64ConversionResult":
             err_type = "mime_type_mismatch"
             return Base64ConversionResult(success=False, error_type=err_type)
     return Base64ConversionResult(success=True, file_data=file_data.read())
+
+
+# TODO: We might get rid of this in the service layer making it obsolete
+# def normalize_to_bytes_or_str(content: types.Content) -> Union[bytes, str]:
+#     """Normalize content to bytes or str for consistent processing"""
+#     if isinstance(content, InMemoryUploadedFile):
+#         # TODO: I'm worried about memory usage here with large files
+#         content.seek(0)
+#         return content.read()
+#     if isinstance(content, bytes):
+#         return content
+#     return content  # Assume str otherwise
