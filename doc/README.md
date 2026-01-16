@@ -49,6 +49,12 @@ Read these before making implementation decisions:
 
 - [Design documentation](./design/README.md)
 
+## Code organization
+
+Guidance on how application code and tests are structured.
+
+- [Module organization](./module/README.md)
+
 ## What this is
 
 At its core, this service is:
