@@ -14,6 +14,10 @@ business logic mixed into view code, making rapid changes difficult.
   - Create handle_base64_conversion() service with ConversionResult dataclass  
   - View should only detect base64 content and delegate to service
   - Enables proper unit testing of complex base64 business logic
+- **Future**: Move base64 format detection to validator module with own tests
+  - Extract format detection logic (data:image/png;base64, etc.) to validator.py
+  - Replace current validation tests with mocks that verify validator function is called
+  - Improves separation of concerns between validation and conversion
 - **Future**: Refactor UploadResult to use associated model instance
   - File type can be determined from PicItem.format property
   - Eventually Item models will include FileItem base for all file-backed items

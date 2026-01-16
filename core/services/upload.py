@@ -27,6 +27,10 @@ class UploadResult:
     # Future: When FileItem base is added, all file-backed items will have format
 
 
+def _invalid_content_result() -> UploadResult:
+    return UploadResult(success=False, error_type="invalid_content_type", item=None)
+
+
 def handle_file_upload(content: Optional[types.Content]) -> UploadResult:
     """
     Process file upload with full validation and storage.
@@ -38,13 +42,16 @@ def handle_file_upload(content: Optional[types.Content]) -> UploadResult:
     if content_empty(content) or content is None:  # Here to coerce away None
         return UploadResult(success=False, error_type="empty_file", item=None)
 
+    # Classify content - return invalid content result if not valid
     content_class = classify_content(content)
     if content_class.ctype is None:  # Ctype = None means invalid content
-        return UploadResult(success=False, error_type="invalid_content_type", item=None)
+        return _invalid_content_result()
+
+    # Normalize content to just bytes or strings
     content = read_content_if_file(content)  # Now content is bytes or str
     if content_class.b64 and isinstance(content, str):
         # Convert base64 string to bytes
-        pass
+        content = decode_base64(content)
     return UploadResult(success=False, error_type="not_implemented", item=None)
 
     # TODO: Old un-refactored work - DELETEME as functionality gets replaced

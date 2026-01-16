@@ -9,3 +9,5 @@ Content = typing.Union[InMemoryUploadedFile, str, bytes]
 CTypes = typing.Literal["txt", "url", "pic"]
 # Valid Extensions for file-based content
 ValidExtensions = typing.Literal["png", "jpg", "gif"]
+# Valid Extensions for Base64 encoded content
+ValidB64Extensions = typing.Literal["png", "jpg", "gif"]

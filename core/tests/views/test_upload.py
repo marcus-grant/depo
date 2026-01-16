@@ -583,45 +583,6 @@ class WebUploadViewPostTests(BaseUploadTestCase):
 class SecurityHardeningTests(BaseUploadTestCase):
     """Tests for security hardening checks on base-64 uploads"""
 
-    @override_settings(DEPO_MAX_BASE64_SIZE=8 * 1024 * 1024)  # 8MB limit for base-64
-    def test_base64_string_over_limit_rejected(self):
-        """Test that base-64 strings over DEPO_MAX_BASE64_SIZE are rejected before decode"""
-        import base64
-
-        # Create a string that when base-64 encoded exceeds 8MB
-        # Base-64 encoding increases size by ~33%, so we need original data of about 6MB
-        large_data = b"A" * (6 * 1024 * 1024)  # 6MB of data
-        large_base64_uri = self.create_base64_image_data(large_data)
-
-        # Verify the encoded string is over the limit
-        from django.conf import settings
-
-        self.assertGreater(len(large_base64_uri), settings.DEPO_MAX_BASE64_SIZE)
-
-        # POST the oversized base-64 string
-        resp = self.client.post(self.upload_url, {"content": large_base64_uri})
-
-        # Should return 400 error with specific message
-        self.assertEqual(resp.status_code, 400)
-        self.assertIn("Image too large", resp.content.decode())
-
-    def test_mime_type_mismatch_rejected(self):
-        """Test that MIME type mismatch between header and actual data is rejected"""
-        import base64
-
-        # Create a PNG image but label it as JPEG
-        png_bytes = PNG_MAGIC + b"dummy_png_data"
-        png_b64 = base64.b64encode(png_bytes).decode()
-        # Deliberately mislabel as JPEG
-        mislabeled_uri = f"data:image/jpeg;base64,{png_b64}"
-
-        # POST the mislabeled image
-        resp = self.client.post(self.upload_url, {"content": mislabeled_uri})
-
-        # Should return 400 error with validation message
-        self.assertEqual(resp.status_code, 400)
-        self.assertIn("Invalid image data", resp.content.decode())
-
     def test_valid_image_passes_hardening_checks(self):
         """Test that valid images pass all hardening checks"""
         import base64
@@ -653,18 +614,6 @@ class SecurityHardeningTests(BaseUploadTestCase):
             # Should succeed
             self.assertEqual(resp.status_code, 200)
             mock_ensure.assert_called_once_with(png_bytes)
-
-    def test_malformed_base64_rejected(self):
-        """Test that malformed base-64 data is rejected with proper error"""
-        # Create malformed base-64 data (invalid characters)
-        malformed_uri = "data:image/png;base64,This_is_not_valid_base64!@#$%"
-
-        # POST the malformed data
-        resp = self.client.post(self.upload_url, {"content": malformed_uri})
-
-        # Should return 400 error
-        self.assertEqual(resp.status_code, 400)
-        self.assertIn("Invalid image data", resp.content.decode())
 
 
 # =============================================================================

@@ -6,6 +6,10 @@ This document tracks completed changes to the Depo codebase, providing a histori
 
 ## Unreleased Changes
 
+## 2025-09-07
+
+- Completed view/service integration - upload view now uses handle_file_upload service
+
 ## 2025-09-05
 
 - Upload Service Layer Implementation

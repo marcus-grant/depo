@@ -10,6 +10,7 @@ from core.views.shortcode import (
 )  # TODO: Rename view function
 from core.views.raw_download import raw_download_view
 
+# TODO: Consider routing /api/upload to /upload and distinguish by user agent or request type
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("django.contrib.auth.urls")),

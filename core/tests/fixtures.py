@@ -5,6 +5,20 @@ Contains binary data for various file types used in testing uploads.
 Consolidates test data previously scattered across multiple test files.
 """
 
+import base64
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from io import BytesIO
+
+
+def create_inmem_file(
+    content: bytes, name: str = "DELETEME", ctype: str = "multipart/form-data"
+) -> InMemoryUploadedFile:
+    """Test fixture helper to create InMemoryUploadedFile from bytes"""
+    kw = {"field_name": "file", "name": name, "size": len(content), "charset": None}
+    kw["content_type"] = ctype
+    return InMemoryUploadedFile(BytesIO(content), **kw)
+
+
 # Complete minimal valid images (from test_api_upload_flow.py)
 # 1x1 red pixel PNG (70 bytes)
 PNG_DATA = (
@@ -55,12 +69,14 @@ PNG_DATA_ALT = (
 )
 
 # Base64-encoded PNG (1x1 transparent pixel) - for clipboard paste testing
-PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
-JPEG_BASE64 = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/9oACAEBAAA/APvVTuEY0kn918cm/9k="
+PNG_BASE64 = base64.b64encode(PNG_DATA).decode("ascii")
+JPEG_BASE64 = base64.b64encode(JPEG_DATA).decode("ascii")
+GIF_BASE64 = base64.b64encode(GIF_DATA).decode("ascii")
 
 # Data URI format for base64 testing
 PNG_BASE64_DATA_URI = f"data:image/png;base64,{PNG_BASE64}"
 JPEG_BASE64_DATA_URI = f"data:image/jpeg;base64,{JPEG_BASE64}"
+GIF_BASE64_DATA_URI = f"data:image/gif;base64,{GIF_BASE64}"
 
 # Magic bytes / headers for file type detection
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"

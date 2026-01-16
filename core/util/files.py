@@ -6,6 +6,7 @@ from typing import Tuple
 from django.conf import settings
 
 
+# TODO: Should add protection against directory traversal attacks
 def save_upload(filename: str, file_data: bytes) -> bool:
     """
     Save uploaded file data to disk if it doesn't already exist.

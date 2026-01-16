@@ -97,3 +97,19 @@ class TestIsWithinBase64SizeLimit(TestCase):
         with override_settings(DEPO_MAX_BASE64_SIZE=len(data)):
             result = validator.is_within_base64_size_limit(data)
             self.assertTrue(result)
+
+
+class TestValidBase64Format(TestCase):
+    """Unit tests for valid_base64_format function"""
+
+    def test_valid_data_uri_returns_true(self):
+        """Test that valid data URI with base64 returns True"""
+        valid_uri = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+        result = validator.valid_base64_format(valid_uri)
+        self.assertTrue(result)
+
+    def test_invalid_base64_chars_returns_false(self):
+        """Test that data URI with invalid base64 characters returns False"""
+        invalid_uri = "data:image/png;base64,invalid!@#$%base64"
+        result = validator.valid_base64_format(invalid_uri)
+        self.assertFalse(result)
