@@ -13,20 +13,28 @@ dev-dependencies = [
   "pytest>=8.0",
 ]
 
+[tool.pytest]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+
+
+[tool.pyright]
+include = ["src"]
+venvPath = "."
+venv = ".venv"
+
 [tool.black]
 line-length = 88
 target-version = ["py312"]
 
 [tool.ruff]
+src = ["src"]
 line-length = 88
 target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
 ignore = []
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
 
 [tool.mypy]
 python_version = "3.12"
