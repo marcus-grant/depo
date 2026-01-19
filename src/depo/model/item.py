@@ -15,6 +15,8 @@ from dataclasses import dataclass
 
 from depo.model.enums import ItemKind, Visibility
 
+# TODO: Create enums for formats and mimes
+
 
 @dataclass(frozen=True)
 class Item:
@@ -25,4 +27,42 @@ class Item:
     size_b: int
     created_at: int
     uid: int
-    perm: Visibility = Visibility.PUBLIC
+    perm: Visibility
+
+
+@dataclass(frozen=True)
+class TextItem(Item):
+    """
+    Text content item.
+
+    Covers plain text, code, markdown, data formats (JSON, YAML, CSV).
+    Format field determines rendering behavior on /info.
+    """
+
+    format: str = "txt"  # plaintext if nothing specified
+
+
+@dataclass(frozen=True)
+class LinkItem(Item):
+    """
+    URL shortener/bookmarking item.
+
+    Explicit creation only; no auto-detection.
+    Redirects to target URL on access.
+    """
+
+    url: str
+
+
+@dataclass(frozen=True)
+class PicItem(Item):
+    """
+    Image content item.
+
+    Raster formats only for MVP (PNG, JPEG, GIF, WEBP).
+    Dimensions required; EXIF support deferred.
+    """
+
+    format: str
+    width: int
+    height: int
