@@ -1,8 +1,9 @@
 # Tests for depo/model/enums.py
 from enum import StrEnum
+
 import pytest
 
-from depo.model.enums import ItemKind, Visibility, PayloadKind
+from depo.model.enums import ItemKind, PayloadKind, Visibility
 
 
 class TestItemKind:

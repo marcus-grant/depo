@@ -136,7 +136,6 @@ Storage model:
 - `kind` : `ItemKind(Enum)`
 - `mime`: str
 - `size_b`: int
-- `store_key` (str, filesystem path or object key later)
 - `created_at` (int, Unix Epoch UTC)
 - `uid` (int, FK -> `User`)
 - `perm` (`private`, `unlisted`, `public`, refactoring with `gid`)
@@ -321,6 +320,16 @@ class StorageBackend(Protocol):
         ...
 ```
 
+#### Storage path derivation
+
+Paths are derived, not stored.
+Given an item's `code` and `mime`, the storage backend computes:
+
+```
+{STORAGE_ROOT}/{code}.{ext}
+```
+
+Extension is derived from MIME type. This keeps Item lean and avoids redundancy
 ---
 
 ## 6. HTTP & UI (MVP)
