@@ -131,16 +131,20 @@ Storage model:
 #### Item Fields (conceptual)
 
 - `code` (PK)
-- `hash_remainder`
-- `kind` (`text`, `image`, `link`)
-- `mime_type`
-- `size_bytes`
-- `storage_key` (filesystem path or object key later)
-- `created_at`
-- `owner_user_id`
-- `visibility` (`private`, `unlisted`, `public`)
+- `hash_rest`
+  - Note: `code` + `hash_rest` = full hash, each code with its len is unique
+- `kind` : `ItemKind(Enum)`
+- `mime`: str
+- `size_b`: int
+- `uid` (int, FK -> `User`)
+- `perm` (`private`, `unlisted`, `public`, refactoring with `gid`)
+  - Very simple for now till `Group` model exists
+- `upload_at` (int, Unix Epoch UTC)
+- `origin_at` (int | None, original file creation time if known)
 
 ### 4.2 TextItem (heavy-load-bearing)
+
+### 4.2 TextItem
 
 #### TextItem Philosophy
 
@@ -149,14 +153,10 @@ Storage model:
 
 #### TextItem Fields
 
-- `code` (FK → Item)
-- `format` (single authoritative field)
-  - Examples: `plain`, `markdown`, `python`, `bash`, `json`, `yaml`, `csv`, `html`
-- `title` (optional)
-- optional derived metadata:
-  - `line_count`
-  - `char_count`
-  - `preview` (optional small snippet for fast `/info`)
+- `code` (PK, FK → Item)
+- `format`
+  - str
+  - *(`plain`, `markdown`, `python`, `bash`, `json`, `yaml`, `csv`, `html`)*
 
 #### TextItem Rules
 
@@ -168,13 +168,16 @@ Storage model:
 
 #### PicItem Fields
 
-- `code` (FK → Item)
-- `format` (`png`, `jpeg`, `gif`, `webp`, `svg`)
-- `width`
-- `height`
-- optional EXIF reference (defer deep EXIF features to v1 if desired)
+- `code` (PK, FK → Item)
+- `format` (str, e.g. `png`, `jpeg`, `gif`, `webp`)
+- `width` (int)
+- `height` (int)
+
+SVG and EXIF support deferred to post-MVP.
 
 ### 4.4 LinkItem (explicit in MVP)
+
+### 4.4 LinkItem
 
 #### LinkItem Rules
 
@@ -183,8 +186,8 @@ Storage model:
 
 #### LinkItem Fields
 
-- `code` (FK → Item)
-- `target_url` (validated; schemes default to http/https)
+- `code` (PK, FK → Item)
+- `url` (str, validated; schemes default to http/https)
 
 ---
 
@@ -206,18 +209,11 @@ Framework-agnostic handoff between inference and persistence.
 #### WritePlan Interface
 
 ```python
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Optional, Dict, Any, Literal
-
-PayloadKind = Literal["bytes", "file"]
-ItemKind = Literal["text", "image", "link"]
-
 @dataclass(frozen=True)
 class WritePlan:
     # Identity
-    full_hash: str                 # 24-char base32 string
-    min_code_length: int
+    hash_full: str                 # 24-char base32 string
+    code_min_len: int
 
     # Payload reference (exactly one)
     payload_kind: PayloadKind
@@ -226,20 +222,19 @@ class WritePlan:
 
     # Classification & metadata
     kind: ItemKind
-    mime_type: str
-    size_bytes: int
+    mime: str
+    size_b: int
 
     # Text-specific
     text_format: Optional[str] = None     # e.g. "markdown", "python", "json"
-    text_meta: Optional[Dict[str, Any]] = None
 
     # Image-specific
-    image_format: Optional[str] = None    # "png", "jpeg", "svg", ...
-    image_meta: Optional[Dict[str, Any]] = None
-    exif: Optional[Dict[str, Any]] = None
+    pic_format: Optional[str] = None      # e.g. "png", "jpeg", "gif", "webp"
+    pic_width: Optional[int] = None
+    pic_height: Optional[int] = None
 
     # Link-specific
-    link_target_url: Optional[str] = None
+    link_url: Optional[str] = None
 ```
 
 ### 5.2 IngestService (hard interface)
@@ -326,6 +321,16 @@ class StorageBackend(Protocol):
         ...
 ```
 
+#### Storage path derivation
+
+Paths are derived, not stored.
+Given an item's `code` and `mime`, the storage backend computes:
+
+```
+{STORAGE_ROOT}/{code}.{ext}
+```
+
+Extension is derived from MIME type. This keeps Item lean and avoids redundancy
 ---
 
 ## 6. HTTP & UI (MVP)
