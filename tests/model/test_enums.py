@@ -1,9 +1,17 @@
-# Tests for depo/model/enums.py
+# tests/model/test_enums.py
+"""
+Tests for depo/model/enums.py.
+
+Author: Marcus Grant
+Date: 2026-01-19
+License: Apache-2.0
+"""
+
 from enum import StrEnum
 
 import pytest
 
-from depo.model.enums import ItemKind, PayloadKind, Visibility
+from depo.model.enums import ContentFormat, ItemKind, PayloadKind, Visibility
 
 
 class TestItemKind:
@@ -52,12 +60,6 @@ class TestVisibility:
         assert member == val
 
 
-# PayloadKind
-#
-# - Has exactly two members
-# - BYTES member exists with value "bytes"
-# - FILE member exists with value "file"
-# - Members compare equal to their string values
 class TestPayloadKind:
     """Test PayloadKind enum, gives info on how to handle payload"""
 
@@ -74,6 +76,37 @@ class TestPayloadKind:
     def test_member_key_values(self, key, val):
         """Should have these expected member names"""
         member = PayloadKind[key]
+        assert member.name == key
+        assert member.value == val
+        assert member == val
+
+
+class TestContentFormat:
+    """Tests ContentFormat enum against its supported formats."""
+
+    def test_is_str_enum(self):
+        """Always a StrEnum subclass."""
+        for member in ContentFormat:
+            assert isinstance(member, StrEnum)
+
+    def test_member_count(self):
+        assert len(ContentFormat) == 7
+
+    @pytest.mark.parametrize(
+        "key,val",
+        [
+            ("PLAINTEXT", "txt"),
+            ("MARKDOWN", "md"),
+            ("JSON", "json"),
+            ("YAML", "yaml"),
+            ("PNG", "png"),
+            ("JPEG", "jpg"),
+            ("WEBP", "webp"),
+        ],
+    )
+    def test_member_key_values(self, key, val):
+        """Has these member key/value pairings"""
+        member = ContentFormat[key]
         assert member.name == key
         assert member.value == val
         assert member == val

@@ -8,7 +8,7 @@ import pytest
 from tests.factories import make_item, make_link_item, make_pic_item, make_text_item
 from tests.helpers import assert_field
 
-from depo.model.enums import ItemKind, Visibility
+from depo.model.enums import ContentFormat, ItemKind, Visibility
 from depo.model.item import Item, LinkItem, PicItem, TextItem
 
 # Used to verify Item field specifications
@@ -19,7 +19,6 @@ _ITEM_PARAMS = [
     ("code", str, True, None),
     ("hash_rest", str, True, None),
     ("kind", ItemKind, True, None),
-    ("mime", str, True, None),
     ("size_b", int, True, None),
     ("uid", int, True, None),
     ("perm", Visibility, True, None),
@@ -59,7 +58,7 @@ class TestTextItem:
         assert issubclass(TextItem, Item)
 
     @pytest.mark.parametrize(
-        "name,typ,required,default", [("format", str, False, "txt")]
+        "name,typ,required,default", [("format", ContentFormat, False, "txt")]
     )
     def test_fields(self, name, typ, required, default):
         """Test name, type, optionality, default value of all fields"""
@@ -80,7 +79,7 @@ class TestTextItem:
         """Can instantiate with all requried fields"""
         textitem = make_text_item()
         assert textitem.code == "ABC12345"
-        assert textitem.format == "txt"
+        assert textitem.format == ContentFormat.PLAINTEXT
 
 
 class TestLinkItem:
@@ -131,7 +130,7 @@ class TestPicItem:
     @pytest.mark.parametrize(
         "name,typ,required,default",
         [
-            ("format", str, True, None),
+            ("format", ContentFormat, True, None),
             ("width", int, True, None),
             ("height", int, True, None),
         ],
@@ -147,9 +146,9 @@ class TestPicItem:
 
     def test_instantiate(self):
         """Can instantiate with all requried fields"""
-        linkitem = make_link_item()
-        assert linkitem.code == "ABC12345"
-        assert linkitem.url == "https://example.com"
+        picitem = make_pic_item(format=ContentFormat.JPEG)
+        assert picitem.code == "ABC12345"
+        assert picitem.format == ContentFormat.JPEG
 
     def test_frozen(self):
         """Is frozen (immutable)"""

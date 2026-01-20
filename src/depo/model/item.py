@@ -13,9 +13,7 @@ License: Apache-2.0
 
 from dataclasses import dataclass
 
-from depo.model.enums import ItemKind, Visibility
-
-# TODO: Create enums for formats and mimes
+from depo.model.enums import ContentFormat, ItemKind, Visibility
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -23,7 +21,6 @@ class Item:
     code: str
     hash_rest: str
     kind: ItemKind
-    mime: str
     size_b: int
     uid: int
     perm: Visibility
@@ -40,7 +37,7 @@ class TextItem(Item):
     Format field determines rendering behavior on /info.
     """
 
-    format: str = "txt"  # plaintext if nothing specified
+    format: ContentFormat = ContentFormat.PLAINTEXT
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -64,6 +61,6 @@ class PicItem(Item):
     Dimensions required; EXIF support deferred.
     """
 
-    format: str
+    format: ContentFormat
     width: int
     height: int

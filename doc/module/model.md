@@ -6,28 +6,36 @@ Domain models, DTOs, and enums. Pure Python with no I/O dependencies.
 
 | Enum | Members | Stored in DB |
 |------|---------|--------------|
-| ItemKind | TEXT, IMAGE, LINK | Yes |
+| ItemKind | TEXT, PICTURE, LINK | Yes |
 | Visibility | PRIVATE, UNLISTED, PUBLIC | Yes |
 | PayloadKind | BYTES, FILE | No |
+| ContentFormat | TXT, MD, PY, JSON, YAML, PNG, JPG, WEBP, GIF, SVG, ... | Yes |
 
-All use StrEnum with \u22645 char values.
+All use StrEnum. ItemKind/Visibility/PayloadKind values ≤5 chars.
+ContentFormat values are canonical short extensions (e.g., `jpg` not `jpeg`).
 
 ## item.py
 
 Frozen dataclasses with `kw_only=True`.
 
-**Item (base):** code, hash_rest, kind, mime, size_b, upload_at, uid, perm, origin_at (optional)
+**Item (base):** code, hash_rest, kind, size_b, upload_at, uid, perm, origin_at (optional)
 
-**TextItem(Item):** format
+**TextItem(Item):** format (ContentFormat)
 
-**PicItem(Item):** format, width, height
+**PicItem(Item):** format (ContentFormat), width, height
 
 **LinkItem(Item):** url
+
+Note: `mime` is not stored. MIME is derived from `format` at serve time via `util/formats.py`.
 
 ## write_plan.py
 
 Frozen DTO for ingest-to-repository handoff.
 
-**Required:** hash_full, code_min_len, payload_kind, kind, mime, size_b, upload_at
+**Required:** hash_full, code_min_len, payload_kind, kind, size_b, upload_at
 
-**Optional:** origin_at, payload_bytes, payload_path, text_format, pic_format, pic_width, pic_height, link_url
+**Optional:** format, origin_at, payload_bytes, payload_path, width, height, link_url
+
+>Note: `format` is None only for LinkItem.
+>Image dimensions (width, height) are top-level, not prefixed.
+
