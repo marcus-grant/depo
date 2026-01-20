@@ -22,20 +22,16 @@ The application code lives under `src/depo/`.
 
 ### model/
 
-Domain models and contracts.
-
-This includes:
-
-- core entities (Item, TextItem, PicItem, LinkItem)
-- DTOs (WritePlan)
-- enums and value objects
-- invariants and structural rules
+Domain models, DTOs, and enums.
+Pure Python with no I/O dependencies.
 
 This module must not depend on:
 
 - FastAPI
 - database libraries
 - filesystem or network I/O
+
+See [model.md](./model.md) for field specifications.
 
 ### service/
 
