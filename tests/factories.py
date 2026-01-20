@@ -55,17 +55,15 @@ _WRITE_PLAN_DEFAULTS = dict(
     code_min_len=8,
     payload_kind=PayloadKind.BYTES,
     kind=ItemKind.TEXT,
-    mime="text/plain",
     size_b=100,
     upload_at=1234567890,
+    format=None,
     origin_at=None,
     payload_bytes=None,
     payload_path=None,
-    text_format=None,
+    width=None,
+    height=None,
     link_url=None,
-    pic_format=None,
-    pic_width=None,
-    pic_height=None,
 )
 
 

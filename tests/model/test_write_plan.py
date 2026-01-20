@@ -18,7 +18,7 @@ import pytest
 from tests.factories import make_write_plan
 from tests.helpers import assert_field
 
-from depo.model.enums import ItemKind, PayloadKind
+from depo.model.enums import ContentFormat, ItemKind, PayloadKind
 from depo.model.write_plan import WritePlan
 
 
@@ -39,14 +39,12 @@ class TestWritePlan:
             ("payload_bytes", bytes | None, False, None),
             ("payload_path", Path | None, False, None),
             ("kind", ItemKind, True, None),
-            ("mime", str, True, None),
+            ("format", ContentFormat | None, False, None),
             ("size_b", int, True, None),
             ("upload_at", int, True, None),
             ("origin_at", int | None, False, None),
-            ("text_format", str | None, False, None),
-            ("pic_format", str | None, False, None),
-            ("pic_width", int | None, False, None),
-            ("pic_height", int | None, False, None),
+            ("width", int | None, False, None),
+            ("height", int | None, False, None),
             ("link_url", str | None, False, None),
         ],
     )
