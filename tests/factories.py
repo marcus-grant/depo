@@ -15,9 +15,10 @@ _ITEM_DEFAULTS = dict(
     kind=ItemKind.TEXT,
     mime="text/plain",
     size_b=100,
-    created_at=1234567890,
     uid=1,
     perm=Visibility.PUBLIC,
+    upload_at=1234567890,
+    origin_at=None,
 )
 
 

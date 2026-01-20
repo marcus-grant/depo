@@ -21,9 +21,10 @@ _ITEM_PARAMS = [
     ("kind", ItemKind, True, None),
     ("mime", str, True, None),
     ("size_b", int, True, None),
-    ("created_at", int, True, None),
     ("uid", int, True, None),
     ("perm", Visibility, True, None),
+    ("upload_at", int, True, None),
+    ("origin_at", int | None, False, None),
 ]
 
 
