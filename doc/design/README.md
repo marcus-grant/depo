@@ -65,10 +65,6 @@ Neither IngestService nor Repository depend on each other.
   - Authoritative scope and invariants for the initial implementation
   - All MVP work must conform to this document
 
-- [Architecture Decisions](./architecture.md)
-  - Records key decisions and rationale
-  - Updated as design evolves
-
 - [Design Requirements — v1.0](./v1.md)
   - Post-MVP direction and constraints
   - Explains why certain MVP decisions exist
