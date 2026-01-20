@@ -134,7 +134,6 @@ Storage model:
 - `hash_rest`
   - Note: `code` + `hash_rest` = full hash, each code with its len is unique
 - `kind` : `ItemKind(Enum)`
-- `mime`: str
 - `size_b`: int
 - `uid` (int, FK -> `User`)
 - `perm` (`private`, `unlisted`, `public`, refactoring with `gid`)
@@ -217,41 +216,36 @@ class WritePlan:
 
     # Payload reference (exactly one)
     payload_kind: PayloadKind
-    payload_bytes: Optional[bytes] = None
-    payload_path: Optional[Path] = None
+    payload_bytes: bytes | None = None
+    payload_path: Path | None = None
 
     # Classification & metadata
     kind: ItemKind
-    mime: str
+    format: ContentFormat | None   # None only for LinkItem
     size_b: int
-
-    # Text-specific
-    text_format: Optional[str] = None     # e.g. "markdown", "python", "json"
+    upload_at: int
+    origin_at: int | None = None
 
     # Image-specific
-    pic_format: Optional[str] = None      # e.g. "png", "jpeg", "gif", "webp"
-    pic_width: Optional[int] = None
-    pic_height: Optional[int] = None
+    width: int | None = None
+    height: int | None = None
 
     # Link-specific
-    link_url: Optional[str] = None
+    link_url: str | None = None
 ```
 
 ### 5.2 IngestService (hard interface)
 
 ```python
-from pathlib import Path
-from typing import Optional
-
 class IngestService:
     def build_plan(
         self,
         *,
-        payload_bytes: Optional[bytes] = None,
-        payload_path: Optional[Path] = None,
-        filename: Optional[str] = None,
-        declared_mime: Optional[str] = None,
-        requested_format: Optional[str] = None,
+        payload_bytes: bytes | None = None,
+        payload_path: Path | None = None,
+        filename: str | None = None,
+        declared_mime: str | None = None,      # hint only, not stored
+        requested_format: str | None = None,
         min_code_length: int,
         max_size_bytes: int,
     ) -> WritePlan:
@@ -259,9 +253,8 @@ class IngestService:
         Responsibilities:
         - enforce size limit
         - compute full hash (existing utility module)
-        - infer kind (text/image/link) using safe rules
-        - determine text format (explicit > hints > conservative inference)
-        - extract metadata (image dims, minimal exif if desired)
+        - infer kind and format (declared_mime is hint, not stored)
+        - extract metadata (image dims)
         - return WritePlan
         Must not: touch DB, touch HTTP, write files.
         '''
@@ -324,11 +317,14 @@ class StorageBackend(Protocol):
 #### Storage path derivation
 
 Paths are derived, not stored.
-Given an item's `code` and `mime`, the storage backend computes:
+Given an item's `code` and `format`, the storage backend computes:
 
 ```
 {STORAGE_ROOT}/{code}.{ext}
 ```
+
+Extension equals `format.value` (e.g., `ContentFormat.PNG` → `.png`).
+MIME type for HTTP headers is derived via `mime_for_format()` at serve time.
 
 Extension is derived from MIME type. This keeps Item lean and avoids redundancy
 ---
