@@ -18,19 +18,20 @@ from depo.model.enums import ItemKind, Visibility
 # TODO: Create enums for formats and mimes
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Item:
     code: str
     hash_rest: str
     kind: ItemKind
     mime: str
     size_b: int
-    created_at: int
     uid: int
     perm: Visibility
+    upload_at: int
+    origin_at: int | None = None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class TextItem(Item):
     """
     Text content item.
@@ -42,7 +43,7 @@ class TextItem(Item):
     format: str = "txt"  # plaintext if nothing specified
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class LinkItem(Item):
     """
     URL shortener/bookmarking item.
@@ -54,7 +55,7 @@ class LinkItem(Item):
     url: str
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class PicItem(Item):
     """
     Image content item.
