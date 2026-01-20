@@ -3,12 +3,15 @@
 # Date: 2026-01-09
 # License: Apache-2.0
 
-from depo.model.enums import ItemKind, Visibility
+from depo.model.enums import ItemKind, PayloadKind, Visibility
 from depo.model.item import Item, LinkItem, PicItem, TextItem
+from depo.model.write_plan import WritePlan
+
+### Item Factories ###
 
 _ITEM_DEFAULTS = dict(
     code="ABC12345",
-    hash_rest="06789DEFGHKMNPQRSTVWXYZ",
+    hash_rest="06789DEFGHKMNPQR",
     kind=ItemKind.TEXT,
     mime="text/plain",
     size_b=100,
@@ -45,6 +48,8 @@ def make_pic_item(**overrides) -> PicItem:
         height=240,
     )
     return PicItem(**(defaults | overrides))  # pyright: ignore[reportArgumentType]
+
+
 ### WritePlan Factories ###
 
 _WRITE_PLAN_DEFAULTS = dict(

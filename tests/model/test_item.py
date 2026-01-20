@@ -2,18 +2,19 @@
 # tests depo.model.item
 # Marcus Grant 2026-01-19
 
-from dataclasses import MISSING, FrozenInstanceError, fields, is_dataclass
+from dataclasses import FrozenInstanceError, is_dataclass
 
 import pytest
 from tests.factories import make_item, make_link_item, make_pic_item, make_text_item
+from tests.helpers import assert_field
 
 from depo.model.enums import ItemKind, Visibility
 from depo.model.item import Item, LinkItem, PicItem, TextItem
 
-# Used to verify field specifications
-# "name": field name, "typ": type (avoid py keyword),
+# Used to verify Item field specifications
+# Pulled out for reuse because subtypes need to check inheritance of these fields
+# "name": field name, "typ": type (avoid py keyword 'type'),
 # "required": non-optional, "default": default value
-_ITEM_PARAM_NAMES = ("name", "typ", "required", "default")
 _ITEM_PARAMS = [
     ("code", str, True, None),
     ("hash_rest", str, True, None),
@@ -26,18 +27,6 @@ _ITEM_PARAMS = [
 ]
 
 
-# TODO: Refactor with this assetion helper:
-def _assert_field(cls, name, typ, required, default):
-    field_map = {f.name: f for f in fields(cls)}
-    assert name in field_map, f"missing field: {name}"
-    f = field_map[name]
-    assert f.type is typ, f"{name} type mismatch"
-    if required:
-        assert f.default is MISSING, f"{name} should be required"
-    else:
-        assert f.default == default, f"{name} default val mismatch"
-
-
 class TestItem:
     """Tests for the Item model class"""
 
@@ -45,10 +34,10 @@ class TestItem:
         """Is a dataclass"""
         assert is_dataclass(Item)
 
-    @pytest.mark.parametrize(_ITEM_PARAM_NAMES, _ITEM_PARAMS)
+    @pytest.mark.parametrize("name,typ,required,default", _ITEM_PARAMS)
     def test_fields(self, name, typ, required, default):
         """Test name, type, optionality, default value of all fields"""
-        _assert_field(Item, name, typ, required, default)
+        assert_field(Item, name, typ, required, default)
 
     def test_frozen(self):
         """Is frozen (immutable)."""
@@ -68,15 +57,17 @@ class TestTextItem:
         """Is a subclass of Item"""
         assert issubclass(TextItem, Item)
 
-    @pytest.mark.parametrize(_ITEM_PARAM_NAMES, [("format", str, False, "txt")])
+    @pytest.mark.parametrize(
+        "name,typ,required,default", [("format", str, False, "txt")]
+    )
     def test_fields(self, name, typ, required, default):
         """Test name, type, optionality, default value of all fields"""
-        _assert_field(TextItem, name, typ, required, default)
+        assert_field(TextItem, name, typ, required, default)
 
-    @pytest.mark.parametrize(_ITEM_PARAM_NAMES, _ITEM_PARAMS)
+    @pytest.mark.parametrize("name,typ,required,default", _ITEM_PARAMS)
     def test_inherits_item_fields(self, name, typ, required, default):
         """Inherits all Item field specifications"""
-        _assert_field(TextItem, name, typ, required, default)
+        assert_field(TextItem, name, typ, required, default)
 
     def test_frozen(self):
         """Is frozen (immutable)"""
@@ -102,15 +93,15 @@ class TestLinkItem:
         """Subclass of Item"""
         assert issubclass(LinkItem, Item)
 
-    @pytest.mark.parametrize(_ITEM_PARAM_NAMES, [("url", str, True, None)])
+    @pytest.mark.parametrize("name,typ,required,default", [("url", str, True, None)])
     def test_fields(self, name, typ, required, default):
         """Test name, type, optionality, default value of all fields"""
-        _assert_field(LinkItem, name, typ, required, default)
+        assert_field(LinkItem, name, typ, required, default)
 
-    @pytest.mark.parametrize(_ITEM_PARAM_NAMES, _ITEM_PARAMS)
+    @pytest.mark.parametrize("name,typ,required,default", _ITEM_PARAMS)
     def test_inherits_item_fields(self, name, typ, required, default):
         """Inherits all Item field specifications from subclass"""
-        _assert_field(LinkItem, name, typ, required, default)
+        assert_field(LinkItem, name, typ, required, default)
 
     def test_instantiate(self):
         """Can instantiate with all requried fields"""
@@ -137,7 +128,7 @@ class TestPicItem:
         assert issubclass(PicItem, Item)
 
     @pytest.mark.parametrize(
-        _ITEM_PARAM_NAMES,
+        "name,typ,required,default",
         [
             ("format", str, True, None),
             ("width", int, True, None),
@@ -146,12 +137,12 @@ class TestPicItem:
     )
     def test_fields(self, name, typ, required, default):
         """Test name, type, optionality, default value of all fields"""
-        _assert_field(PicItem, name, typ, required, default)
+        assert_field(PicItem, name, typ, required, default)
 
-    @pytest.mark.parametrize(_ITEM_PARAM_NAMES, _ITEM_PARAMS)
+    @pytest.mark.parametrize("name,typ,required,default", _ITEM_PARAMS)
     def test_inherits_item_fields(self, name, typ, required, default):
         """Inherits all Item field specifications from subclass"""
-        _assert_field(PicItem, name, typ, required, default)
+        assert_field(PicItem, name, typ, required, default)
 
     def test_instantiate(self):
         """Can instantiate with all requried fields"""
