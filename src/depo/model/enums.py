@@ -55,3 +55,4 @@ class ContentFormat(StrEnum):
     PNG = "png"
     JPEG = "jpg"
     WEBP = "webp"
+    TIFF = "tiff"

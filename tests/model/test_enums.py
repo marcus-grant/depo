@@ -90,7 +90,7 @@ class TestContentFormat:
             assert isinstance(member, StrEnum)
 
     def test_member_count(self):
-        assert len(ContentFormat) == 7
+        assert len(ContentFormat) == 8
 
     @pytest.mark.parametrize(
         "key,val",
