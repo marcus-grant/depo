@@ -9,7 +9,7 @@ Domain models, DTOs, and enums. Pure Python with no I/O dependencies.
 | ItemKind | TEXT, PICTURE, LINK | Yes |
 | Visibility | PRIVATE, UNLISTED, PUBLIC | Yes |
 | PayloadKind | BYTES, FILE | No |
-| ContentFormat | TXT, MD, PY, JSON, YAML, PNG, JPG, WEBP, GIF, SVG, ... | Yes |
+| ContentFormat | TXT, MD, JSON, YAML, PNG, JPG, WEBP, ... | Yes |
 
 All use StrEnum. ItemKind/Visibility/PayloadKind values ≤5 chars.
 ContentFormat values are canonical short extensions (e.g., `jpg` not `jpeg`).
@@ -39,3 +39,9 @@ Frozen DTO for ingest-to-repository handoff.
 >Note: `format` is None only for LinkItem.
 >Image dimensions (width, height) are top-level, not prefixed.
 
+## formats.py
+
+Bidirectional mapping between ContentFormat and MIME/extension.
+
+- `mime_for_format(fmt: ContentFormat) -> str`
+- `extension_for_format(fmt: ContentFormat) -> str`
