@@ -3,7 +3,7 @@
 # Date: 2026-01-09
 # License: Apache-2.0
 
-from depo.model.enums import ItemKind, PayloadKind, Visibility
+from depo.model.enums import ContentFormat, ItemKind, PayloadKind, Visibility
 from depo.model.item import Item, LinkItem, PicItem, TextItem
 from depo.model.write_plan import WritePlan
 
@@ -13,7 +13,6 @@ _ITEM_DEFAULTS = dict(
     code="ABC12345",
     hash_rest="06789DEFGHKMNPQR",
     kind=ItemKind.TEXT,
-    mime="text/plain",
     size_b=100,
     uid=1,
     perm=Visibility.PUBLIC,
@@ -27,14 +26,13 @@ def make_item(**overrides) -> Item:
 
 
 def make_text_item(**overrides) -> TextItem:
-    defaults = _ITEM_DEFAULTS | dict(format="txt")
+    defaults = _ITEM_DEFAULTS | dict(format=ContentFormat.PLAINTEXT)
     return TextItem(**(defaults | overrides))  # pyright: ignore[reportArgumentType]
 
 
 def make_link_item(**overrides) -> LinkItem:
     defaults = _ITEM_DEFAULTS | dict(
         kind=ItemKind.LINK,
-        mime="text/uri-list",
         url="https://example.com",
     )
     return LinkItem(**(defaults | overrides))  # pyright: ignore[reportArgumentType]
@@ -43,8 +41,7 @@ def make_link_item(**overrides) -> LinkItem:
 def make_pic_item(**overrides) -> PicItem:
     defaults = _ITEM_DEFAULTS | dict(
         kind=ItemKind.PICTURE,
-        mime="image/png",
-        format="png",
+        format=ContentFormat.PNG,
         width=320,
         height=240,
     )
