@@ -13,7 +13,7 @@ License: Apache-2.0
 from dataclasses import dataclass
 from pathlib import Path
 
-from depo.model.enums import ItemKind, PayloadKind
+from depo.model.enums import ContentFormat, ItemKind, PayloadKind
 
 
 @dataclass(frozen=True)
@@ -22,14 +22,12 @@ class WritePlan:
     code_min_len: int
     payload_kind: PayloadKind
     kind: ItemKind
-    mime: str
     size_b: int
     upload_at: int
+    format: ContentFormat | None = None
     origin_at: int | None = None
     payload_bytes: bytes | None = None
     payload_path: Path | None = None
-    text_format: str | None = None
+    width: int | None = None
+    height: int | None = None
     link_url: str | None = None
-    pic_format: str | None = None
-    pic_width: int | None = None
-    pic_height: int | None = None
