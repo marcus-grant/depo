@@ -136,10 +136,11 @@ Storage model:
 - `kind` : `ItemKind(Enum)`
 - `mime`: str
 - `size_b`: int
-- `created_at` (int, Unix Epoch UTC)
 - `uid` (int, FK -> `User`)
 - `perm` (`private`, `unlisted`, `public`, refactoring with `gid`)
   - Very simple for now till `Group` model exists
+- `upload_at` (int, Unix Epoch UTC)
+- `origin_at` (int | None, original file creation time if known)
 
 ### 4.2 TextItem (heavy-load-bearing)
 
