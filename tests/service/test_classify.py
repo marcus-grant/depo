@@ -16,7 +16,11 @@ from depo.model.enums import ContentFormat, ItemKind
 from depo.model.formats import kind_for_format
 from depo.service.classify import (
     ContentClassification,
+    _detect_jpeg_magic,
+    _detect_png_magic,
+    _detect_webp_magic,
     _from_declared_mime,
+    _from_magic_bytes,
     _from_requested_format,
     classify,
 )
@@ -83,6 +87,115 @@ class TestFromDeclaredMime:
     def test_none_for_unsupported_mime(self):
         """Returns None for unsupported MIME types."""
         assert _from_declared_mime("fake/MIME") is None
+
+
+_PNG = b"\x89PNG\r\n\x1a\n"
+
+
+class TestDetectPngMagic:
+    """Tests for _detect_png_magic magic bytes detector"""
+
+    def test_png_for_png_bytes(self):
+        """Returns ContentFormat.PNG for valid PNG magic bytes"""
+        assert _detect_png_magic(_PNG) == ContentFormat.PNG
+        assert _detect_png_magic(_PNG + b"\xde\xad\xbe\xef") == ContentFormat.PNG
+
+    def test_none_for_non_png_bytes(self):
+        """Returns None for non-PNG, empty, or partial signature"""
+        assert _detect_png_magic(b"\xde\xad\xbe\xef" * 99) is None, "non-PNG"
+        assert _detect_png_magic(b"") is None, "empty"
+        assert _detect_png_magic(b"\x89PNG\r\n\x1a") is None, "partial magic bytes"
+
+
+# JPEG marker magic bytes (same prefix) suffixes (JFIF, EXIF, raw JPEG)
+_JPG = [b"\xff\xd8\xff" + b for b in [b"\xe0", b"\xe1", b"\xdb"]]
+
+
+class TestDetectJpegMagic:
+    """Tests for _detect_jpeg_magic magic bytes detector"""
+
+    @pytest.mark.parametrize("data", _JPG)
+    def test_jpg_for_valid_bytes(self, data):
+        """Returns ContentFormat.JPEG for valid JPEG magic bytes"""
+        more_data = data + (b"\xde\xad\xbe\xef\x00") * 99
+        assert _detect_jpeg_magic(data) == ContentFormat.JPEG
+        assert _detect_jpeg_magic(more_data) == ContentFormat.JPEG
+
+    def test_none_for_non_jpg_bytes(self):
+        """Returns None for non-JPEG, empty, or partial signature"""
+        assert _detect_jpeg_magic(b"\xde\xad\xbe\xef" * 99) is None, "non-JPG"
+        assert _detect_jpeg_magic(b"") is None, "empty"
+        assert _detect_jpeg_magic(b"\xff") is None, "partial magic 1 byte"
+        assert _detect_jpeg_magic(b"\xff\xd8") is None, "partial magic 2 byte"
+        assert _detect_jpeg_magic(b"\xff\xd8\xff") is None, "partial magic 3 byte"
+
+
+# Test data constants for WEBP detection
+_RIFF = b"RIFF"
+_WEBP = b"WEBP"
+_4x00 = b"\x00\x00\x00\x00"
+
+
+class TestDetectWebpMagic:
+    """Tests for _detect_webp_magic magic bytes detector"""
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            # Minimal boundary case: exactly 12 bytes
+            (_RIFF + _4x00 + _WEBP),
+            # Realistic sizes in RIFF size field (bytes 4-7, little-endian)
+            (_RIFF + (0).to_bytes(4, "little") + _WEBP + b"VP8 " + _4x00),
+            (_RIFF + (4).to_bytes(4, "little") + _WEBP + b"VP8L" + _4x00),
+            (_RIFF + (0xFFFFFFFF).to_bytes(4, "little") + _WEBP + b"VP8X" + _4x00),
+            # Arbitrary payload after header
+            (_RIFF + b"\x12\x34\x56\x78" + _WEBP + b"\x00" * 32),
+        ],
+    )
+    def test_webp_for_valid_bytes(self, data):
+        """Returns ContentFormat.WEBP for valid WEBP magic bytes"""
+        more_data = data + (b"\xde\xad\xbe\xef") * 99
+        assert _detect_webp_magic(data) == ContentFormat.WEBP
+        assert _detect_webp_magic(more_data) == ContentFormat.WEBP
+
+    def test_none_for_invalid_bytes(self):
+        """Returns None for non-WEBP, empty, partial, or malformed bytes"""
+        # Non-WEBP bytes
+        assert _detect_webp_magic(b"\xde\xad\xbe\xef" * 99) is None, "non-WEBP"
+        # Empty
+        assert _detect_webp_magic(b"") is None, "empty"
+        # Shorter than 12 bytes
+        assert _detect_webp_magic(_RIFF) is None, "4 bytes"
+        assert _detect_webp_magic(_RIFF + _4x00) is None, "8 bytes"
+        assert _detect_webp_magic(_RIFF + _4x00 + b"WEB") is None, "11 bytes"
+        # RIFF without WEBP marker
+        assert _detect_webp_magic(_RIFF + _4x00 + b"WAVE") is None, "RIFF but WAVE"
+
+
+# _from_magic_bytes
+class TestFromMagicBytes:
+    """Tests for _from_magic_bytes magic bytes detection orchestrator"""
+
+    @pytest.mark.parametrize(
+        "data,kind,fmt",
+        [
+            (_PNG, ItemKind.PICTURE, ContentFormat.PNG),
+            (_JPG[1], ItemKind.PICTURE, ContentFormat.JPEG),
+            (_RIFF + _4x00 + _WEBP, ItemKind.PICTURE, ContentFormat.WEBP),
+        ],
+    )
+    def test_class_for_valid_magic_bytes(self, data, kind, fmt):
+        """Returns ContentClass for PNGs given PNG bytes"""
+        result = _from_magic_bytes(data)
+        assert isinstance(result, ContentClassification)
+        assert result.kind == kind
+        assert result.format == fmt
+
+    def test_none_for_invalid_bytes(self):
+        """Returns None for unrecognizable magic bytes from input"""
+        assert _from_magic_bytes(b"\xde\xad\xbe\xef" * 99) is None, "Invalid bytes"
+        assert _from_magic_bytes(b"") is None, "Empty bytes"
+        assert _from_magic_bytes(b"\x0f") is None, "Single byte"
 class TestClassify:
     """Tests for depo.service.classify.classify function"""
 
