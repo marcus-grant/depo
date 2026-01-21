@@ -13,8 +13,10 @@ License: Apache-2.0
 from dataclasses import dataclass
 
 from depo.model.enums import ContentFormat, ItemKind
+from depo.model.formats import format_for_mime, kind_for_format
 
 
+# ======== ContentClassification DTO ========#
 @dataclass(frozen=True)
 class ContentClassification:
     """Result of content classification."""
@@ -23,34 +25,40 @@ class ContentClassification:
     format: ContentFormat
 
 
-_FORMAT_TO_KIND_MAP: dict[ContentFormat, ItemKind] = {
-    ContentFormat.PLAINTEXT: ItemKind.TEXT,
-    ContentFormat.MARKDOWN: ItemKind.TEXT,
-    ContentFormat.JSON: ItemKind.TEXT,
-    ContentFormat.YAML: ItemKind.TEXT,
-    ContentFormat.PNG: ItemKind.PICTURE,
-    ContentFormat.JPEG: ItemKind.PICTURE,
-    ContentFormat.WEBP: ItemKind.PICTURE,
-    ContentFormat.TIFF: ItemKind.PICTURE,
-}
-
-
-def kind_for_format(fmt: ContentFormat) -> ItemKind:
-    """Return ItemKind for a content format.
+# ======== Classification Helpers ========#
+def _from_requested_format(
+    requested_format: ContentFormat | None,
+) -> ContentClassification | None:
+    """Classify from explicit user format request.
 
     Args:
-        fmt: Content format enum member.
+        requested_format: Validated ContentFormat from user.
 
     Returns:
-        ItemKind (TEXT or PICTURE).
-
-    Raises:
-        ValueError: If format has no kind mapping.
+        ContentClassification if provided, None otherwise.
     """
-    kind = _FORMAT_TO_KIND_MAP.get(fmt, None)
-    if kind is None:
-        raise ValueError(f"No ItemKind mapping for ContentFormat {fmt}")
-    return kind
+    if requested_format is None:
+        return None
+    kind = kind_for_format(requested_format)
+    return ContentClassification(kind=kind, format=requested_format)
+
+
+def _from_declared_mime(declared_mime: str | None) -> ContentClassification | None:
+    """Classify from HTTP Content-Type header.
+
+    Args:
+        declared_mime: MIME type from request header.
+
+    Returns:
+        ContentClassification if MIME is recognized, None otherwise.
+    """
+    if declared_mime is None:
+        return None
+    fmt = format_for_mime(declared_mime)
+    if fmt is None:
+        return None
+    kind = kind_for_format(fmt)
+    return ContentClassification(kind=kind, format=fmt)
 
 
 def classify(
