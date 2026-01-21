@@ -17,6 +17,7 @@ _FORMAT_TO_MIME_MAP: dict[ContentFormat, str] = {
     ContentFormat.PNG: "image/png",
     ContentFormat.JPEG: "image/jpeg",
     ContentFormat.WEBP: "image/webp",
+    ContentFormat.TIFF: "image/tiff",
 }
 
 
@@ -38,6 +39,33 @@ def mime_for_format(fmt: ContentFormat) -> str:
     except KeyError:
         f = fmt.name if hasattr(fmt, "name") else fmt
         raise ValueError(f"No MIME mapping for {f}") from None
+
+
+# NOTE: This inverts the key-value relation of _FORMAT_TO_MIME_MAP
+_MIME_TO_FORMAT_MAP: dict[str, ContentFormat] = {
+    mime: fmt for fmt, mime in _FORMAT_TO_MIME_MAP.items()
+}
+
+
+# NOTE: As per Postel's Law:
+# "Be conservative in what you send, be liberal in what you accept."
+# This means we may need to add MIME strings that are accepted for a format
+_MIME_TO_FORMAT_MAP.update({"application/x-yaml": ContentFormat.YAML})
+
+
+def format_for_mime(mime: str) -> ContentFormat | None:
+    """Return ContentFormat for a MIME type.
+
+    Accepts legacy variants (e.g., application/x-yaml)
+    and more than 1 MIME string mapped to same ContentFormat
+
+    Args:
+        mime: MIME type string.
+
+    Returns:
+        ContentFormat if recognized, None otherwise.
+    """
+    return _MIME_TO_FORMAT_MAP.get(mime)
 
 
 # Extension overrides for formats where the canonical extension
