@@ -98,6 +98,34 @@ def extension_for_format(fmt: ContentFormat | str) -> str:
     return _EXTENSION_OVERRIDES.get(fmt, fmt.value)
 
 
+# Canonical extensions derived from enum values
+_EXT_TO_FORMAT: dict[str, ContentFormat] = {fmt.value: fmt for fmt in ContentFormat}
+
+# Add variant extensions
+_EXT_TO_FORMAT.update(
+    {
+        "yml": ContentFormat.YAML,
+        "jpeg": ContentFormat.JPEG,
+        "tif": ContentFormat.TIFF,  # DOS 8.3 legacy
+    }
+)
+
+
+def format_for_extension(ext: str) -> ContentFormat | None:
+    """Return ContentFormat for a file extension.
+
+    Accepts with or without leading dot. Case insensitive.
+    Handles variants (e.g., 'jpeg' -> JPEG, 'yml' -> YAML).
+
+    Args:
+        ext: File extension string.
+
+    Returns:
+        ContentFormat if recognized, None otherwise.
+    """
+    return _EXT_TO_FORMAT.get(ext.lstrip(".").lower())
+
+
 _FORMAT_TO_KIND_MAP: dict[ContentFormat, ItemKind] = {
     ContentFormat.PLAINTEXT: ItemKind.TEXT,
     ContentFormat.MARKDOWN: ItemKind.TEXT,

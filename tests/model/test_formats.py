@@ -21,6 +21,7 @@ import pytest
 from depo.model.enums import ContentFormat, ItemKind
 from depo.model.formats import (
     extension_for_format,
+    format_for_extension,
     format_for_mime,
     kind_for_format,
     mime_for_format,
@@ -48,11 +49,18 @@ _FMT_MIME = [(f, m) for f, m, _, _ in _FORMAT_SPECS]
 _FMT_EXT = [(f, e) for f, _, e, _ in _FORMAT_SPECS]
 _FMT_KIND = [(f, k) for f, _, _, k in _FORMAT_SPECS]
 _MIME_FMT = [(m, f) for f, m, _, _ in _FORMAT_SPECS]
+_EXT_FMT = [(e, f) for f, _, e, _ in _FORMAT_SPECS]
 
 # NOTE: Special cases
 # Some special cases need a different pattern
 # Below is an example where two MIMEs map to same ContentFormat
 _MIME_FMT_WITH_LEGACY = _MIME_FMT + [("application/x-yaml", ContentFormat.YAML)]
+
+# Variant extensions mapping to same format
+_EXT_FMT_WITH_VARIANTS = _EXT_FMT + [
+    ("yml", ContentFormat.YAML),
+    ("jpeg", ContentFormat.JPEG),
+]
 
 
 class TestMimeForFormat:
@@ -123,6 +131,31 @@ class TestExtensionForFormat:
         """Raises ValueError for unsupported format."""
         with pytest.raises(ValueError, match="No extension mapping"):
             extension_for_format("not_a_format")  # pyright: ignore[reportArgumentType]
+
+
+class TestFormatForExtension:
+    """Tests for format_for_extension lookup function."""
+
+    @pytest.mark.parametrize("ext,fmt", _EXT_FMT_WITH_VARIANTS)
+    def test_extension_mappings(self, fmt, ext):
+        """Returns correct format for each extension."""
+        fn = format_for_extension
+        assert fn(ext) == fmt, f"Wrong map, expected {ext}:{fmt}"
+        assert fn(ext.upper()) == fmt, "Not case insensitive"
+        assert fn(f".{ext}") == fmt, "Does not handle leading dot"
+
+    def test_all_formats_reachable(self):
+        """All ContentFormat members are reachable via their canonical extension."""
+        for fmt in ContentFormat:
+            result = format_for_extension(fmt.value)
+            msg = f"ContentFormat {fmt.name} not reachable via {fmt.value}"
+            assert result == fmt, msg
+
+    def test_none_for_unsupported_extension(self):
+        """Returns None for unrecognized extensions."""
+        fn = format_for_extension
+        assert fn("unknownext") is None
+        assert fn(".anotherunknown") is None
 
 
 class TestKindForFormat:
