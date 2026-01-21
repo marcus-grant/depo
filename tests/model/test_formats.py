@@ -7,6 +7,10 @@ Coverage is handled by enforcing consistent mappings to
 different type specifiers including missing relations with ContentFormat's
 NOTE: Developers must map relations of new ContentFormat before tests pass.
 
+If a new relationship is needed you need to test that:
+- Every ContentFormat member maps to one or more of this new type
+- That there are no new type members without a single ContentFormat
+
 Author: Marcus Grant
 Date: 2026-01-20
 License: Apache-2.0
@@ -72,6 +76,30 @@ class TestMimeForFormat:
         """Raises ValueError for unsupported format."""
         with pytest.raises(ValueError):
             mime_for_format("not-supported")  # pyright: ignore[reportArgumentType]
+
+
+class TestFormatForMime:
+    """Tests for depo.model.formats.format_for_mime lookup function."""
+
+    @pytest.mark.parametrize("mime,fmt", _MIME_FMT_WITH_LEGACY)
+    def test_format_mappings(self, mime, fmt):
+        """Returns correct ContentFormat for given MIME type.
+        Also accounts for multiple common MIME types for same format.
+        Example: application/yaml & application/x-yaml => ContentFormat.YAML."""
+        assert format_for_mime(mime) == fmt
+
+    def test_all_formats_reachable(self):
+        """All ContentFormat members are reachable via some MIME type."""
+        reachable = {fmt for _, fmt in _MIME_FMT}
+        for fmt in ContentFormat:
+            msg = f"ContentFormat {fmt.name} has no MIME mapping"
+            assert fmt in reachable, msg
+
+    def test_returns_none_for_unsupported_mime(self):
+        """Returns None for unrecognized MIME types."""
+        assert format_for_mime("application/octet-stream") is None
+        assert format_for_mime("video/mp4") is None
+        assert format_for_mime("nonsense") is None
 
 
 class TestExtensionForFormat:
