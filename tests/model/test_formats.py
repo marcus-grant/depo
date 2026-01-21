@@ -9,8 +9,8 @@ License: Apache-2.0
 
 import pytest
 
-from depo.model.enums import ContentFormat
-from depo.model.formats import mime_for_format, extension_for_format
+from depo.model.enums import ContentFormat, ItemKind
+from depo.model.formats import extension_for_format, kind_for_format, mime_for_format
 
 
 # mime_for_format
@@ -38,7 +38,7 @@ class TestMimeForFormat:
     def test_raises_on_insupported_format(self):
         """When unsupported ContentFormat provided, raise ValueError"""
         with pytest.raises(ValueError):
-            mime_for_format("not-supported")
+            mime_for_format("not-supported")  # pyright: ignore[reportArgumentType]
 
 
 class TestExtensionForFormat:
@@ -72,3 +72,37 @@ class TestExtensionForFormat:
         """Raises ValueError for unsupported format."""
         with pytest.raises(ValueError, match="No extension mapping"):
             extension_for_format("not_a_format")  # pyright: ignore[reportArgumentType]
+
+
+class TestKindForFormat:
+    """Tests for depo.service.classify.kind_for_format."""
+
+    @pytest.mark.parametrize(
+        "fmt,kind",
+        [
+            (ContentFormat.PLAINTEXT, ItemKind.TEXT),
+            (ContentFormat.MARKDOWN, ItemKind.TEXT),
+            (ContentFormat.JSON, ItemKind.TEXT),
+            (ContentFormat.YAML, ItemKind.TEXT),
+            (ContentFormat.PNG, ItemKind.PICTURE),
+            (ContentFormat.JPEG, ItemKind.PICTURE),
+            (ContentFormat.WEBP, ItemKind.PICTURE),
+            (ContentFormat.TIFF, ItemKind.PICTURE),
+        ],
+    )
+    def test_kind_mappings(self, fmt, kind):
+        assert kind_for_format(fmt) == kind
+
+    def test_all_format_members_mapped(self):
+        """All ContentFormat members either return a kind or raise ValueError."""
+        for fmt in ContentFormat:
+            try:
+                kind_for_format(fmt)
+            except ValueError:
+                msg = f"ContentFormat {fmt} has no kind mapping"
+                pytest.fail(msg)
+
+    def test_raises_on_unsupported_format(self):
+        """Raises ValueError for unsupported format."""
+        with pytest.raises(ValueError):
+            kind_for_format("not-supported")  # pyright: ignore[reportArgumentType]
