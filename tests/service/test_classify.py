@@ -13,7 +13,13 @@ import pytest
 from tests.helpers import assert_field
 
 from depo.model.enums import ContentFormat, ItemKind
-from depo.service.classify import ContentClassification, classify
+from depo.model.formats import kind_for_format
+from depo.service.classify import (
+    ContentClassification,
+    _from_declared_mime,
+    _from_requested_format,
+    classify,
+)
 
 
 class TestContentClassification:
@@ -36,6 +42,47 @@ class TestContentClassification:
         assert_field(ContentClassification, name, typ, required, default)
 
 
+class TestFromRequestedFormat:
+    """Tests for _from_requested_format helper."""
+
+    def test_returns_none_when_none(self):
+        """Returns None if no format requested."""
+        assert _from_requested_format(None) is None
+
+    def test_returns_classification_with_correct_kind(self):
+        """Returns ContentClassification with kind from kind_for_format."""
+        for fmt in ContentFormat:
+            result = _from_requested_format(fmt)
+            msg_type = "Expected ContentClassification for "
+            msg_type += f"{fmt.name}, got {type(result)}"
+            assert isinstance(result, ContentClassification), msg_type
+            assert result.format == fmt
+            assert result.kind == kind_for_format(fmt)
+
+
+class TestFromDeclaredMime:
+    """Tests for _from_declared_mime helper."""
+
+    def test_none_for_none(self):
+        """Returns None if no MIME declared."""
+        assert _from_declared_mime(None) is None
+
+    def test_all_supported_mimes_classified_correctly(self):
+        """All supported MIMEs return ContentClass. w/ correct format & kind."""
+        from depo.model.formats import _MIME_TO_FORMAT_MAP
+
+        # Loop through all supported MIME defined in _MIME_TO_FORMAT_MAP
+        for mime, expected_fmt in _MIME_TO_FORMAT_MAP.items():
+            result = _from_declared_mime(mime)
+            msg = f"Expected ContentClassification for {mime}"
+            assert result is not None, msg
+            assert result.format == expected_fmt, f"Wrong format for {mime}"
+            msg = f"Wrong kind for {mime}"
+            assert result.kind == kind_for_format(expected_fmt), msg
+
+    def test_none_for_unsupported_mime(self):
+        """Returns None for unsupported MIME types."""
+        assert _from_declared_mime("fake/MIME") is None
 class TestClassify:
     """Tests for depo.service.classify.classify function"""
 
