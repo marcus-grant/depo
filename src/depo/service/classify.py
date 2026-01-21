@@ -16,7 +16,7 @@ from depo.model.enums import ContentFormat, ItemKind
 from depo.model.formats import format_for_mime, kind_for_format
 
 
-# ======== ContentClassification DTO ========#
+# ======== Classify DTO ========#
 @dataclass(frozen=True)
 class ContentClassification:
     """Result of content classification."""
@@ -25,7 +25,7 @@ class ContentClassification:
     format: ContentFormat
 
 
-# ======== Classification Helpers ========#
+# ======== Classify Helpers ========#
 def _from_requested_format(
     requested_format: ContentFormat | None,
 ) -> ContentClassification | None:
@@ -61,6 +61,87 @@ def _from_declared_mime(declared_mime: str | None) -> ContentClassification | No
     return ContentClassification(kind=kind, format=fmt)
 
 
+def _detect_png_magic(data: bytes) -> ContentFormat | None:
+    """Detect PNG from magic bytes.
+
+    PNG signature (hex): 89 50 4E 47 0D 0A 1A 0A (8 bytes)
+                (ascii): .  P  N  G  CR LF SB LF
+
+    Args:
+        data: Content bytes.
+
+    Returns:
+        ContentFormat.PNG if signature matches, None otherwise.
+    """
+    magic = bytes.fromhex("89 50 4E 47 0D 0A 1A 0A")
+    if data.startswith(magic):
+        return ContentFormat.PNG
+    return None
+
+
+def _detect_jpeg_magic(data: bytes) -> ContentFormat | None:
+    """Detect JPEG from magic bytes.
+
+    JPEG signatures:
+    - FF D8 FF E0 (JFIF)
+    - FF D8 FF E1 (EXIF)
+    - FF D8 FF DB (raw)
+
+    Args:
+        data: Content bytes.
+
+    Returns:
+        ContentFormat.JPEG if signature matches, None otherwise.
+    """
+    magic = [
+        bytes.fromhex("FF D8 FF E0"),
+        bytes.fromhex("FF D8 FF E1"),
+        bytes.fromhex("FF D8 FF DB"),
+    ]
+    if any(data.startswith(m) for m in magic):
+        return ContentFormat.JPEG
+    return None
+
+
+def _detect_webp_magic(data: bytes) -> ContentFormat | None:
+    """Detect WEBP from magic bytes.
+
+    WEBP signature: RIFF....WEBP (bytes 0-3 = RIFF, bytes 8-11 = WEBP)
+    Bytes 4-7 are file size (ignored).
+
+    Args:
+        data: Content bytes.
+
+    Returns:
+        ContentFormat.WEBP if signature matches, None otherwise.
+    """
+    if len(data) < 12:
+        return None
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return ContentFormat.WEBP
+    return None
+
+
+_MAGIC_DETECTORS = [_detect_png_magic, _detect_jpeg_magic, _detect_webp_magic]
+
+
+def _from_magic_bytes(data: bytes) -> ContentClassification | None:
+    """Classify from file signature (magic bytes).
+
+    Args:
+        data: Content bytes.
+
+    Returns:
+        ContentClassification if signature recognized, None otherwise.
+    """
+    for detector in _MAGIC_DETECTORS:
+        fmt = detector(data)
+        if fmt is not None:
+            return ContentClassification(kind=kind_for_format(fmt), format=fmt)
+    return None
+
+
+# ======== Classify Orchestrator ========#
 def classify(
     data: bytes,
     *,
