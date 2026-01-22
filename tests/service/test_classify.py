@@ -8,6 +8,7 @@ License: Apache-2.0
 """
 
 from dataclasses import FrozenInstanceError, is_dataclass
+from typing import Any
 
 import pytest
 from tests.helpers import assert_field
@@ -26,6 +27,22 @@ from depo.service.classify import (
     classify,
 )
 
+
+# TODO: If test_ingest.py uses this, move to helpers module otherwise delete this line
+def _assert_content_class(
+    result: Any,
+    expected_format: ContentFormat,
+    msg_prefix: str = "",
+) -> None:
+    """Assert result is ContentClassification with expected format and derived kind."""
+    prefix = f"{msg_prefix}: " if msg_prefix else ""
+    msg = f"{prefix}Expected ContentClassification, got {type(result)}"
+    assert isinstance(result, ContentClassification), msg
+    msg = f"{prefix}Expected format {expected_format.name}, got {result.format.name}"
+    assert result.format == expected_format, msg
+    expected_kind = kind_for_format(expected_format)
+    msg = f"{prefix}Expected kind {expected_kind.name}, got {result.kind.name}"
+    assert result.kind == expected_kind, msg
 
 
 class TestContentClassification:
@@ -58,12 +75,14 @@ class TestFromRequestedFormat:
     def test_returns_classification_with_correct_kind(self):
         """Returns ContentClassification with kind from kind_for_format."""
         for fmt in ContentFormat:
-            result = _from_requested_format(fmt)
-            msg_type = "Expected ContentClassification for "
-            msg_type += f"{fmt.name}, got {type(result)}"
-            assert isinstance(result, ContentClassification), msg_type
-            assert result.format == fmt
-            assert result.kind == kind_for_format(fmt)
+            # TODO: Delete after verification
+            # result = _from_requested_format(fmt)
+            # msg_type = "Expected ContentClassification for "
+            # msg_type += f"{fmt.name}, got {type(result)}"
+            # assert isinstance(result, ContentClassification), msg_type
+            # assert result.format == fmt
+            # assert result.kind == kind_for_format(fmt)
+            _assert_content_class(_from_requested_format(fmt), fmt)
 
 
 class TestFromDeclaredMime:
@@ -79,12 +98,14 @@ class TestFromDeclaredMime:
 
         # Loop through all supported MIME defined in _MIME_TO_FORMAT_MAP
         for mime, expected_fmt in _MIME_TO_FORMAT_MAP.items():
-            result = _from_declared_mime(mime)
-            msg = f"Expected ContentClassification for {mime}"
-            assert result is not None, msg
-            assert result.format == expected_fmt, f"Wrong format for {mime}"
-            msg = f"Wrong kind for {mime}"
-            assert result.kind == kind_for_format(expected_fmt), msg
+            # TODO: Remove once refactor verified
+            # result = _from_declared_mime(mime)
+            # msg = f"Expected ContentClassification for {mime}"
+            # assert result is not None, msg
+            # assert result.format == expected_fmt, f"Wrong format for {mime}"
+            # msg = f"Wrong kind for {mime}"
+            # assert result.kind == kind_for_format(expected_fmt), msg
+            _assert_content_class(_from_declared_mime(mime), expected_fmt)
 
     def test_none_for_unsupported_mime(self):
         """Returns None for unsupported MIME types."""
@@ -179,19 +200,16 @@ class TestFromMagicBytes:
     """Tests for _from_magic_bytes magic bytes detection orchestrator"""
 
     @pytest.mark.parametrize(
-        "data,kind,fmt",
+        "data,expected_fmt",
         [
-            (_PNG, ItemKind.PICTURE, ContentFormat.PNG),
-            (_JPG[1], ItemKind.PICTURE, ContentFormat.JPEG),
-            (_RIFF + _4x00 + _WEBP, ItemKind.PICTURE, ContentFormat.WEBP),
+            (_PNG, ContentFormat.PNG),
+            (_JPG[1], ContentFormat.JPEG),
+            (_RIFF + _4x00 + _WEBP, ContentFormat.WEBP),
         ],
     )
-    def test_class_for_valid_magic_bytes(self, data, kind, fmt):
+    def test_class_for_valid_magic_bytes(self, data, expected_fmt):
         """Returns ContentClass for PNGs given PNG bytes"""
-        result = _from_magic_bytes(data)
-        assert isinstance(result, ContentClassification)
-        assert result.kind == kind
-        assert result.format == fmt
+        _assert_content_class(_from_magic_bytes(data), expected_fmt)
 
     def test_none_for_invalid_bytes(self):
         """Returns None for unrecognizable magic bytes from input"""
@@ -213,20 +231,7 @@ class TestFromFilename:
         from depo.model.formats import _EXT_TO_FORMAT
 
         for ext, expected_fmt in _EXT_TO_FORMAT.items():
-            # Arrange inputs and results
-            filename = f"file.{ext}"
-
-            # Act on tested funciton with inputs
-            result = _from_filename(filename)
-
-            # Assert result is ContentClass with expected format & kind
-            msg = f"Expected ContentClassification type for filename {filename}"
-            assert isinstance(result, ContentClassification), msg
-            msg = f"Wrong format for filename {filename}, got {result.format}"
-            assert result.format == expected_fmt, msg
-            # Assert kind derived via kind_for_format
-            msg = f"Wrong ItemKind for {filename}, got {result.kind}"
-            assert result.kind == kind_for_format(expected_fmt)
+            _assert_content_class(_from_filename(f"file.{ext}"), expected_fmt)
 
     @pytest.mark.parametrize(
         "filename,expected_fmt",
@@ -239,10 +244,7 @@ class TestFromFilename:
     )
     def test_classification_for_mixed_cases(self, filename, expected_fmt):
         """Returns ContentClassification for mixed-case extensions/filenames"""
-        result = _from_filename(filename)
-        assert isinstance(result, ContentClassification)
-        assert result.format == expected_fmt
-        assert result.kind == kind_for_format(expected_fmt)
+        _assert_content_class(_from_filename(filename), expected_fmt)
 
     @pytest.mark.parametrize(
         "filename,expected_fmt",
@@ -254,10 +256,7 @@ class TestFromFilename:
     )
     def test_handles_multiple_dots(self, filename, expected_fmt):
         """Returns classification using last extension for multi-dot filenames"""
-        result = _from_filename(filename)
-        assert isinstance(result, ContentClassification)
-        assert result.format == expected_fmt
-        assert result.kind == kind_for_format(expected_fmt)
+        _assert_content_class(_from_filename(filename), expected_fmt)
 
     def test_none_for_no_extension(self):
         """Returns None for filenames without extension (e.g., README)"""
@@ -307,9 +306,7 @@ class TestClassify:
             declared_mime=declared_mime,
             requested_format=requested_format,
         )
-        assert isinstance(result, ContentClassification)
-        assert result.format == expected_fmt
-        assert result.kind == kind_for_format(expected_fmt)
+        _assert_content_class(result, expected_fmt)
 
     def test_raises_when_nothing_matches(self):
         """Raises ValueError when no classification strategy matches."""
