@@ -71,3 +71,7 @@ Neither IngestService nor Repository depend on each other.
   - Not to be implemented until the MVP is complete
   - This is a future reference not meant to be read till after MVP
     - With the one exception of better understanding architecture in MVP
+
+- [Design Patterns](./patterns.md)
+  - Recurring patterns and learnings from development
+  - Data-driven classification, test strategies, composition

@@ -75,13 +75,6 @@ class TestFromRequestedFormat:
     def test_returns_classification_with_correct_kind(self):
         """Returns ContentClassification with kind from kind_for_format."""
         for fmt in ContentFormat:
-            # TODO: Delete after verification
-            # result = _from_requested_format(fmt)
-            # msg_type = "Expected ContentClassification for "
-            # msg_type += f"{fmt.name}, got {type(result)}"
-            # assert isinstance(result, ContentClassification), msg_type
-            # assert result.format == fmt
-            # assert result.kind == kind_for_format(fmt)
             _assert_content_class(_from_requested_format(fmt), fmt)
 
 
@@ -98,13 +91,6 @@ class TestFromDeclaredMime:
 
         # Loop through all supported MIME defined in _MIME_TO_FORMAT_MAP
         for mime, expected_fmt in _MIME_TO_FORMAT_MAP.items():
-            # TODO: Remove once refactor verified
-            # result = _from_declared_mime(mime)
-            # msg = f"Expected ContentClassification for {mime}"
-            # assert result is not None, msg
-            # assert result.format == expected_fmt, f"Wrong format for {mime}"
-            # msg = f"Wrong kind for {mime}"
-            # assert result.kind == kind_for_format(expected_fmt), msg
             _assert_content_class(_from_declared_mime(mime), expected_fmt)
 
     def test_none_for_unsupported_mime(self):

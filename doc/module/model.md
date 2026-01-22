@@ -41,7 +41,18 @@ Frozen DTO for ingest-to-repository handoff.
 
 ## formats.py
 
-Bidirectional mapping between ContentFormat and MIME/extension.
+Bidirectional mapping between ContentFormat and MIME/extension/kind.
+
+**Outbound (format → external):**
 
 - `mime_for_format(fmt: ContentFormat) -> str`
 - `extension_for_format(fmt: ContentFormat) -> str`
+- `kind_for_format(fmt: ContentFormat) -> ItemKind`
+
+**Inbound (external → format):**
+
+- `format_for_mime(mime: str) -> ContentFormat | None`
+- `format_for_extension(ext: str) -> ContentFormat | None`
+
+Accepts variants per Postel's Law (e.g., `application/x-yaml`, `jpeg`, `yml`).
+Returns None for unsupported input on inbound functions.
