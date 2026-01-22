@@ -13,7 +13,7 @@ License: Apache-2.0
 from dataclasses import dataclass
 
 from depo.model.enums import ContentFormat, ItemKind
-from depo.model.formats import format_for_mime, kind_for_format
+from depo.model.formats import format_for_mime, kind_for_format, format_for_extension
 
 
 # ======== Classify DTO ========#
@@ -139,6 +139,30 @@ def _from_magic_bytes(data: bytes) -> ContentClassification | None:
         if fmt is not None:
             return ContentClassification(kind=kind_for_format(fmt), format=fmt)
     return None
+
+
+def _from_filename(filename: str | None) -> ContentClassification | None:
+    """Classify from filename extension.
+
+    Args:
+        filename: Original filename (e.g., "notes.md", "image.png").
+
+    Returns:
+        ContentClassification if extension recognized, None otherwise.
+    """
+    if filename is None:
+        return None
+    parts = filename.rsplit(".", 1)
+    if len(parts) < 2 or parts[0] == "":
+        return None
+    fmt = format_for_extension(parts[1])
+    if fmt is None:
+        return None
+    try:
+        kind = kind_for_format(fmt)
+    except ValueError:
+        return None
+    return ContentClassification(kind=kind, format=fmt)
 
 
 # ======== Classify Orchestrator ========#

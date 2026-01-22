@@ -20,6 +20,7 @@ from depo.service.classify import (
     _detect_png_magic,
     _detect_webp_magic,
     _from_declared_mime,
+    _from_filename,
     _from_magic_bytes,
     _from_requested_format,
     classify,
@@ -196,6 +197,80 @@ class TestFromMagicBytes:
         assert _from_magic_bytes(b"\xde\xad\xbe\xef" * 99) is None, "Invalid bytes"
         assert _from_magic_bytes(b"") is None, "Empty bytes"
         assert _from_magic_bytes(b"\x0f") is None, "Single byte"
+
+
+class TestFromFilename:
+    """Tests for _from_filename extension & name based classification"""
+
+    def test_none_for_none_filename(self):
+        """Returns None if filename is None"""
+        assert _from_filename(None) is None
+
+    def test_classification_for_supported_extensions(self):
+        """Returns ContentClassification for supported extensions"""
+        # Use internal mapping to test all supported extensions & format pairs
+        from depo.model.formats import _EXT_TO_FORMAT
+
+        for ext, expected_fmt in _EXT_TO_FORMAT.items():
+            # Arrange inputs and results
+            filename = f"file.{ext}"
+
+            # Act on tested funciton with inputs
+            result = _from_filename(filename)
+
+            # Assert result is ContentClass with expected format & kind
+            msg = f"Expected ContentClassification type for filename {filename}"
+            assert isinstance(result, ContentClassification), msg
+            msg = f"Wrong format for filename {filename}, got {result.format}"
+            assert result.format == expected_fmt, msg
+            # Assert kind derived via kind_for_format
+            msg = f"Wrong ItemKind for {filename}, got {result.kind}"
+            assert result.kind == kind_for_format(expected_fmt)
+
+    @pytest.mark.parametrize(
+        "filename,expected_fmt",
+        [
+            ("FILE.txt", ContentFormat.PLAINTEXT),
+            ("FILE.MD", ContentFormat.MARKDOWN),
+            ("image.PnG", ContentFormat.PNG),
+            ("pAcKaGe.jSoN", ContentFormat.JSON),
+        ],
+    )
+    def test_classification_for_mixed_cases(self, filename, expected_fmt):
+        """Returns ContentClassification for mixed-case extensions/filenames"""
+        result = _from_filename(filename)
+        assert isinstance(result, ContentClassification)
+        assert result.format == expected_fmt
+        assert result.kind == kind_for_format(expected_fmt)
+
+    @pytest.mark.parametrize(
+        "filename,expected_fmt",
+        [
+            (".tar.json", ContentFormat.JSON),
+            (".j2.yaml", ContentFormat.YAML),
+            ("20260122.bak.md", ContentFormat.MARKDOWN),
+        ],
+    )
+    def test_handles_multiple_dots(self, filename, expected_fmt):
+        """Returns classification using last extension for multi-dot filenames"""
+        result = _from_filename(filename)
+        assert isinstance(result, ContentClassification)
+        assert result.format == expected_fmt
+        assert result.kind == kind_for_format(expected_fmt)
+
+    def test_none_for_no_extension(self):
+        """Returns None for filenames without extension (e.g., README)"""
+        assert _from_filename("README") is None
+
+    def test_none_for_dotfiles_without_extension(self):
+        """Returns None for dotfiles without extension (e.g., .bashrc)"""
+        assert _from_filename(".bashrc") is None
+        assert _from_filename(".md") is None
+
+    def test_none_for_unsupported_extension(self):
+        """Returns None for unsupported file extensions"""
+        assert _from_filename("file.xyz") is None
+
 class TestClassify:
     """Tests for depo.service.classify.classify function"""
 
