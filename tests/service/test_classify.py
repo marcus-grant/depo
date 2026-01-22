@@ -27,6 +27,7 @@ from depo.service.classify import (
 )
 
 
+
 class TestContentClassification:
     """Tests for depo.service.classify.ContentClassification dataclass"""
 
@@ -271,9 +272,46 @@ class TestFromFilename:
         """Returns None for unsupported file extensions"""
         assert _from_filename("file.xyz") is None
 
-class TestClassify:
-    """Tests for depo.service.classify.classify function"""
 
-    @pytest.mark.skip("No implementation for classify yet")
-    def test_placeholder(self):
-        classify(b"hi")
+# Test data for classify: each hint resolves to a different format
+_PRIO_1 = ContentFormat.YAML  # YAML
+_PRIO_MIME = "application/json"  # JSON
+_PRIO_DATA = b"\x89PNG\r\n\x1a\n"  # PNG magic bytes
+_PRIO_FILENAME = "notes.md"  # Markdown
+
+
+class TestClassify:
+    """Tests for classify orchestration function."""
+
+    @pytest.mark.parametrize(
+        "requested_format,declared_mime,data,filename,expected_fmt",
+        [
+            # All hints → uses requested_format (YAML)
+            (_PRIO_1, _PRIO_MIME, _PRIO_DATA, _PRIO_FILENAME, ContentFormat.YAML),
+            # No requested → uses declared_mime (JSON)
+            (None, _PRIO_MIME, _PRIO_DATA, _PRIO_FILENAME, ContentFormat.JSON),
+            # No requested, no mime → uses magic bytes (PNG)
+            (None, None, _PRIO_DATA, _PRIO_FILENAME, ContentFormat.PNG),
+            # No requested, no mime, no magic match → uses filename (MD)
+            (None, None, b"no magic", _PRIO_FILENAME, ContentFormat.MARKDOWN),
+        ],
+    )
+    def test_classification_priority(
+        self, requested_format, declared_mime, data, filename, expected_fmt
+    ):
+        """Respects priority:
+        requested_format > declared_mime > magic_bytes > filename."""
+        result = classify(
+            data,
+            filename=filename,
+            declared_mime=declared_mime,
+            requested_format=requested_format,
+        )
+        assert isinstance(result, ContentClassification)
+        assert result.format == expected_fmt
+        assert result.kind == kind_for_format(expected_fmt)
+
+    def test_raises_when_nothing_matches(self):
+        """Raises ValueError when no classification strategy matches."""
+        with pytest.raises(ValueError, match=r"^Unable to classify.*"):
+            classify(b"no magic", filename="no_extension", declared_mime="fake/mime")

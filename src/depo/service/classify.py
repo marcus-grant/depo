@@ -13,7 +13,7 @@ License: Apache-2.0
 from dataclasses import dataclass
 
 from depo.model.enums import ContentFormat, ItemKind
-from depo.model.formats import format_for_mime, kind_for_format, format_for_extension
+from depo.model.formats import format_for_extension, format_for_mime, kind_for_format
 
 
 # ======== Classify DTO ========#
@@ -171,7 +171,7 @@ def classify(
     *,
     filename: str | None = None,
     declared_mime: str | None = None,
-    requested_format: str | None = None,
+    requested_format: ContentFormat | None = None,
 ) -> ContentClassification:
     """Classify content and return kind/format.
 
@@ -187,4 +187,17 @@ def classify(
     Raises:
         ValueError: If content cannot be classified to a supported format.
     """
-    ...
+    try:
+        result = (
+            _from_requested_format(requested_format)
+            or _from_declared_mime(declared_mime)
+            or _from_magic_bytes(data)
+            or _from_filename(filename)
+        )
+    except ValueError as e:
+        raise ValueError(f"Unable to classify: Classification error: {e}") from None
+    if result is None:
+        inputs = requested_format or declared_mime or filename or "data bytes"
+        msg = f"Unable to classify content to a supported format with inputs: {inputs}"
+        raise ValueError(msg)
+    return result
