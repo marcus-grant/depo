@@ -18,18 +18,37 @@ classify(
 ) -> ContentClassification
 ```
 
-### classify.py ContentClassification DTO
-
+### classify.py Function
 ```python
-@dataclass(frozen=True)
-class ContentClassification:
-    kind: ItemKind
-    format: ContentFormat
+classify(
+    data: bytes,
+    *,
+    filename: str | None = None,
+    declared_mime: str | None = None,
+    requested_format: ContentFormat | None = None,
+) -> ContentClassification
 ```
 
 **Priority:** requested_format > declared_mime > magic bytes > filename extension
 
+Uses strategy chain pattern with isolated helpers:
+- `_from_requested_format()` — wraps validated ContentFormat
+- `_from_declared_mime()` — calls format_for_mime
+- `_from_magic_bytes()` — detects PNG, JPEG, WEBP signatures
+- `_from_filename()` — calls format_for_extension
+
 Raises `ValueError` if content cannot be classified.
+```
+
+---
+
+**Commit:**
+```
+Doc: Update model and service module specs
+
+- model/formats.py: Add inbound lookup functions, fix path reference
+- service/classify.py: Fix requested_format type (ContentFormat, not str),
+  document strategy chain pattern and helpers
 
 ## media.py
 
