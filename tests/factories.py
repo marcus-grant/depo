@@ -69,3 +69,17 @@ _WRITE_PLAN_DEFAULTS = dict(
 
 def make_write_plan(**overrides) -> WritePlan:
     return WritePlan(**(_WRITE_PLAN_DEFAULTS | overrides))  # pyright: ignore[reportArgumentType]
+
+
+### Image Factories ###
+def gen_image(fmt: str, width: int, height: int) -> bytes:
+    """Generate minimal valid image bytes."""
+
+    from io import BytesIO
+
+    from PIL import Image
+
+    buf = BytesIO()
+    img = Image.new("RGB", (width, height), color=(255, 0, 0))
+    img.save(buf, format=fmt)
+    return buf.getvalue()

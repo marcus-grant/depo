@@ -8,10 +8,9 @@ License: Apache-2.0
 """
 
 from dataclasses import FrozenInstanceError
-from io import BytesIO
 
 import pytest
-from PIL import Image
+from tests.factories import gen_image
 from tests.helpers import assert_field
 
 from depo.model.enums import ContentFormat
@@ -41,14 +40,6 @@ class TestImageInfo:
         assert_field(ImageInfo, name, typ, required, default)
 
 
-def _gen_image(fmt: str, width: int, height: int) -> bytes:
-    """Generate minimal valid image bytes."""
-    buf = BytesIO()
-    img = Image.new("RGB", (width, height), color=(255, 0, 0))
-    img.save(buf, format=fmt)
-    return buf.getvalue()
-
-
 class TestGetImageInfo:
     """Tests depo.service.media.get_image_info"""
 
@@ -62,7 +53,7 @@ class TestGetImageInfo:
     )
     def test_image_info_for_valid_imgs(self, fmt, width, height, expected_fmt):
         """Returns ImageInfo with correct format & dimensions."""
-        result = get_image_info(_gen_image(fmt, width, height))
+        result = get_image_info(gen_image(fmt, width, height))
         assert isinstance(result, ImageInfo)
         assert result.format == expected_fmt
         assert result.width == width
@@ -83,7 +74,7 @@ class TestGetImageInfo:
 
     def test_raises_for_unsupported_format(self):
         """Raises ValueError for format PIL reads but we don't support."""
-        bmp_data = _gen_image("BMP", 1, 1)
+        bmp_data = gen_image("BMP", 1, 1)
         with pytest.raises(ValueError, match=r"(?i)(unsupport|depo)"):
             get_image_info(bmp_data)
 
@@ -95,11 +86,8 @@ class TestGetImageInfo:
 
     def test_works_with_pillow_roundtrip(self):
         """Ensures Pillow compatibility by testing with generated images"""
-        result = get_image_info(_gen_image("PNG", 128, 256))
+        result = get_image_info(gen_image("PNG", 128, 256))
         assert isinstance(result, ImageInfo)
         assert result.format == ContentFormat.PNG
         assert result.width == 128
         assert result.height == 256
-
-
-# 10. Roundtrip: real PNG bytes return correct dimensions (integration)
