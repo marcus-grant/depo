@@ -13,6 +13,7 @@ License: Apache-2.0
 from pathlib import Path
 
 
+# TODO: Consider deleting these because they dont DRY anything
 def validate_payload(
     payload_bytes: bytes | None,
     payload_path: Path | None,
