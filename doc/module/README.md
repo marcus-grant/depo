@@ -95,14 +95,15 @@ This is the only place FastAPI should appear.
 
 ### util/
 
-Shared utilities.
-
+Shared utilities with no domain dependencies.
 This includes:
 
-- hashing utilities
-- small helpers with no domain meaning
+- hashing and canonicalization (shortcode.py)
+- input validation (validate.py)
 
-If a utility becomes domain-specific, it should move into model/ or service/.
+Utilities are pure functions with no model or service imports.
+
+See [util.md](./util.md) for function specifications.
 
 ## Tests
 
