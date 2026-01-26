@@ -22,6 +22,78 @@ from depo.repo.sqlite import (
 )
 
 
+# Test helpers for populating the database
+def _insert_text_item(
+    conn,
+    hash_full="ABC1234506789DEFGHKMNPQR",
+    code="ABCD1234",
+    size_b=99,
+    uid=0,
+    perm="pub",
+    upload_at=123456789,
+    origin_at=None,
+    format="txt",
+):
+    conn.execute(
+        "INSERT INTO items"
+        "(hash_full, code, kind, size_b, uid, perm, upload_at, origin_at)"
+        "VALUES (?, ?, 'txt', ?, ?, ?, ?, ?)",
+        (hash_full, code, size_b, uid, perm, upload_at, origin_at),
+    )
+    conn.execute(
+        "INSERT INTO text_items (hash_full, format) VALUES (?, ?)",
+        (hash_full, format),
+    )
+
+
+def _insert_pic_item(
+    conn,
+    hash_full="ABC1234506789DEFGHKMNPQR",
+    code="ABCD1234",
+    size_b=99,
+    uid=0,
+    perm="pub",
+    upload_at=123456789,
+    origin_at=None,
+    format="png",
+    width=320,
+    height=240,
+):
+    conn.execute(
+        "INSERT INTO items"
+        "(hash_full, code, kind, size_b, uid, perm, upload_at, origin_at)"
+        "VALUES (?, ?, 'pic', ?, ?, ?, ?, ?)",
+        (hash_full, code, size_b, uid, perm, upload_at, origin_at),
+    )
+    conn.execute(
+        "INSERT INTO pic_items (hash_full, format, width, height) VALUES (?, ?, ?, ?)",
+        (hash_full, format, width, height),
+    )
+
+
+def _insert_link_item(
+    conn,
+    hash_full="ABC1234506789DEFGHKMNPQR",
+    code="ABCD1234",
+    size_b=99,
+    uid=0,
+    perm="pub",
+    upload_at=123456789,
+    origin_at=None,
+    url="https://example.com",
+):
+    conn.execute(
+        "INSERT INTO items"
+        "(hash_full, code, kind, size_b, uid, perm, upload_at, origin_at)"
+        "VALUES (?, ?, 'url', ?, ?, ?, ?, ?)",
+        (hash_full, code, size_b, uid, perm, upload_at, origin_at),
+    )
+    conn.execute(
+        "INSERT INTO link_items (hash_full, url) VALUES (?, ?)",
+        (hash_full, url),
+    )
+
+
 class TestInitDb:
     """Tests for init_db()."""
 
@@ -112,68 +184,50 @@ class TestRowMappers:
 
     def test_row_to_text_item(self, test_db):
         """Maps all fields from joined row to TextItem."""
-        test_db.execute(
-            "INSERT INTO items"
-            " (hash_full, code, kind, size_b, uid, perm, upload_at, origin_at)"
-            " VALUES ('ABC1234506789DEFGHKMNPQR', 'ABC12345', 'txt', 100, 1, 'pub',"
-            " 1234567890, NULL)"
-        )
-        test_db.execute(
-            "INSERT INTO text_items (hash_full, format)"
-            " VALUES ('ABC1234506789DEFGHKMNPQR', 'txt')"
-        )
         test_db.row_factory = sqlite3.Row
+        _insert_text_item(test_db)
         row = test_db.execute(
             "SELECT i.*, t.format FROM items i"
             " JOIN text_items t ON i.hash_full = t.hash_full"
-            " WHERE i.code = 'ABC12345'"
+            " WHERE i.code = 'ABCD1234'"
         ).fetchone()
 
         result = _row_to_text_item(row)
 
         assert_item_base_fields(
             result,
-            code="ABC12345",
+            code="ABCD1234",
             hash_full="ABC1234506789DEFGHKMNPQR",
             kind=ItemKind.TEXT,
-            size_b=100,
-            uid=1,
+            size_b=99,
+            uid=0,
             perm=Visibility.PUBLIC,
-            upload_at=1234567890,
+            upload_at=123456789,
             origin_at=None,
         )
         assert result.format == ContentFormat.PLAINTEXT
 
     def test_row_to_pic_item(self, test_db):
         """Maps all fields from joined row to PicItem."""
-        test_db.execute(
-            "INSERT INTO items"
-            " (hash_full, code, kind, size_b, uid, perm, upload_at, origin_at)"
-            " VALUES ('ABC1234506789DEFGHKMNPQR', 'ABC12345', 'pic', 100, 1, 'pub',"
-            " 1234567890, NULL)"
-        )
-        test_db.execute(
-            "INSERT INTO pic_items (hash_full, format, width, height)"
-            " VALUES ('ABC1234506789DEFGHKMNPQR', 'png', 320, 240)"
-        )
+        _insert_pic_item(test_db)
         test_db.row_factory = sqlite3.Row
         row = test_db.execute(
             "SELECT i.*, p.format, p.width, p.height FROM items i"
             " JOIN pic_items p ON i.hash_full = p.hash_full"
-            " WHERE i.code = 'ABC12345'"
+            " WHERE i.code = 'ABCD1234'"
         ).fetchone()
 
         result = _row_to_pic_item(row)
 
         assert_item_base_fields(
             result,
-            code="ABC12345",
+            code="ABCD1234",
             hash_full="ABC1234506789DEFGHKMNPQR",
             kind=ItemKind.PICTURE,
-            size_b=100,
-            uid=1,
+            size_b=99,
+            uid=0,
             perm=Visibility.PUBLIC,
-            upload_at=1234567890,
+            upload_at=123456789,
             origin_at=None,
         )
         assert result.format == ContentFormat.PNG
@@ -182,37 +236,28 @@ class TestRowMappers:
 
     def test_row_to_link_item(self, test_db):
         """Maps all fields from joined row to LinkItem."""
-        test_db.execute(
-            "INSERT INTO items"
-            " (hash_full, code, kind, size_b, uid, perm, upload_at, origin_at)"
-            " VALUES ('ABC1234506789DEFGHKMNPQR', 'ABC12345', 'url', 100, 1, 'pub',"
-            " 1234567890, NULL)"
-        )
-        test_db.execute(
-            "INSERT INTO link_items (hash_full, url)"
-            " VALUES ('ABC1234506789DEFGHKMNPQR', 'https://www.example.com')"
-        )
+        _insert_link_item(test_db)
         test_db.row_factory = sqlite3.Row
         row = test_db.execute(
             "SELECT i.*, l.url FROM items i"
             " JOIN link_items l ON i.hash_full = l.hash_full"
-            " WHERE i.code = 'ABC12345'"
+            " WHERE i.code = 'ABCD1234'"
         ).fetchone()
 
         result = _row_to_link_item(row)
 
         assert_item_base_fields(
             result,
-            code="ABC12345",
+            code="ABCD1234",
             hash_full="ABC1234506789DEFGHKMNPQR",
             kind=ItemKind.LINK,
-            size_b=100,
-            uid=1,
+            size_b=99,
+            uid=0,
             perm=Visibility.PUBLIC,
-            upload_at=1234567890,
+            upload_at=123456789,
             origin_at=None,
         )
-        assert result.url == "https://www.example.com"
+        assert result.url == "https://example.com"
 
 
 class TestGetByCode:
@@ -225,16 +270,7 @@ class TestGetByCode:
 
     def test_text_item_for_text_item_code(self, test_db):
         """Returns correct TextItem for its 'code' column"""
-        test_db.execute(
-            "INSERT INTO items"
-            "(hash_full, code, kind, size_b, uid, perm, upload_at)"
-            "VALUES ('ABC1234506789DEFGHKMNPQR', 'ABCD1234',"
-            "'txt', 99, 0, 'prv', 123456789)"
-        )
-        test_db.execute(
-            "INSERT INTO text_items (hash_full, format)"
-            " VALUES ('ABC1234506789DEFGHKMNPQR', 'md')"
-        )
+        _insert_text_item(test_db)
         repo = SqliteRepository(test_db)
         result = repo.get_by_code("ABCD1234")
         assert isinstance(result, TextItem)
@@ -242,16 +278,7 @@ class TestGetByCode:
 
     def test_pic_item_for_pic_item_code(self, test_db):
         """Returns correct PicItem for its 'code' column"""
-        test_db.execute(
-            "INSERT INTO items"
-            "(hash_full, code, kind, size_b, uid, perm, upload_at)"
-            "VALUES ('ABC1234506789DEFGHKMNPQR', 'ABCD1234',"
-            "'pic', 99, 0, 'prv', 123456789)"
-        )
-        test_db.execute(
-            "INSERT INTO pic_items (hash_full, format, width, height)"
-            " VALUES ('ABC1234506789DEFGHKMNPQR', 'jpg', 9, 6)"
-        )
+        _insert_pic_item(test_db)
         repo = SqliteRepository(test_db)
         result = repo.get_by_code("ABCD1234")
         assert isinstance(result, PicItem)
@@ -259,16 +286,7 @@ class TestGetByCode:
 
     def test_link_item_for_link_item_code(self, test_db):
         """Returns correct LinkItem for its 'code' column"""
-        test_db.execute(
-            "INSERT INTO items"
-            "(hash_full, code, kind, size_b, uid, perm, upload_at)"
-            "VALUES ('ABC1234506789DEFGHKMNPQR', 'ABCD1234',"
-            "'url', 99, 0, 'prv', 123456789)"
-        )
-        test_db.execute(
-            "INSERT INTO link_items (hash_full, url)"
-            " VALUES ('ABC1234506789DEFGHKMNPQR', 'https://www.example.com')"
-        )
+        _insert_link_item(test_db)
         repo = SqliteRepository(test_db)
         result = repo.get_by_code("ABCD1234")
         assert isinstance(result, LinkItem)
@@ -285,16 +303,7 @@ class TestGetByFullHash:
 
     def test_text_item_for_item_hash(self, test_db):
         """Returns correct TextItem for its 'hash_full' PK"""
-        test_db.execute(
-            "INSERT INTO items"
-            "(hash_full, code, kind, size_b, uid, perm, upload_at)"
-            "VALUES ('ABC1234506789DEFGHKMNPQR', 'ABCD1234',"
-            "'txt', 99, 0, 'prv', 123456789)"
-        )
-        test_db.execute(
-            "INSERT INTO text_items (hash_full, format)"
-            " VALUES ('ABC1234506789DEFGHKMNPQR', 'md')"
-        )
+        _insert_text_item(test_db)
         repo = SqliteRepository(test_db)
         result = repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
         assert isinstance(result, TextItem)
@@ -302,16 +311,7 @@ class TestGetByFullHash:
 
     def test_pic_item_for_item_hash(self, test_db):
         """Returns correct PicItem for its 'hash_full' PK"""
-        test_db.execute(
-            "INSERT INTO items"
-            "(hash_full, code, kind, size_b, uid, perm, upload_at)"
-            "VALUES ('ABC1234506789DEFGHKMNPQR', 'ABCD1234',"
-            "'pic', 99, 0, 'prv', 123456789)"
-        )
-        test_db.execute(
-            "INSERT INTO pic_items (hash_full, format, width, height)"
-            " VALUES ('ABC1234506789DEFGHKMNPQR', 'png', 9, 16)"
-        )
+        _insert_pic_item(test_db)
         repo = SqliteRepository(test_db)
         result = repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
         assert isinstance(result, PicItem)
@@ -319,16 +319,7 @@ class TestGetByFullHash:
 
     def test_link_item_for_item_hash(self, test_db):
         """Returns correct LinkItem for its 'hash_full' PK"""
-        test_db.execute(
-            "INSERT INTO items"
-            "(hash_full, code, kind, size_b, uid, perm, upload_at)"
-            "VALUES ('ABC1234506789DEFGHKMNPQR', 'ABCD1234',"
-            "'url', 99, 0, 'prv', 123456789)"
-        )
-        test_db.execute(
-            "INSERT INTO link_items (hash_full, url)"
-            " VALUES ('ABC1234506789DEFGHKMNPQR', 'https://www.example.com')"
-        )
+        _insert_link_item(test_db)
         repo = SqliteRepository(test_db)
         result = repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
         assert isinstance(result, LinkItem)
