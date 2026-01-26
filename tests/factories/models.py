@@ -1,13 +1,14 @@
-# tests/factories.py
-# Author: Marcus Grant
-# Date: 2026-01-09
-# License: Apache-2.0
+# tests/factories/models.py
+"""
+Factory functions for model instances.
+Author: Marcus Grant
+Date: 2026-01-26
+License: Apache-2.0
+"""
 
 from depo.model.enums import ContentFormat, ItemKind, PayloadKind, Visibility
 from depo.model.item import Item, LinkItem, PicItem, TextItem
 from depo.model.write_plan import WritePlan
-
-### Item Factories ###
 
 _ITEM_DEFAULTS = dict(
     code="ABC12345",
@@ -48,38 +49,20 @@ def make_pic_item(**overrides) -> PicItem:
     return PicItem(**(defaults | overrides))  # pyright: ignore[reportArgumentType]
 
 
-### WritePlan Factories ###
-
-_WRITE_PLAN_DEFAULTS = dict(
-    hash_full="ABC1234567890DEFGHKMNPQR",
-    code_min_len=8,
-    payload_kind=PayloadKind.BYTES,
-    kind=ItemKind.TEXT,
-    size_b=100,
-    upload_at=1234567890,
-    format=None,
-    origin_at=None,
-    payload_bytes=None,
-    payload_path=None,
-    width=None,
-    height=None,
-    link_url=None,
-)
-
-
 def make_write_plan(**overrides) -> WritePlan:
-    return WritePlan(**(_WRITE_PLAN_DEFAULTS | overrides))  # pyright: ignore[reportArgumentType]
-
-
-### Image Factories ###
-def gen_image(fmt: str, width: int, height: int) -> bytes:
-    """Generate minimal valid image bytes."""
-
-    from io import BytesIO
-
-    from PIL import Image
-
-    buf = BytesIO()
-    img = Image.new("RGB", (width, height), color=(255, 0, 0))
-    img.save(buf, format=fmt)
-    return buf.getvalue()
+    defaults = dict(
+        hash_full="ABC1234567890DEFGHKMNPQR",
+        code_min_len=8,
+        payload_kind=PayloadKind.BYTES,
+        kind=ItemKind.TEXT,
+        size_b=100,
+        upload_at=1234567890,
+        format=None,
+        origin_at=None,
+        payload_bytes=None,
+        payload_path=None,
+        width=None,
+        height=None,
+        link_url=None,
+    )
+    return WritePlan(**(defaults | overrides))  # pyright: ignore[reportArgumentType]
