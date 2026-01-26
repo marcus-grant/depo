@@ -238,27 +238,44 @@ class WritePlan:
 
 ```python
 class IngestService:
+    def __init__(
+        self,
+        *,
+        min_code_length: int = 8,
+        max_size_bytes: int = 2**20,
+    ) -> None:
+        '''Configuration set at construction time.'''
+        ...
+
     def build_plan(
         self,
         *,
         payload_bytes: bytes | None = None,
         payload_path: Path | None = None,
         filename: str | None = None,
-        declared_mime: str | None = None,      # hint only, not stored
-        requested_format: str | None = None,
-        min_code_length: int,
-        max_size_bytes: int,
+        declared_mime: str | None = None,
+        requested_format: ContentFormat | None = None,
     ) -> WritePlan:
         '''
         Responsibilities:
-        - enforce size limit
-        - compute full hash (existing utility module)
-        - infer kind and format (declared_mime is hint, not stored)
-        - extract metadata (image dims)
-        - return WritePlan
+        - validate payload (exactly one of bytes/path)
+        - enforce size limit (non-empty, within max)
+        - compute full hash via hash_full_b32
+        - classify via classify()
+        - extract image metadata for PICTURE kind
+        - assemble and return WritePlan
+
         Must not: touch DB, touch HTTP, write files.
+
+        Raises:
+            ValueError: If validation or classification fails.
         '''
-        raise NotImplementedError
+        ...
+```
+
+>**Note**: `declared_mime` is a hint for classification, not stored.
+>`requested_format` is a validated `ContentFormat` from the web layer.
+
 ```
 
 ### 5.3 Repository (hard interface)
@@ -326,7 +343,6 @@ Given an item's `code` and `format`, the storage backend computes:
 Extension equals `format.value` (e.g., `ContentFormat.PNG` → `.png`).
 MIME type for HTTP headers is derived via `mime_for_format()` at serve time.
 
-Extension is derived from MIME type. This keeps Item lean and avoids redundancy
 ---
 
 ## 6. HTTP & UI (MVP)

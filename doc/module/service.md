@@ -6,19 +6,8 @@ Application services and orchestration. May depend on model/ and util/.
 
 Content classification from bytes and hints.
 
-### classify.py Function:**
+### Function
 
-```python
-classify(
-    data: bytes,
-    *,
-    filename: str | None,
-    declared_mime: str | None,
-    requested_format: str | None
-) -> ContentClassification
-```
-
-### classify.py Function
 ```python
 classify(
     data: bytes,
@@ -32,33 +21,39 @@ classify(
 **Priority:** requested_format > declared_mime > magic bytes > filename extension
 
 Uses strategy chain pattern with isolated helpers:
+
 - `_from_requested_format()` — wraps validated ContentFormat
 - `_from_declared_mime()` — calls format_for_mime
 - `_from_magic_bytes()` — detects PNG, JPEG, WEBP signatures
 - `_from_filename()` — calls format_for_extension
 
 Raises `ValueError` if content cannot be classified.
+
+### ContentClassification DTO
+
+```python
+@dataclass(frozen=True)
+class ContentClassification:
+    kind: ItemKind
+    format: ContentFormat
 ```
-
----
-
-**Commit:**
-```
-Doc: Update model and service module specs
-
-- model/formats.py: Add inbound lookup functions, fix path reference
-- service/classify.py: Fix requested_format type (ContentFormat, not str),
-  document strategy chain pattern and helpers
 
 ## media.py
 
 Image metadata extraction. Soft dependency on Pillow.
 
-### media.py Function
+### Function
 
-- `get_image_info(data: bytes) -> ImageInfo`
+```python
+get_image_info(data: bytes) -> ImageInfo
+```
 
-### media.py ImageInfo DTO
+**Raises:**
+
+- `ImportError` if Pillow unavailable
+- `ValueError` if data is invalid or format unsupported
+
+### ImageInfo DTO
 
 ```python
 @dataclass(frozen=True)
@@ -68,27 +63,41 @@ class ImageInfo:
     height: int | None = None
 ```
 
-Returns empty ImageInfo if Pillow unavailable or data is not a valid image.
-
 ## ingest.py
 
 Thin orchestrator for the ingest pipeline.
 
-**Class:** `IngestService`
-
-### Ingest Method
+### IngestService
 
 ```python
-build_plan(
-    *,
-    payload_bytes,
-    payload_path,
-    filename,
-    declared_mime,
-    requested_format,
-    min_code_length,
-    max_size_bytes
-) -> WritePlan`
+class IngestService:
+    def __init__(
+        self,
+        *,
+        min_code_length: int = 8,
+        max_size_bytes: int = 2**20,
+    ) -> None: ...
+
+    def build_plan(
+        self,
+        *,
+        payload_bytes: bytes | None = None,
+        payload_path: Path | None = None,
+        filename: str | None = None,
+        declared_mime: str | None = None,
+        requested_format: ContentFormat | None = None,
+    ) -> WritePlan: ...
 ```
 
-See doc/design/mvp.md `IngestService` section for full interface specification.
+**Pipeline:**
+
+1. Validate payload (exactly one of bytes/path)
+2. Validate size (non-empty, within limit)
+3. Hash content via `hash_full_b32`
+4. Classify via `classify()`
+5. Extract image metadata if `PICTURE` kind
+6. Assemble and return `WritePlan`
+
+**Raises:** `ValueError` for validation or classification failures.
+
+See doc/design/mvp.md §5.2 for design rationale.
