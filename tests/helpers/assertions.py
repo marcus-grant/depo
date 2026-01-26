@@ -1,9 +1,8 @@
-# tests/helpers.py
+# tests/helpers/assertions.py
 """
-Helper functions for common testing procedures/patterns
-
+Assertion helpers for common testing patterns.
 Author: Marcus Grant
-Date: 2026-01-20
+Date: 2026-01-26
 License: Apache-2.0
 """
 
