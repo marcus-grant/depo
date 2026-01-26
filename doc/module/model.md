@@ -26,7 +26,8 @@ Frozen dataclasses with `kw_only=True`.
 
 **LinkItem(Item):** url
 
-Note: `mime` is not stored. MIME is derived from `format` at serve time via `util/formats.py`.
+>**NOTE**: `mime` is not stored.
+>MIME is derived from `format` at serve time via `model/formats.py`.
 
 ## write_plan.py
 
