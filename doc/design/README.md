@@ -40,24 +40,26 @@ POST /upload
    web/ (receives bytes, auth)
      │
      ▼
-   IngestService.build_plan()
-     │  - hashes content (util/)
-     │  - infers kind/format
-     │  - returns WritePlan
-     ▼
-   WritePlan (frozen DTO)
+   IngestOrchestrator.ingest()
+     ├── IngestService.build_plan()
+     │      - hashes content (util/)
+     │      - infers kind/format
+     │      - returns WritePlan
+     ├── Repository.get_by_full_hash()
+     │      - dedupe check
+     ├── Repository.resolve_code()
+     │      - collision handling
+     ├── StorageBackend.put()
+     │      - writes bytes to filesystem
+     └── Repository.insert()
+            - writes metadata to DB
      │
      ▼
-   Repository.persist()
-     │  - resolves collisions
-     │  - writes metadata to DB
-     ▼
-   StorageBackend.put()
-        - writes bytes to filesystem
+   PersistResult (item, created)
 ```
 
 WritePlan is the hard interface between inference and persistence.
-Neither IngestService nor Repository depend on each other.
+IngestOrchestrator coordinates Repository and StorageBackend as siblings.
 
 ## Documents
 

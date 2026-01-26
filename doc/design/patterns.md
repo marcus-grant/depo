@@ -124,3 +124,109 @@ Centralizes multi-field assertions. Reduces boilerplate, improves error messages
   - Validate input at edges (web layer), trust types internally.
 - **Thin orchestrators**
   - Complex behavior emerges from composing simple parts.
+
+## Coordination Patterns
+
+### Pattern: Orchestrator Coordinates Siblings
+
+```python
+class IngestOrchestrator:
+    def __init__(self, ingest_service, repo, storage):
+        self._ingest = ingest_service
+        self._repo = repo
+        self._storage = storage
+
+    def ingest(self, ...) -> PersistResult:
+        plan = self._ingest.build_plan(...)
+        existing = self._repo.get_by_full_hash(plan.hash_full)
+        if existing:
+            return PersistResult(existing, created=False)
+        
+        code = self._repo.resolve_code(plan.hash_full, plan.code_min_len)
+        self._storage.put(code=code, ...)
+        try:
+            item = self._repo.insert(plan, code, ...)
+        except:
+            self._storage.delete(code=code, ...)
+            raise
+        return PersistResult(item, created=True)
+```
+
+Repo and storage are siblings, not nested. Orchestrator owns:
+
+- Ordering (storage before DB)
+- Rollback on failure
+- Dedupe decision
+
+Components stay simple and independently testable.
+
+### Pattern: DTOs as Boundary Contracts
+
+```python
+@dataclass(frozen=True)
+class WritePlan:
+    hash_full: str
+    kind: ItemKind
+    ...
+
+@dataclass(frozen=True)
+class PersistResult:
+    item: TextItem | PicItem | LinkItem
+    created: bool
+```
+
+DTOs at layer boundaries enable:
+
+- Serialization for future decoupling (microservices, queues)
+- Clear contracts between components
+- No framework bleed (no ORM objects, no request objects)
+- Testability without mocks
+
+If orchestrator becomes a separate service,
+interface stays identical—only transport changes.
+
+### Pattern: Conditional Skip for Item Kinds
+
+```python
+if plan.kind != ItemKind.LINK:
+    self._storage.put(...)
+```
+
+Some item kinds (LinkItem) have no payload.
+Simple conditional in orchestrator until multiple kinds need special handling,
+then refactor to strategy pattern.
+
+YAGNI: don't abstract until the second case emerges.
+
+## Schema Patterns
+
+### Pattern: Derived Fields at Read Time
+
+```python
+# DB stores
+hash_full = "ABCD1234XXXXXXXXXXXXXXXX"
+code = "ABCD1234"
+
+# Domain model derives
+hash_rest = hash_full[len(code):]  # "XXXXXXXXXXXXXXXX"
+```
+
+Store canonical data. Derive redundant fields when mapping to domain model.
+Avoids update anomalies (3NF) and keeps storage minimal.
+
+### Pattern: Defaults for Future Features
+
+```python
+def insert(
+    self,
+    plan: WritePlan,
+    code: str,
+    *,
+    uid: int = 0,
+    perm: Visibility = Visibility.PUBLIC,
+) -> Item:
+```
+
+Parameters with defaults for features not yet implemented (auth, permissions).
+Interface is stable—when feature lands, callers start passing real values.
+No signature change, no migration.

@@ -101,3 +101,57 @@ class IngestService:
 **Raises:** `ValueError` for validation or classification failures.
 
 See doc/design/mvp.md §5.2 for design rationale.
+
+## orchestrator.py
+
+Coordinates full ingest pipeline. Single entry point for web layer.
+
+### PersistResult DTO
+
+```python
+@dataclass(frozen=True)
+class PersistResult:
+    item: TextItem | PicItem | LinkItem
+    created: bool  # False = dedupe, True = new item
+```
+
+### IngestOrchestrator
+
+```python
+class IngestOrchestrator:
+    def __init__(
+        self,
+        ingest_service: IngestService,
+        repo: Repository,
+        storage: StorageBackend,
+    ) -> None: ...
+
+    def ingest(
+        self,
+        *,
+        payload_bytes: bytes | None = None,
+        payload_path: Path | None = None,
+        filename: str | None = None,
+        declared_mime: str | None = None,
+        requested_format: ContentFormat | None = None,
+        uid: int = 0,
+        perm: Visibility = Visibility.PUBLIC,
+    ) -> PersistResult: ...
+```
+
+**Pipeline:**
+
+1. `IngestService.build_plan()` → WritePlan
+2. `Repo.get_by_full_hash()` → dedupe check, return early if exists
+3. `Repo.resolve_code()` → find unique code prefix
+4. `Storage.put()` → write bytes (skip for LinkItem)
+5. `Repo.insert()` → write metadata
+6. On insert failure → `Storage.delete()` for rollback
+7. Return `PersistResult(item, created)`
+
+#### IngestOrchestrator - Raises
+
+Re-raises exceptions from components.
+CodeCollisionError` on insert constraint violation (application bug).
+
+See doc/design/mvp.md §5.5 for design rationale.

@@ -54,6 +54,8 @@ Services must not depend on:
 - FastAPI
 - concrete database or storage implementations
 
+See [service.md](./service.md) for interface specifications.
+
 ### repo/
 
 Persistence layer.
@@ -69,6 +71,8 @@ This module translates between:
 - database representations
 - domain models
 
+See [repo.md](./repo.md) for interface specifications.
+
 ### storage/
 
 Payload storage backends.
@@ -79,6 +83,8 @@ This includes:
 - storage interfaces
 
 This module is responsible only for bytes in and bytes out.
+
+See [storage.md](./storage.md) for interface specifications.
 
 ### web/
 
