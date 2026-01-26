@@ -69,3 +69,75 @@ def _row_to_link_item(row: sqlite3.Row) -> LinkItem:
         perm=Visibility(row["perm"]),
         url=row["url"],
     )
+
+
+class SqliteRepository:
+    """SQLite implementation of item repository."""
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        """
+        Initialize repository with database connection.
+
+        Args:
+            conn: SQLite connection (schema must be initialized).
+        """
+        self._conn = conn
+        self._conn.row_factory = sqlite3.Row
+
+    def get_by_code(self, code: str) -> TextItem | PicItem | LinkItem | None:
+        """
+        Lookup item by exact code.
+
+        Assumes input is already canonicalized via canonicalize_code().
+        Returns None if not found.
+
+        Args:
+            code: Canonicalized shortcode.
+
+        Returns:
+            Item subclass instance or None.
+
+        Raises:
+            ValueError: If item has unknown kind (indicates data corruption).
+        """
+        # First query parent items table for the code
+        i_row = self._conn.execute(
+            "SELECT * FROM items WHERE code = ?", (code,)
+        ).fetchone()
+
+        # Check for not being present
+        if i_row is None:
+            return None
+
+        # Discriminate based on items.kind
+        # Then feed each kinds' row_to_*_item helper with a join query
+        kind = ItemKind(i_row["kind"])
+        if kind == ItemKind.TEXT:
+            return _row_to_text_item(
+                self._conn.execute(
+                    "SELECT i.*, t.format FROM items i "
+                    "JOIN text_items t ON i.hash_full = t.hash_full "
+                    "WHERE i.hash_full = ?",
+                    (i_row["hash_full"],),
+                ).fetchone()
+            )
+        if kind == ItemKind.PICTURE:
+            return _row_to_pic_item(
+                self._conn.execute(
+                    "SELECT i.*, p.format, p.width, p.height FROM items i "
+                    "JOIN pic_items p ON i.hash_full = p.hash_full "
+                    "WHERE i.hash_full = ?",
+                    (i_row["hash_full"],),
+                ).fetchone()
+            )
+        if kind == ItemKind.LINK:
+            return _row_to_link_item(
+                self._conn.execute(
+                    "SELECT i.*, l.url FROM items i "
+                    "JOIN link_items l ON i.hash_full = l.hash_full "
+                    "WHERE i.hash_full = ?",
+                    (i_row["hash_full"],),
+                ).fetchone()
+            )
+
+        raise ValueError(f"Unknown item kind: {kind}")

@@ -12,7 +12,9 @@ import pytest
 from tests.helpers import assert_column, assert_item_base_fields
 
 from depo.model.enums import ContentFormat, ItemKind, Visibility
+from depo.model.item import LinkItem, PicItem, TextItem
 from depo.repo.sqlite import (
+    SqliteRepository,
     _row_to_link_item,
     _row_to_pic_item,
     _row_to_text_item,
@@ -211,3 +213,63 @@ class TestRowMappers:
             origin_at=None,
         )
         assert result.url == "https://www.example.com"
+
+
+class TestGetByCode:
+    """Tests for SqliteRepository.get_by_code()."""
+
+    def test_none_for_code_not_exist(self, test_db):
+        """Returns None for 'Item.code' that doesn't exist"""
+        repo = SqliteRepository(test_db)
+        assert repo.get_by_code("N0TF0VND") is None
+
+    def test_text_item_for_text_item_code(self, test_db):
+        """Returns correct TextItem for its 'code' column"""
+        test_db.execute(
+            "INSERT INTO items"
+            "(hash_full, code, kind, size_b, uid, perm, upload_at)"
+            "VALUES ('ABC1234506789DEFGHKMNPQR', 'ABCD1234',"
+            "'txt', 99, 0, 'prv', 123456789)"
+        )
+        test_db.execute(
+            "INSERT INTO text_items (hash_full, format)"
+            " VALUES ('ABC1234506789DEFGHKMNPQR', 'md')"
+        )
+        repo = SqliteRepository(test_db)
+        result = repo.get_by_code("ABCD1234")
+        assert isinstance(result, TextItem)
+        assert result.code == "ABCD1234"
+
+    def test_pic_item_for_pic_item_code(self, test_db):
+        """Returns correct PicItem for its 'code' column"""
+        test_db.execute(
+            "INSERT INTO items"
+            "(hash_full, code, kind, size_b, uid, perm, upload_at)"
+            "VALUES ('ABC1234506789DEFGHKMNPQR', 'ABCD1234',"
+            "'pic', 99, 0, 'prv', 123456789)"
+        )
+        test_db.execute(
+            "INSERT INTO pic_items (hash_full, format, width, height)"
+            " VALUES ('ABC1234506789DEFGHKMNPQR', 'jpg', 9, 6)"
+        )
+        repo = SqliteRepository(test_db)
+        result = repo.get_by_code("ABCD1234")
+        assert isinstance(result, PicItem)
+        assert result.code == "ABCD1234"
+
+    def test_link_item_for_link_item_code(self, test_db):
+        """Returns correct LinkItem for its 'code' column"""
+        test_db.execute(
+            "INSERT INTO items"
+            "(hash_full, code, kind, size_b, uid, perm, upload_at)"
+            "VALUES ('ABC1234506789DEFGHKMNPQR', 'ABCD1234',"
+            "'url', 99, 0, 'prv', 123456789)"
+        )
+        test_db.execute(
+            "INSERT INTO link_items (hash_full, url)"
+            " VALUES ('ABC1234506789DEFGHKMNPQR', 'https://www.example.com')"
+        )
+        repo = SqliteRepository(test_db)
+        result = repo.get_by_code("ABCD1234")
+        assert isinstance(result, LinkItem)
+        assert result.code == "ABCD1234"
