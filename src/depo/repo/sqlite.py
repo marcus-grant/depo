@@ -6,8 +6,8 @@ Date: 2026-01-26
 License: Apache-2.0
 """
 
-from importlib import resources
 import sqlite3
+from importlib import resources
 
 
 def init_db(conn: sqlite3.Connection) -> None:
@@ -17,4 +17,5 @@ def init_db(conn: sqlite3.Connection) -> None:
     Args:
         conn: SQLite connection to initialize.
     """
-    raise NotImplementedError
+    schema = resources.files("depo.repo").joinpath("schema.sql").read_text()
+    conn.executescript(schema)
