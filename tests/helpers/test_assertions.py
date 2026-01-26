@@ -8,7 +8,10 @@ License: Apache-2.0
 
 import pytest
 
-from tests.helpers.assertions import assert_column
+from tests.helpers.assertions import assert_column, assert_item_base_fields
+from tests.factories import make_item
+
+from depo.model.enums import ItemKind, Visibility
 
 
 class TestAssertColumn:
@@ -64,11 +67,62 @@ class TestAssertColumn:
         with pytest.raises(AssertionError, match="pk mismatch"):
             assert_column(conn, "t", "id", "INTEGER", pk=True)
 
-    # fails for nonexistent column
-    # fails for wrong type
-    # passes for NOT NULL column when notnull=True
-    # fails for nullable column when notnull=True
-    # passes for column with matching default value
-    # fails for column with wrong default value
-    # passes for PRIMARY KEY column when pk=True
-    # fails for non-PK column when pk=True
+
+class TestAssertItemBaseFields:
+    """Tests for assert_item_base_fields()."""
+
+    def test_pass_for_matching_fields(self):
+        """passes when all base fields match."""
+        item = make_item(
+            code="ABC12345",
+            hash_full="ABC1234506789DEFGHKMNPQR",
+            kind=ItemKind.TEXT,
+            size_b=100,
+            uid=1,
+            perm=Visibility.PUBLIC,
+            upload_at=1234567890,
+            origin_at=None,
+        )
+        assert_item_base_fields(
+            item,
+            code="ABC12345",
+            hash_full="ABC1234506789DEFGHKMNPQR",
+            kind=ItemKind.TEXT,
+            size_b=100,
+            uid=1,
+            perm=Visibility.PUBLIC,
+            upload_at=1234567890,
+            origin_at=None,
+        )
+
+    def test_fail_for_wrong_code(self):
+        """fails when code doesn't match."""
+        item = make_item(code="ABC12345")
+        with pytest.raises(AssertionError, match="code"):
+            assert_item_base_fields(
+                item,
+                code="WRONG",
+                hash_full=item.hash_full,
+                kind=item.kind,
+                size_b=item.size_b,
+                uid=item.uid,
+                perm=item.perm,
+                upload_at=item.upload_at,
+                origin_at=item.origin_at,
+            )
+
+    def test_fail_for_wrong_kind(self):
+        """fails when kind doesn't match."""
+        item = make_item(kind=ItemKind.TEXT)
+        with pytest.raises(AssertionError, match="kind"):
+            assert_item_base_fields(
+                item,
+                code=item.code,
+                hash_full=item.hash_full,
+                kind=ItemKind.PICTURE,
+                size_b=item.size_b,
+                uid=item.uid,
+                perm=item.perm,
+                upload_at=item.upload_at,
+                origin_at=item.origin_at,
+            )
