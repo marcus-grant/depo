@@ -176,7 +176,10 @@ class TestInitDb:
     def test_idempotent(self, conn):
         """Calling init_db twice doesn't raise."""
         init_db(conn)
+        _insert_text_item(conn)
         init_db(conn)  # Should not raise
+        row = conn.execute("SELECT * FROM items").fetchone()
+        assert row is not None
 
 
 class TestRowMappers:
