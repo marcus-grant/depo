@@ -8,10 +8,9 @@ License: Apache-2.0
 
 import pytest
 
-from tests.helpers.assertions import assert_column, assert_item_base_fields
-from tests.factories import make_item
-
 from depo.model.enums import ItemKind, Visibility
+from tests.factories import make_item
+from tests.helpers.assertions import assert_column, assert_item_base_fields
 
 
 class TestAssertColumn:

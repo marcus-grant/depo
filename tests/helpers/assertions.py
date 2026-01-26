@@ -10,8 +10,8 @@ import sqlite3
 from dataclasses import MISSING, fields
 from typing import Any
 
-from depo.model.item import Item
 from depo.model.enums import ItemKind, Visibility
+from depo.model.item import Item
 
 
 def assert_field(cls: type, name: str, typ: type, required: bool, default: Any) -> None:
