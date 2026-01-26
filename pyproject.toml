@@ -3,7 +3,9 @@ name = "depo"
 version = "0.0.0"
 description = "Content-addressed paste / image service"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pillow>=12.1.0",
+]
 
 [tool.uv]
 dev-dependencies = [
