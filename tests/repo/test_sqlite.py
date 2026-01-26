@@ -273,3 +273,63 @@ class TestGetByCode:
         result = repo.get_by_code("ABCD1234")
         assert isinstance(result, LinkItem)
         assert result.code == "ABCD1234"
+
+
+class TestGetByFullHash:
+    """Tests for SqliteRepository.get_by_full_hash()."""
+
+    def test_none_for_hash_not_exist(self, test_db):
+        """Returns None for nonexistent hash_full"""
+        repo = SqliteRepository(test_db)
+        assert repo.get_by_full_hash("0123456789ABCDEFGHJKMNPQ") is None
+
+    def test_text_item_for_item_hash(self, test_db):
+        """Returns correct TextItem for its 'hash_full' PK"""
+        test_db.execute(
+            "INSERT INTO items"
+            "(hash_full, code, kind, size_b, uid, perm, upload_at)"
+            "VALUES ('ABC1234506789DEFGHKMNPQR', 'ABCD1234',"
+            "'txt', 99, 0, 'prv', 123456789)"
+        )
+        test_db.execute(
+            "INSERT INTO text_items (hash_full, format)"
+            " VALUES ('ABC1234506789DEFGHKMNPQR', 'md')"
+        )
+        repo = SqliteRepository(test_db)
+        result = repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
+        assert isinstance(result, TextItem)
+        assert result.hash_full == "ABC1234506789DEFGHKMNPQR"
+
+    def test_pic_item_for_item_hash(self, test_db):
+        """Returns correct PicItem for its 'hash_full' PK"""
+        test_db.execute(
+            "INSERT INTO items"
+            "(hash_full, code, kind, size_b, uid, perm, upload_at)"
+            "VALUES ('ABC1234506789DEFGHKMNPQR', 'ABCD1234',"
+            "'pic', 99, 0, 'prv', 123456789)"
+        )
+        test_db.execute(
+            "INSERT INTO pic_items (hash_full, format, width, height)"
+            " VALUES ('ABC1234506789DEFGHKMNPQR', 'png', 9, 16)"
+        )
+        repo = SqliteRepository(test_db)
+        result = repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
+        assert isinstance(result, PicItem)
+        assert result.hash_full == "ABC1234506789DEFGHKMNPQR"
+
+    def test_link_item_for_item_hash(self, test_db):
+        """Returns correct LinkItem for its 'hash_full' PK"""
+        test_db.execute(
+            "INSERT INTO items"
+            "(hash_full, code, kind, size_b, uid, perm, upload_at)"
+            "VALUES ('ABC1234506789DEFGHKMNPQR', 'ABCD1234',"
+            "'url', 99, 0, 'prv', 123456789)"
+        )
+        test_db.execute(
+            "INSERT INTO link_items (hash_full, url)"
+            " VALUES ('ABC1234506789DEFGHKMNPQR', 'https://www.example.com')"
+        )
+        repo = SqliteRepository(test_db)
+        result = repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
+        assert isinstance(result, LinkItem)
+        assert result.hash_full == "ABC1234506789DEFGHKMNPQR"
