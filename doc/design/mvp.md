@@ -47,15 +47,12 @@ HTTP Layer (FastAPI)
   ├── Auth / guards
   ├── Routing (/{code}, /raw, /info, /upload)
   ▼
-Application orchestration (thin)
+IngestOrchestrator
+  ├── IngestService.build_plan() → WritePlan
+  ├── Repository (dedupe, resolve code, insert)
+  └── StorageBackend (write bytes)
   ▼
-IngestService (pure)
-  ▼
-WritePlan DTO
-  ▼
-Repository (SQLite)
-  ▼
-StorageBackend (filesystem)
+PersistResult (item, created)
 ```
 
 ### Rules
@@ -97,9 +94,9 @@ StorageBackend (filesystem)
 
 Storage model:
 
-- `code` = prefix of full hash
-- `hash_remainder` = remaining suffix
-- Full hash string = `code + hash_remainder`
+- `hash_full` = complete 24-char hash (primary identity)
+- `code` = unique prefix (8-24 chars, assigned at creation)
+- Domain models derive `hash_rest = hash_full[len(code):]` at read time
 
 ### 3.3 Collision handling (prefix extension)
 
@@ -130,16 +127,22 @@ Storage model:
 
 #### Item Fields (conceptual)
 
-- `code` (PK)
-- `hash_rest`
-  - Note: `code` + `hash_rest` = full hash, each code with its len is unique
+#### Item Fields (DB schema)
+
+- `hash_full` (PK, 24-char content hash)
+- `code` (UNIQUE, 8-24 char URL identifier)
 - `kind` : `ItemKind(Enum)`
 - `size_b`: int
-- `uid` (int, FK -> `User`)
-- `perm` (`private`, `unlisted`, `public`, refactoring with `gid`)
-  - Very simple for now till `Group` model exists
+- `uid` (int, default 0; no FK until User table exists)
+- `perm` (Visibility enum, default PUBLIC)
 - `upload_at` (int, Unix Epoch UTC)
 - `origin_at` (int | None, original file creation time if known)
+
+#### Item Fields (domain model)
+
+- `code` (from DB)
+- `hash_rest` (derived: `hash_full[len(code):]`)
+- All other fields map directly
 
 ### 4.2 TextItem (heavy-load-bearing)
 
@@ -276,72 +279,148 @@ class IngestService:
 >**Note**: `declared_mime` is a hint for classification, not stored.
 >`requested_format` is a validated `ContentFormat` from the web layer.
 
-```
-
 ### 5.3 Repository (hard interface)
 
-Repository resolves collisions and persists metadata.
-Storage writes should be coordinated with
-the repository so failures are handled safely.
+Repository handles DB persistence. Orchestrator coordinates with storage.
 
 ```python
-from typing import Protocol, Optional
-
-class ItemMeta(Protocol):
-    code: str
-    full_hash: str
-    kind: str
-    mime_type: str
-    size_bytes: int
-    storage_key: str
+from typing import Protocol
 
 class Repository(Protocol):
-    def get_by_code(self, code: str) -> Optional[ItemMeta]:
+    def get_by_code(self, code: str) -> TextItem | PicItem | LinkItem | None:
+        """Lookup by exact code. Assumes input is canonicalized."""
         ...
 
-    def persist(self, plan: WritePlan) -> ItemMeta:
-        '''
-        Responsibilities:
-        - collision resolution by extending code prefix length
-        - DB writes (Item + subtype tables)
-        - transactional consistency
-        - ensure dedupe: same full_hash returns existing item
-        '''
+    def get_by_full_hash(
+      self, hash_full: str) -> TextItem | PicItem | LinkItem | None:
+        """Dedupe lookup by content hash."""
+        ...
+
+    def resolve_code(self, hash_full: str, min_len: int) -> str:
+        """Find shortest unique code prefix (min_len to 24)."""
+        ...
+
+    def insert(
+        self,
+        plan: WritePlan,
+        code: str,
+        *,
+        uid: int = 0,
+        perm: Visibility = Visibility.PUBLIC,
+    ) -> TextItem | PicItem | LinkItem:
+        """
+        Insert new item. Code must be pre-resolved.
+        Raises CodeCollisionError if code already exists (application bug).
+        """
         ...
 ```
+
+#### Design decisions
+
+- **Raw SQL** with manual mapping (no ORM)
+- **Return concrete types** (`TextItem | PicItem | LinkItem`), not Protocol
+- **Validation at boundary** — repo trusts inputs are canonical
+- **uid/perm defaults** — superuser (0) and PUBLIC until auth layer exists
 
 ### 5.4 Storage backend (MVP)
 
 ```python
 from pathlib import Path
-from typing import Protocol, BinaryIO, Optional
+from typing import Protocol, BinaryIO
 
 class StorageBackend(Protocol):
     def put(
         self,
         *,
         code: str,
-        source_bytes: Optional[bytes] = None,
-        source_path: Optional[Path] = None,
-    ) -> str:
-        '''Returns storage_key.'''
+        format: ContentFormat,
+        source_bytes: bytes | None = None,
+        source_path: Path | None = None,
+    ) -> None:
+        """Write payload to storage. Exactly one of source_bytes/source_path."""
         ...
 
-    def open(self, *, storage_key: str) -> BinaryIO:
+    def open(self, *, code: str, format: ContentFormat) -> BinaryIO:
+        """Open payload for reading."""
+        ...
+
+    def delete(self, *, code: str, format: ContentFormat) -> None:
+        """Remove payload. Used for rollback on failed DB insert."""
         ...
 ```
 
 #### Storage path derivation
 
-Paths are derived, not stored.
-Given an item's `code` and `format`, the storage backend computes:
+Paths are derived, not stored. Flat structure:
 
-```
+```txt
 {STORAGE_ROOT}/{code}.{ext}
 ```
 
 Extension equals `format.value` (e.g., `ContentFormat.PNG` → `.png`).
 MIME type for HTTP headers is derived via `mime_for_format()` at serve time.
+
+#### LinkItem exception
+
+LinkItem has no payload bytes (URL is metadata only). Orchestrator skips
+storage operations for `ItemKind.LINK`.
+
+### 5.5 IngestOrchestrator
+
+Single entry point for the web layer. Coordinates full ingest pipeline.
+
+```python
+@dataclass(frozen=True)
+class PersistResult:
+    item: TextItem | PicItem | LinkItem
+    created: bool  # False = dedupe hit
+
+class IngestOrchestrator:
+    def __init__(
+        self,
+        ingest_service: IngestService,
+        repo: Repository,
+        storage: StorageBackend,
+    ) -> None: ...
+
+    def ingest(
+        self,
+        *,
+        payload_bytes: bytes | None = None,
+        payload_path: Path | None = None,
+        filename: str | None = None,
+        declared_mime: str | None = None,
+        requested_format: ContentFormat | None = None,
+        uid: int = 0,
+        perm: Visibility = Visibility.PUBLIC,
+    ) -> PersistResult:
+        """
+        Full pipeline:
+        1. IngestService.build_plan() → WritePlan
+        2. Repo.get_by_full_hash() → dedupe check
+        3. Repo.resolve_code() → collision handling
+        4. Storage.put() → write bytes (skip for LinkItem)
+        5. Repo.insert() → write metadata
+        6. Return PersistResult
+
+        On DB failure after storage write, calls Storage.delete() for rollback.
+        """
+        ...
+```
+
+#### IngestOrchestrator - Design decisions
+
+- **Orchestrator owns coordination** — repo and storage are siblings
+- **Dedupe at orchestrator level** — returns existing item without re-writing
+- **Storage before DB** — orphan files easier to cleanup than orphan rows
+- **PersistResult DTO** — web layer can decide whether to show "exists" vs "created"
+- **Future-ready**:
+  - WAL table (`pending_writes`) can be added for atomic writes
+  - Metadata cache layer can skip DB reads for hot items
+  - Write coalescing can batch repo inserts during high ingest
+  - Local content cache can serve as LRU layer fronting remote storage
+    - Think of a cache on local FS for remote S3, SFTP, WebDAV, etc.
+  - All without changing the orchestrator's public interface
 
 ---
 
