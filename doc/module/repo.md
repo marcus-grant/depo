@@ -137,11 +137,7 @@ def _row_to_pic_item(self, row: sqlite3.Row) -> PicItem: ...
 def _row_to_link_item(self, row: sqlite3.Row) -> LinkItem: ...
 ```
 
-Map DB rows to frozen domain models. Derive `hash_rest` from `hash_full` and `code`:
-
-```python
-hash_rest = row["hash_full"][len(row["code"]):]
-```
+Map DB rows to frozen domain models.
 
 ### Design decisions
 

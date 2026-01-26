@@ -18,7 +18,7 @@ ContentFormat values are canonical short extensions (e.g., `jpg` not `jpeg`).
 
 Frozen dataclasses with `kw_only=True`.
 
-**Item (base):** code, hash_rest, kind, size_b, upload_at, uid, perm, origin_at (optional)
+**Item (base):** code, hash_full, kind, size_b, upload_at, uid, perm, origin_at (optional)
 
 **TextItem(Item):** format (ContentFormat)
 
