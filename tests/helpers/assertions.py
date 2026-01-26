@@ -10,6 +10,9 @@ import sqlite3
 from dataclasses import MISSING, fields
 from typing import Any
 
+from depo.model.item import Item
+from depo.model.enums import ItemKind, Visibility
+
 
 def assert_field(cls: type, name: str, typ: type, required: bool, default: Any) -> None:
     """
@@ -86,3 +89,45 @@ def assert_column(
         f"{name} default mismatch: expected {default}, got {row[4]}"
     )
     assert row[5] == int(pk), f"{name} pk mismatch: expected {pk}, got {bool(row[5])}"
+
+
+def assert_item_base_fields(
+    item: Item,
+    *,
+    code: str,
+    hash_full: str,
+    kind: ItemKind,
+    size_b: int,
+    uid: int,
+    perm: Visibility,
+    upload_at: int,
+    origin_at: int | None,
+) -> None:
+    """
+    Assert an Item has expected base field values.
+
+    Args:
+        item: Item instance (or subclass).
+        code: Expected code.
+        hash_full: Expected hash_full.
+        kind: Expected ItemKind.
+        size_b: Expected size in bytes.
+        uid: Expected user ID.
+        perm: Expected Visibility.
+        upload_at: Expected upload timestamp.
+        origin_at: Expected origin timestamp (may be None).
+
+    Raises:
+        AssertionError: If any field doesn't match.
+    """
+    assert item.code == code, f"code: expected {code}, got {item.code}"
+    msg = f"hash_full: expected {hash_full}, got {item.hash_full}"
+    assert item.hash_full == hash_full, msg
+    assert item.kind == kind, f"kind: expected {kind}, got {item.kind}"
+    assert item.size_b == size_b, f"size_b: expected {size_b}, got {item.size_b}"
+    assert item.uid == uid, f"uid: expected {uid}, got {item.uid}"
+    assert item.perm == perm, f"perm: expected {perm}, got {item.perm}"
+    msg = f"upload_at: expected {upload_at}, got {item.upload_at}"
+    assert item.upload_at == upload_at, msg
+    msg = f"origin_at: expected {origin_at}, got {item.origin_at}"
+    assert item.origin_at == origin_at, msg
