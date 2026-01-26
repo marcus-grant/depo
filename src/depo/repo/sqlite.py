@@ -71,6 +71,7 @@ def _row_to_link_item(row: sqlite3.Row) -> LinkItem:
     )
 
 
+# TODO: Consider implementing a minimal query builder or refactor to be more DRY
 class SqliteRepository:
     """SQLite implementation of item repository."""
 
@@ -137,6 +138,60 @@ class SqliteRepository:
                     "JOIN link_items l ON i.hash_full = l.hash_full "
                     "WHERE i.hash_full = ?",
                     (i_row["hash_full"],),
+                ).fetchone()
+            )
+
+        raise ValueError(f"Unknown item kind: {kind}")
+
+    def get_by_full_hash(self, hash_full: str) -> TextItem | PicItem | LinkItem | None:
+        """
+        Dedupe lookup by content hash.
+
+        Args:
+            hash_full: Full content hash.
+
+        Returns:
+            Item subclass instance or None if not found.
+
+        Raises:
+            ValueError: If item has unknown kind (indicates data corruption).
+        """
+        # First query items table for the hash_full
+        i_row = self._conn.execute(
+            "SELECT * FROM items WHERE hash_full = ?", (hash_full,)
+        ).fetchone()
+
+        # Check for not being present
+        if i_row is None:
+            return None
+
+        # Discriminate based on items.kind
+        kind = ItemKind(i_row["kind"])
+        if kind == ItemKind.TEXT:
+            return _row_to_text_item(
+                self._conn.execute(
+                    "SELECT i.*, t.format FROM items i "
+                    "JOIN text_items t ON i.hash_full = t.hash_full "
+                    "WHERE i.hash_full = ?",
+                    (hash_full,),
+                ).fetchone()
+            )
+        if kind == ItemKind.PICTURE:
+            return _row_to_pic_item(
+                self._conn.execute(
+                    "SELECT i.*, p.format, p.width, p.height FROM items i "
+                    "JOIN pic_items p ON i.hash_full = p.hash_full "
+                    "WHERE i.hash_full = ?",
+                    (hash_full,),
+                ).fetchone()
+            )
+        if kind == ItemKind.LINK:
+            return _row_to_link_item(
+                self._conn.execute(
+                    "SELECT i.*, l.url FROM items i "
+                    "JOIN link_items l ON i.hash_full = l.hash_full "
+                    "WHERE i.hash_full = ?",
+                    (hash_full,),
                 ).fetchone()
             )
 
