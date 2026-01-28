@@ -17,7 +17,7 @@ from depo.model.item import Item, LinkItem, PicItem, TextItem
 # "required": non-optional, "default": default value
 _ITEM_PARAMS = [
     ("code", str, True, None),
-    ("hash_rest", str, True, None),
+    ("hash_full", str, True, None),
     ("kind", ItemKind, True, None),
     ("size_b", int, True, None),
     ("uid", int, True, None),

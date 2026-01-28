@@ -96,7 +96,7 @@ Storage model:
 
 - `hash_full` = complete 24-char hash (primary identity)
 - `code` = unique prefix (8-24 chars, assigned at creation)
-- Domain models derive `hash_rest = hash_full[len(code):]` at read time
+- Domain models store `hash_full` directly (matches DB schema)
 
 ### 3.3 Collision handling (prefix extension)
 
@@ -141,7 +141,7 @@ Storage model:
 #### Item Fields (domain model)
 
 - `code` (from DB)
-- `hash_rest` (derived: `hash_full[len(code):]`)
+- `hash_full` (content-addressed identity)
 - All other fields map directly
 
 ### 4.2 TextItem (heavy-load-bearing)
