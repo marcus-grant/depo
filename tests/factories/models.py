@@ -12,7 +12,7 @@ from depo.model.write_plan import WritePlan
 
 _ITEM_DEFAULTS = dict(
     code="ABC12345",
-    hash_rest="06789DEFGHKMNPQR",
+    hash_full="ABC1234506789DEFGHKMNPQR",
     kind=ItemKind.TEXT,
     size_b=100,
     uid=1,

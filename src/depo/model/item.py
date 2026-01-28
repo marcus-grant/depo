@@ -19,7 +19,7 @@ from depo.model.enums import ContentFormat, ItemKind, Visibility
 @dataclass(frozen=True, kw_only=True)
 class Item:
     code: str
-    hash_rest: str
+    hash_full: str
     kind: ItemKind
     size_b: int
     uid: int

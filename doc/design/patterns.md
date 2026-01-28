@@ -206,9 +206,6 @@ YAGNI: don't abstract until the second case emerges.
 # DB stores
 hash_full = "ABCD1234XXXXXXXXXXXXXXXX"
 code = "ABCD1234"
-
-# Domain model derives
-hash_rest = hash_full[len(code):]  # "XXXXXXXXXXXXXXXX"
 ```
 
 Store canonical data. Derive redundant fields when mapping to domain model.
