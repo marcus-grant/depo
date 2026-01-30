@@ -182,3 +182,30 @@ class SqliteRepository:
             return None
 
         return self._fetch_full_item(i_row)
+
+    def resolve_code(self, hash_full: str, min_len: int) -> str:
+        """
+        Find shortest unique code prefix.
+
+        Starts at min_len, extends until no collision with existing codes.
+
+        Args:
+            hash_full: Full content hash (24 chars).
+            min_len: Minimum code length to start with.
+
+        Returns:
+            Unique code string (min_len to 24 chars).
+        """
+        # Start with the minimum length as prefix
+        prefix = hash_full[:min_len]
+        existing = {  # Gather all codes matching the prefix
+            row[0]
+            for row in self._conn.execute(
+                "SELECT code FROM items WHERE code LIKE ?", (prefix + "%",)
+            ).fetchall()
+        }  # Go through matching codes of minimum prefix length upwards
+        for length in range(min_len, 25):
+            candidate = hash_full[:length]  # Increase candidate length
+            if candidate not in existing:  # Check if in existing codes
+                return candidate  # If not, this is our new unique code
+        return hash_full  # Fallback to full hash as code (extremely unlikely)

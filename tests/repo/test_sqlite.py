@@ -327,3 +327,35 @@ class TestGetByFullHash:
         result = repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
         assert isinstance(result, LinkItem)
         assert result.hash_full == "ABC1234506789DEFGHKMNPQR"
+
+
+class TestResolveCode:
+    """Tests for SqliteRepository.resolve_code()."""
+
+    def test_min_len_prefix_when_no_collisions(self, test_db):
+        """Returns min_len prefix when no collisions exist."""
+        repo, hash_full = SqliteRepository(test_db), "01234567890ABCDEFGHJKMNP"
+        assert repo.resolve_code(hash_full, min_len=8) == "01234567"
+
+    def test_prefix_when_collision_exists(self, test_db):
+        """Extends prefix when collision exists."""
+        repo = SqliteRepository(test_db)
+        _insert_text_item(
+            test_db, hash_full="0123456700000000XXXXXXXX", code="01234567"
+        )
+        target_hash = "01234567890ABCDEFGHJKMNP"
+        assert repo.resolve_code(target_hash, min_len=8) == "012345678"
+
+    def test_extends_code_many_times_for_many_collisions(self, test_db):
+        """Returns longer code when shorter prefixes collide"""
+        repo = SqliteRepository(test_db)
+        target_hash = "01234567890ABCDEFGHJKMNP"
+
+        # Insert items with codes that collide with target's prefixes
+        for i in range(8, 24):
+            colliding_code = target_hash[:i]
+            different_hash = f"XXXXXXXXXXXXXXXXXXXXXX{i:02d}"  # unique hash per item
+            _insert_link_item(test_db, hash_full=different_hash, code=colliding_code)
+
+        # All prefixes taken, should return full hash
+        assert repo.resolve_code(target_hash, 8) == target_hash
