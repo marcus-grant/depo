@@ -139,19 +139,16 @@ class IngestOrchestrator:
     ) -> PersistResult: ...
 ```
 
-**Pipeline:**
+#### IngestOrchestrator - Pipeline
 
 1. `IngestService.build_plan()` → WritePlan
 2. `Repo.get_by_full_hash()` → dedupe check, return early if exists
-3. `Repo.resolve_code()` → find unique code prefix
-4. `Storage.put()` → write bytes (skip for LinkItem)
-5. `Repo.insert()` → write metadata
-6. On insert failure → `Storage.delete()` for rollback
-7. Return `PersistResult(item, created)`
+3. `Storage.put()` → write bytes (skip for LinkItem)
+4. `Repo.insert()` → write metadata & `Repo.resolve_code()` to get unique code
+5. On insert failure → `Storage.delete()` for rollback
+6. Return `PersistResult(item, created)`
 
 #### IngestOrchestrator - Raises
 
 Re-raises exceptions from components.
 CodeCollisionError` on insert constraint violation (application bug).
-
-See doc/design/mvp.md §5.5 for design rationale.
