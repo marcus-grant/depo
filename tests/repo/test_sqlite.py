@@ -9,10 +9,12 @@ License: Apache-2.0
 import sqlite3
 
 import pytest
+from tests.factories.models import make_write_plan
 from tests.helpers import assert_column, assert_item_base_fields
 
 from depo.model.enums import ContentFormat, ItemKind, Visibility
 from depo.model.item import LinkItem, PicItem, TextItem
+from depo.repo.errors import CodeCollisionError
 from depo.repo.sqlite import (
     SqliteRepository,
     _row_to_link_item,
@@ -359,3 +361,82 @@ class TestResolveCode:
 
         # All prefixes taken, should return full hash
         assert repo.resolve_code(target_hash, 8) == target_hash
+
+
+class TestInsert:
+    """Tests for SqliteRepository.insert()."""
+
+    def test_inserts_text_item(self, test_db):
+        """Inserts TextItem and returns it"""
+        repo, plan = SqliteRepository(test_db), make_write_plan(format="md")
+        result = repo.insert(plan, uid=69, perm=Visibility.PRIVATE)
+        assert isinstance(result, TextItem)
+        assert result.code == plan.hash_full[: plan.code_min_len]
+        assert result.size_b == plan.size_b
+        assert result.upload_at == plan.upload_at
+        assert result.uid == 69
+        assert result.perm == Visibility.PRIVATE
+        assert result.format == ContentFormat.MARKDOWN
+        assert result == repo.get_by_full_hash(plan.hash_full)
+
+    def test_inserts_pic_item(self, test_db):
+        """Inserts PicItem and returns it"""
+        repo = SqliteRepository(test_db)
+        plan = make_write_plan(
+            kind=ItemKind.PICTURE,
+            format="jpg",
+            width=800,
+            height=600,
+        )
+        result = repo.insert(plan)
+        assert isinstance(result, PicItem)
+        assert result.code == plan.hash_full[: plan.code_min_len]
+        assert result.size_b == plan.size_b
+        assert result.upload_at == plan.upload_at
+        assert result.origin_at == plan.origin_at
+        assert result.uid == 0
+        assert result.perm == Visibility.PUBLIC
+        assert result.format == ContentFormat.JPEG
+        assert result.width == 800
+        assert result.height == 600
+        assert result == repo.get_by_full_hash(plan.hash_full)
+
+    def test_inserts_link_item(self, test_db):
+        """Inserts LinkItem and returns it"""
+        repo = SqliteRepository(test_db)
+        kwargs = {"kind": ItemKind.LINK, "link_url": "https://depo.example.com"}
+        plan = make_write_plan(**kwargs)
+        result = repo.insert(plan, uid=42, perm=Visibility.UNLISTED)
+        assert isinstance(result, LinkItem)
+        assert result.code == plan.hash_full[: plan.code_min_len]
+        assert result.size_b == plan.size_b
+        assert result.upload_at == plan.upload_at
+        assert result.uid == 42
+        assert result.perm == Visibility.UNLISTED
+        assert result.url == "https://depo.example.com"
+        assert result == repo.get_by_full_hash(plan.hash_full)
+
+    def test_raises_code_collision_error_on_duplicate_hash(self, test_db):
+        """Raises CodeCollisionError when same content inserted twice (dedupe leak)"""
+        repo = SqliteRepository(test_db)
+        plan1 = make_write_plan(code_min_len=8, kind="url", link_url="http://a.com")
+        repo.insert(plan1)
+
+        plan2 = make_write_plan(code_min_len=8, kind="url", link_url="http://a.com")
+        with pytest.raises(CodeCollisionError):
+            repo.insert(plan2)
+
+    def test_resolve_prevents_code_collision(self, test_db):
+        """resolve_code extends to avoid collision"""
+        _insert_link_item(
+            test_db, hash_full="ZZZZZZZZZZZZZZZZZZZZZZZZ", code="ABCD1234"
+        )
+        repo = SqliteRepository(test_db)
+        plan = make_write_plan(
+            hash_full="ABCD1234XXXXXXXXXXXXXXXX",  # Same 8-char prefix
+            code_min_len=8,
+            kind=ItemKind.LINK,
+            link_url="http://test.com",
+        )
+        result = repo.insert(plan)
+        assert result.code == "ABCD1234X"  # Extended to 9 chars, no collision
