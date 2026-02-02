@@ -11,6 +11,8 @@ from importlib import resources
 
 from depo.model.enums import ContentFormat, ItemKind, Visibility
 from depo.model.item import LinkItem, PicItem, TextItem
+from depo.model.write_plan import WritePlan
+from depo.repo.errors import CodeCollisionError
 
 
 def init_db(conn: sqlite3.Connection) -> None:
@@ -182,3 +184,123 @@ class SqliteRepository:
             return None
 
         return self._fetch_full_item(i_row)
+
+    def resolve_code(self, hash_full: str, min_len: int) -> str:
+        """
+        Find shortest unique code prefix.
+
+        Starts at min_len, extends until no collision with existing codes.
+
+        Args:
+            hash_full: Full content hash (24 chars).
+            min_len: Minimum code length to start with.
+
+        Returns:
+            Unique code string (min_len to 24 chars).
+        """
+        # Start with the minimum length as prefix
+        prefix = hash_full[:min_len]
+        existing = {  # Gather all codes matching the prefix
+            row[0]
+            for row in self._conn.execute(
+                "SELECT code FROM items WHERE code LIKE ?", (prefix + "%",)
+            ).fetchall()
+        }  # Go through matching codes of minimum prefix length upwards
+        for length in range(min_len, 25):
+            candidate = hash_full[:length]  # Increase candidate length
+            if candidate not in existing:  # Check if in existing codes
+                return candidate  # If not, this is our new unique code
+        return hash_full  # Fallback to full hash as code (extremely unlikely)
+
+    def insert(
+        self,
+        plan: WritePlan,
+        *,
+        uid: int = 0,
+        perm: Visibility = Visibility.PUBLIC,
+    ) -> TextItem | PicItem | LinkItem:
+        """
+        Insert new item and subtype record.
+
+        Resolves code internally from plan.hash_full and plan.code_min_len.
+
+        Args:
+            plan: WritePlan from ingest service.
+            uid: User ID (default 0 until auth layer).
+            perm: Visibility (default PUBLIC).
+
+        Returns:
+            Newly created item.
+
+        Raises:
+            CodeCollisionError: If resolved code collides (indicates bug).
+        """
+        # First resolve code using write_plan & create Items
+        code = self.resolve_code(plan.hash_full, plan.code_min_len)
+
+        # Prepare the deserialized base Item to return
+        base_item = {
+            "code": code,
+            "hash_full": plan.hash_full,
+            "kind": plan.kind,
+            "size_b": plan.size_b,
+            "uid": uid,
+            "perm": perm,
+            "upload_at": plan.upload_at,
+            "origin_at": plan.origin_at,
+        }
+
+        # Setup two insertion queries to be handled in one transaction
+        with self._conn:
+            # First write the common base item table
+            try:
+                self._conn.execute(
+                    "INSERT INTO items "
+                    "(hash_full, code, kind, size_b, uid, upload_at, origin_at, perm) "
+                    "VALUES (:hash_full, :code, :kind, :size_b, :uid, :upload_at, "
+                    ":origin_at, :perm)",
+                    base_item,
+                )
+            except sqlite3.IntegrityError as e:
+                if "UNIQUE" in e.args[0]:
+                    raise CodeCollisionError(f"Code collision on insert: {code}") from e
+
+            # Next handle the subtype table insertion based on ItemKind
+            if plan.kind == ItemKind.TEXT:
+                assert plan.format is not None  # Bug in the ingest pipeline
+                self._conn.execute(
+                    "INSERT INTO text_items (hash_full, format) "
+                    "VALUES (:hash_full, :format)",
+                    {"hash_full": plan.hash_full, "format": plan.format},
+                )
+                return TextItem(**base_item, format=plan.format)
+            elif plan.kind == ItemKind.PICTURE:
+                # Check for optional value bug in the ingest pipeline
+                assert plan.format is not None
+                assert plan.width is not None
+                assert plan.height is not None
+                self._conn.execute(
+                    "INSERT INTO pic_items (hash_full, format, width, height) "
+                    "VALUES (:hash_full, :format, :width, :height)",
+                    {
+                        "hash_full": plan.hash_full,
+                        "format": plan.format,
+                        "width": plan.width,
+                        "height": plan.height,
+                    },
+                )
+                return PicItem(
+                    **base_item,
+                    format=plan.format,
+                    width=plan.width,
+                    height=plan.height,
+                )
+            elif plan.kind == ItemKind.LINK:
+                assert plan.link_url is not None  # Bug in the ingest pipeline
+                self._conn.execute(
+                    "INSERT INTO link_items (hash_full, url) VALUES (:hash_full, :url)",
+                    {"hash_full": plan.hash_full, "url": plan.link_url},
+                )
+                return LinkItem(**base_item, url=plan.link_url)
+            else:
+                raise AssertionError(f"Unknown ItemKind: {plan.kind}")

@@ -141,14 +141,13 @@ class IngestOrchestrator:
         existing = self._repo.get_by_full_hash(plan.hash_full)
         if existing:
             return PersistResult(existing, created=False)
-        
-        code = self._repo.resolve_code(plan.hash_full, plan.code_min_len)
-        self._storage.put(code=code, ...)
+
         try:
-            item = self._repo.insert(plan, code, ...)
+            item = self._repo.insert(plan, ...)
         except:
-            self._storage.delete(code=code, ...)
+            self._repo.delete(code=item.code, ...)
             raise
+        self._storage.put(code=code, ...)
         return PersistResult(item, created=True)
 ```
 

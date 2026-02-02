@@ -303,13 +303,12 @@ class Repository(Protocol):
     def insert(
         self,
         plan: WritePlan,
-        code: str,
         *,
         uid: int = 0,
         perm: Visibility = Visibility.PUBLIC,
     ) -> TextItem | PicItem | LinkItem:
         """
-        Insert new item. Code must be pre-resolved.
+        Insert new item. Code determined here with resolve_code.
         Raises CodeCollisionError if code already exists (application bug).
         """
         ...
@@ -398,12 +397,10 @@ class IngestOrchestrator:
         Full pipeline:
         1. IngestService.build_plan() → WritePlan
         2. Repo.get_by_full_hash() → dedupe check
-        3. Repo.resolve_code() → collision handling
+        3. Repo.insert() → resolve code and write metadata
         4. Storage.put() → write bytes (skip for LinkItem)
-        5. Repo.insert() → write metadata
-        6. Return PersistResult
-
-        On DB failure after storage write, calls Storage.delete() for rollback.
+        5. Return PersistResult
+        On Storage failure after DB write, calls Repo.delete() for rollback.
         """
         ...
 ```

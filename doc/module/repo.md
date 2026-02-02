@@ -111,20 +111,18 @@ class SqliteRepository:
         """
         ...
 
-    def insert(
+  def insert(
         self,
         plan: WritePlan,
-        code: str,
         *,
         uid: int = 0,
         perm: Visibility = Visibility.PUBLIC,
     ) -> TextItem | PicItem | LinkItem:
         """
         Insert new item and subtype record.
-        Code must be pre-resolved via resolve_code().
-        
+        Resolves code internally from plan.hash_full and plan.code_min_len.
         Raises:
-            CodeCollisionError: If code already exists (application bug).
+            CodeCollisionError: If resolved code collides (indicates bug).
         """
         ...
 ```
