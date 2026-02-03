@@ -108,3 +108,23 @@ class TestFilesystemStorageOpen:
             tmp_fs.open(code="N0TEX1ST", format=ContentFormat.PNG)
 
 
+class TestFilesystemStorageDelete:
+    """Tests FilesystemStorage.delete()."""
+
+    def test_removes_existing_file(self, tmp_fs):
+        """Removes existing file"""
+        # Assemble existing test file with code and format
+        code, fmt, data = "F1LEX1ST", ContentFormat.PLAINTEXT, b"Hello, World!"
+        tmp_fs.put(code=code, format=fmt, source_bytes=data)
+
+        # Act by using delete() on existing test file
+        tmp_fs.delete(code=code, format=fmt)
+
+        # Assert the file no longer exists by using .open to raise FileNotFoundError
+        with pytest.raises(FileNotFoundError):
+            tmp_fs.open(code=code, format=fmt)
+
+    def test_no_error_for_missing_file(self, tmp_fs):
+        """No error when attempting to delete non-existing file"""
+        # Act by delete() on non-existing file - asserts by not raising
+        tmp_fs.delete(code="N0TEX1ST", format=ContentFormat.PNG)
