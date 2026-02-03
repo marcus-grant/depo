@@ -183,6 +183,10 @@ class TestInitDb:
         row = conn.execute("SELECT * FROM items").fetchone()
         assert row is not None
 
+    def test_foreign_keys_enabled(self, test_db):
+        """FK constraints are enabled after init."""
+        assert test_db.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+
 
 class TestRowMappers:
     """Tests for row mapper functions."""

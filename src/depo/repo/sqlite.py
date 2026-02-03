@@ -18,10 +18,10 @@ from depo.repo.errors import CodeCollisionError
 def init_db(conn: sqlite3.Connection) -> None:
     """
     Apply schema to connection. Idempotent.
-
     Args:
         conn: SQLite connection to initialize.
     """
+    conn.execute("PRAGMA foreign_keys = ON")
     schema = resources.files("depo.repo").joinpath("schema.sql").read_text()
     conn.executescript(schema)
 
