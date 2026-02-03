@@ -16,19 +16,19 @@ CREATE TABLE IF NOT EXISTS items (
 );
 
 CREATE TABLE IF NOT EXISTS text_items (
-    hash_full   TEXT PRIMARY KEY REFERENCES items(hash_full),
+    hash_full   TEXT PRIMARY KEY REFERENCES items(hash_full) ON DELETE CASCADE,
     format      TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS pic_items (
-    hash_full   TEXT PRIMARY KEY REFERENCES items(hash_full),
+    hash_full   TEXT PRIMARY KEY REFERENCES items(hash_full) ON DELETE CASCADE,
     format      TEXT NOT NULL,
     width       INTEGER NOT NULL,
     height      INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS link_items (
-    hash_full   TEXT PRIMARY KEY REFERENCES items(hash_full),
+    hash_full   TEXT PRIMARY KEY REFERENCES items(hash_full) ON DELETE CASCADE,
     url         TEXT NOT NULL
 );
 
