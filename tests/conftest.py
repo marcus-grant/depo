@@ -7,6 +7,7 @@ import pytest
 
 pytest_plugins = [
     "tests.fixtures.db",
+    "tests.fixtures.storage",
 ]
 
 
