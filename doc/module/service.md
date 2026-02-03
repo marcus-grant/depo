@@ -143,9 +143,9 @@ class IngestOrchestrator:
 
 1. `IngestService.build_plan()` → WritePlan
 2. `Repo.get_by_full_hash()` → dedupe check, return early if exists
-3. `Storage.put()` → write bytes (skip for LinkItem)
-4. `Repo.insert()` → write metadata & `Repo.resolve_code()` to get unique code
-5. On insert failure → `Storage.delete()` for rollback
+3. `Repo.insert()` → resolve code internally, write metadata
+4. `Storage.put()` → write bytes (skip for LinkItem)
+5. On storage failure → `Repo.delete()` for rollback
 6. Return `PersistResult(item, created)`
 
 #### IngestOrchestrator - Raises
