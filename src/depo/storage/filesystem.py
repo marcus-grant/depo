@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import BinaryIO
 
 from depo.model.enums import ContentFormat
+from depo.model.formats import extension_for_format
 from depo.storage.protocol import StorageBackend
 
 
@@ -61,7 +62,18 @@ class FilesystemStorage(StorageBackend):
         Raises:
             ValueError: If neither or both source arguments provided.
         """
-        raise NotImplementedError
+        # First validate source_* args
+        if (source_bytes is None) == (source_path is None):
+            raise ValueError("Exactly one of source_bytes or source_path required")
+        # create destination path using code & format
+        dest_path = self._root / f"{code}.{extension_for_format(format)}"
+
+        if source_bytes is not None:
+            # Write from bytes directly if source_bytes provided
+            dest_path.write_bytes(source_bytes)
+        if source_path is not None:
+            # Write from bytes stored in source_path
+            dest_path.write_bytes(source_path.read_bytes())
 
     def open(self, *, code: str, format: ContentFormat) -> BinaryIO:
         """
