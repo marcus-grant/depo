@@ -40,7 +40,7 @@ class FilesystemStorage(StorageBackend):
         Returns:
             Path: {root}/{code}.{ext}
         """
-        raise NotImplementedError
+        return self._root / f"{code}.{extension_for_format(format)}"
 
     def put(
         self,
@@ -89,7 +89,7 @@ class FilesystemStorage(StorageBackend):
         Raises:
             FileNotFoundError: If payload doesn't exist.
         """
-        raise NotImplementedError
+        return self._path_for(code, format).open("rb")
 
     def delete(self, *, code: str, format: ContentFormat) -> None:
         """
