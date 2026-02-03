@@ -101,4 +101,4 @@ class FilesystemStorage(StorageBackend):
             code: Short code identifier.
             format: Content format.
         """
-        raise NotImplementedError
+        self._path_for(code, format).unlink(missing_ok=True)
