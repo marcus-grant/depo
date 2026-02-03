@@ -304,3 +304,16 @@ class SqliteRepository:
                 return LinkItem(**base_item, url=plan.link_url)
             else:
                 raise AssertionError(f"Unknown ItemKind: {plan.kind}")
+
+    def delete(self, hash_full: str) -> None:
+        """Delete item by hash.
+
+        Subtype row cascades automatically via FK constraint.
+
+        Args:
+            hash_full: Full hash of item to delete.
+
+        Note:
+            No-op if item doesn't exist (idempotent for rollback).
+        """
+        self._conn.execute("DELETE FROM items WHERE hash_full = ?", (hash_full,))
