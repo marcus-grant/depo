@@ -88,3 +88,23 @@ class TestFilesystemStoragePut:
             tmp_fs.put(**base_kwargs, source_bytes=b"hi", source_path=tmp_fs._root)
 
 
+class TestFilesystemStorageOpen:
+    """Tests FilesystemStorage.open()."""
+
+    def test_file_handle_for_existing_file(self, tmp_fs):
+        """Returns file handle for existing file"""
+        # Assemble existing test file & expected inputs
+        code, fmt, data = "19F00BAR", ContentFormat.JSON, b"FooBar"
+        tmp_fs.put(code=code, format=fmt, source_bytes=data)
+
+        # Act by opening put test file
+        with tmp_fs.open(code=code, format=fmt) as f:
+            # Assert by comparing put data with opened
+            assert f.read() == data
+
+    def test_raises_for_no_file(self, tmp_fs):
+        """Raises FileNotFoundError for missing file"""
+        with pytest.raises(FileNotFoundError):
+            tmp_fs.open(code="N0TEX1ST", format=ContentFormat.PNG)
+
+
