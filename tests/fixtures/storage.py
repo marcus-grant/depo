@@ -7,17 +7,10 @@ License: Apache-2.0
 """
 
 import pytest
+from src.depo.storage.filesystem import FilesystemStorage
 
 
 @pytest.fixture
-def test_storage_root():
-    """Temporary directory for storage tests."""
-    # TODO: Implement in PR 4 (storage layer)
-    raise NotImplementedError("test_storage_root fixture not yet implemented")
-
-
-@pytest.fixture
-def test_storage():
+def tmp_fs(tmp_path):
     """FilesystemStorage instance with temporary root."""
-    # TODO: Implement in PR 4 (storage layer)
-    raise NotImplementedError("test_storage fixture not yet implemented")
+    return FilesystemStorage(root=tmp_path / "depo-test")
