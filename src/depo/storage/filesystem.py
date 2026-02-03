@@ -65,15 +65,12 @@ class FilesystemStorage(StorageBackend):
         # First validate source_* args
         if (source_bytes is None) == (source_path is None):
             raise ValueError("Exactly one of source_bytes or source_path required")
-        # create destination path using code & format
-        dest_path = self._root / f"{code}.{extension_for_format(format)}"
-
         if source_bytes is not None:
             # Write from bytes directly if source_bytes provided
-            dest_path.write_bytes(source_bytes)
-        if source_path is not None:
+            self._path_for(code, format).write_bytes(source_bytes)
+        elif source_path is not None:
             # Write from bytes stored in source_path
-            dest_path.write_bytes(source_path.read_bytes())
+            self._path_for(code, format).write_bytes(source_path.read_bytes())
 
     def open(self, *, code: str, format: ContentFormat) -> BinaryIO:
         """
