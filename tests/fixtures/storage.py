@@ -12,12 +12,6 @@ from src.depo.storage.filesystem import FilesystemStorage
 
 
 @pytest.fixture
-def test_storage_root(tmp_path):
-    """Temporary directory for storage tests."""
-    return tmp_path / "storage"
-
-
-@pytest.fixture
-def test_storage(test_storage_root):
+def tmp_fs(tmp_path):
     """FilesystemStorage instance with temporary root."""
-    return FilesystemStorage(root=test_storage_root)
+    return FilesystemStorage(root=tmp_path / "depo-test")

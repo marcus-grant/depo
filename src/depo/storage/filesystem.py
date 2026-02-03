@@ -25,7 +25,8 @@ class FilesystemStorage(StorageBackend):
             root: Base directory for all stored files.
                   Created if it doesn't exist.
         """
-        raise NotImplementedError
+        self._root = root
+        self._root.mkdir(parents=True, exist_ok=True)
 
     def _path_for(self, code: str, format: ContentFormat) -> Path:
         """
