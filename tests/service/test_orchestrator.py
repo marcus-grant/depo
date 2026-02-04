@@ -11,6 +11,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 from tests.factories.models import make_link_item, make_pic_item, make_text_item
+from tests.factories.payloads import gen_image
 from tests.helpers.assertions import assert_field
 
 from depo.model.enums import ContentFormat
@@ -56,38 +57,54 @@ class TestIngestOrchestratorInit:
         """Stores IngestOrchestrator expected members"""
         service, repo = IngestService(), SqliteRepository(test_db)
         orchestrator = IngestOrchestrator(service, repo, tmp_fs)
-        assert orchestrator._service == service
-        assert orchestrator._repo == repo
-        assert orchestrator._store == tmp_fs
+        assert orchestrator._service is service
+        assert orchestrator._repo is repo
+        assert orchestrator._store is tmp_fs
 
 
 class TestIngestOrchestratorIngest:
     """Tests for IngestOrchestrator.ingest()."""
 
-    def test_happy_path(self, test_db, tmp_fs):
-        """Happy path returns
-        - PersistedResult.created=True
-        - item persisted in repo
-        - bytes written to storage"""
-        # Assemble orchestrator inputs and basic ingest args
+    def test_happy_path_text_item(self, test_orchestrator_env):
+        """TextItem happy path: created=True, item in repo, bytes in storage."""
+        orch, repo, store = test_orchestrator_env
         payload, fmt = b"Hello, World!", ContentFormat.PLAINTEXT
-        service, repo = IngestService(), SqliteRepository(test_db)
-        orchestrator = IngestOrchestrator(service, repo, tmp_fs)
 
-        # Act with ingest in happy path and collect PersistedResult & item fields
-        result = orchestrator.ingest(payload_bytes=payload, requested_format=fmt)
+        result = orch.ingest(payload_bytes=payload, requested_format=fmt)
         item, hash_full, code = result.item, result.item.hash_full, result.item.code
 
-        # Assert result.created == True, item in repo, content in store
         assert isinstance(result, PersistResult)
         assert result.created
         assert repo.get_by_full_hash(hash_full) == item
         assert isinstance(item, TextItem)
-        with tmp_fs.open(code=code, format=item.format) as f:
+        with store.open(code=code, format=item.format) as f:
             assert f.read() == payload
 
+    def test_happy_path_pic_item(self, test_orchestrator_env):
+        """PicItem happy path: created=True, item in repo, bytes in storage."""
+        orch, repo, storage = test_orchestrator_env
+        payload = gen_image(ContentFormat.PNG, 1, 1)
+        # TODO: Modify this test to use payload_path file streaming
 
-# Happy path:
-# - returns PersistResult with created=True
-# - item persisted in repo (get_by_full_hash returns it)
-# - bytes written to storage (storage.open returns content)
+        result = orch.ingest(payload_bytes=payload)
+        item, hash_full, code = result.item, result.item.hash_full, result.item.code
+
+        assert isinstance(result, PersistResult)
+        assert result.created
+        assert repo.get_by_full_hash(hash_full) == item
+        assert isinstance(item, PicItem)
+        with storage.open(code=code, format=item.format) as f:
+            assert f.read() == payload
+
+    def test_happy_path_link_item(self, test_orchestrator_env):
+        """LinkItem happy path: created=True, item in repo, NOT in storage."""
+        orch, repo, storage = test_orchestrator_env
+
+        result = orch.ingest(link_url="https://www.example.com/")
+        item, hash_full, code = result.item, result.item.hash_full, result.item.code
+
+        assert isinstance(result, PersistResult)
+        assert result.created
+        assert repo.get_by_full_hash(hash_full) == item
+        assert isinstance(item, LinkItem)
+        assert list(storage._root.glob(f"*{code}*")) == []

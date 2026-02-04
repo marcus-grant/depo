@@ -59,6 +59,7 @@ class IngestOrchestrator:
         *,
         payload_bytes: bytes | None = None,
         payload_path: Path | None = None,
+        link_url: str | None = None,
         filename: str | None = None,
         declared_mime: str | None = None,
         requested_format: ContentFormat | None = None,
@@ -85,6 +86,7 @@ class IngestOrchestrator:
         plan = self._service.build_plan(
             payload_bytes=payload_bytes,
             payload_path=payload_path,
+            link_url=link_url,
             filename=filename,
             declared_mime=declared_mime,
             requested_format=requested_format,
@@ -93,8 +95,11 @@ class IngestOrchestrator:
         # Insert into database with WritePlan
         item = self._repo.insert(plan)
 
-        # Save into StorageBackend
-        self._store.put(code=item.code, format=item.format, source_bytes=payload_bytes)  # type: ignore
+        # Save into StorageBackend if not a LinkItem
+        # TODO: Implement payload_path temp file streaming
+        if not isinstance(item, LinkItem):
+            code, format = item.code, item.format
+            self._store.put(code=code, format=format, source_bytes=payload_bytes)
 
         # Return PersistResult as result of IngestOrchestrator pipeline
         return PersistResult(item=item, created=True)
