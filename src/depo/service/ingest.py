@@ -27,7 +27,11 @@ class IngestService:
     """Orchestrates the ingest pipeline."""
 
     def __init__(
-        self, *, min_code_length: int = 8, max_size_bytes: int = 2**20
+        self,
+        *,
+        min_code_length: int = 8,
+        max_size_bytes: int = 2**20,
+        max_url_len: int = 2048,
     ) -> None:
         """Initialize with configuration.
 
@@ -37,6 +41,7 @@ class IngestService:
         """
         self.min_code_length = min_code_length
         self.max_size_bytes = max_size_bytes
+        self.max_url_len = max_url_len
 
     def build_plan(
         self,
@@ -46,6 +51,7 @@ class IngestService:
         filename: str | None = None,
         declared_mime: str | None = None,
         requested_format: ContentFormat | None = None,
+        link_url: str | None = None,
     ) -> WritePlan:
         """Build a WritePlan from upload data.
 
@@ -63,19 +69,49 @@ class IngestService:
             ValueError: If validation or classification fails.
             ValueError: If invalid size payload given
         """
-        # Validate and resolve payload to bytes
+        # Validate source data
+        provided_sources = sum(
+            [payload_bytes is not None, payload_path is not None, link_url is not None]
+        )
+        if provided_sources != 1:
+            raise ValueError("Expected one of payload_bytes, payload_path or link_url.")
+
+        # Shortcut process for link_url - no need to classify & different validation
+        # TODO: Refactor: Validation should be its own module
+        if link_url is not None:
+            # Validate size & encode str to utf-8 to normalize hashed data
+            link_bytes = link_url.encode("utf-8")
+            ll = len(link_bytes)
+            if ll <= 0:
+                raise ValueError("link_url string is empty")
+            if ll > self.max_url_len:
+                raise ValueError(f"Link url len {ll} exceeds limit {self.max_url_len}")
+            # Validate URI Format
+            if not link_url.startswith(("http://", "https://")):
+                raise ValueError("Link url must start with http:// or https://")
+
+            # Assemble & return WritePlan
+            return WritePlan(
+                hash_full=hash_full_b32(link_bytes),
+                code_min_len=self.min_code_length,
+                payload_kind=PayloadKind.NONE,
+                kind=ItemKind.LINK,
+                size_b=ll,
+                upload_at=int(time.time()),
+                link_url=link_url,
+            )  # From here, we are no longer dealing with link_url
+
+        # Determine PayloadKind and read data if needed
         data: bytes
-        if (payload_bytes is None) == (payload_path is None):
-            raise ValueError("Expected one of payload_bytes or payload_path.")
         if payload_bytes is not None:
             data = payload_bytes
             payload_kind = PayloadKind.BYTES
         else:  # TODO: This changes with temp file streaming
-            assert payload_path is not None  # for type checker
+            assert payload_path is not None  # for type checkers
             data = payload_path.read_bytes()
             payload_kind = PayloadKind.FILE
 
-        # Validate size
+        # Validate payload size
         size = len(data)
         if size > self.max_size_bytes:
             msg = f"Payload size {size} bytes exceeds limit {self.max_size_bytes}"
@@ -83,8 +119,7 @@ class IngestService:
         if size <= 0:
             raise ValueError("Payload is empty")
 
-        # Create shortcode from payload and classify it
-        hash = hash_full_b32(data)
+        # If here - We're only dealing with a payload, classify it
         content_class = classify(
             data,
             filename=filename,
@@ -98,16 +133,16 @@ class IngestService:
             img_info = get_image_info(data)
             width, height = img_info.width, img_info.height
 
-        # Assemble write plan
+        # Assemble final write plan
         return WritePlan(
-            payload_kind=payload_kind,
-            payload_bytes=data,  # TODO: This changes with temp file streaming
-            size_b=size,
+            hash_full=hash_full_b32(data),
             code_min_len=self.min_code_length,
-            hash_full=hash,
+            payload_kind=payload_kind,
+            size_b=size,
+            upload_at=int(time.time()),
+            payload_bytes=data,  # TODO: This changes with temp file streaming
             kind=content_class.kind,
             format=content_class.format,
-            upload_at=int(time.time()),
             width=width,
             height=height,
         )
