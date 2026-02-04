@@ -193,3 +193,24 @@ class TestIngestServiceAssembly:
             requested_format=ContentFormat.PLAINTEXT,
         )
         assert plan.code_min_len == 12
+
+    # TODO: These two payload tests need changing when PayloadKind.FILE is supported
+    def test_writeplan_has_payload_bytes_from_bytes(self):
+        """WritePlan.payload_bytes populated from payload_bytes input."""
+        data = b"hello world"
+        plan = IngestService().build_plan(
+            payload_bytes=data,
+            requested_format=ContentFormat.PLAINTEXT,
+        )
+        assert plan.payload_bytes == data
+
+    def test_writeplan_has_payload_bytes_from_path(self, tmp_path):
+        """WritePlan.payload_bytes populated from payload_path input."""
+        f = tmp_path / "test.txt"
+        data = b"hello world"
+        f.write_bytes(data)
+        plan = IngestService().build_plan(
+            payload_path=f,
+            requested_format=ContentFormat.PLAINTEXT,
+        )
+        assert plan.payload_bytes == data

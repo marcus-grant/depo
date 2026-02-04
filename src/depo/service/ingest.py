@@ -22,6 +22,7 @@ from depo.util.shortcode import hash_full_b32
 
 # TODO: Create config loader infrastructure and centralized defaults
 # TODO: Implement file streaming for classification, hashing and sizing
+# TODO: Change logic to stream payload to tmp file NOT saving to payload_bytes
 class IngestService:
     """Orchestrates the ingest pipeline."""
 
@@ -63,12 +64,13 @@ class IngestService:
             ValueError: If invalid size payload given
         """
         # Validate and resolve payload to bytes
+        data: bytes
         if (payload_bytes is None) == (payload_path is None):
             raise ValueError("Expected one of payload_bytes or payload_path.")
         if payload_bytes is not None:
             data = payload_bytes
             payload_kind = PayloadKind.BYTES
-        else:
+        else:  # TODO: This changes with temp file streaming
             assert payload_path is not None  # for type checker
             data = payload_path.read_bytes()
             payload_kind = PayloadKind.FILE
@@ -99,6 +101,7 @@ class IngestService:
         # Assemble write plan
         return WritePlan(
             payload_kind=payload_kind,
+            payload_bytes=data,  # TODO: This changes with temp file streaming
             size_b=size,
             code_min_len=self.min_code_length,
             hash_full=hash,
