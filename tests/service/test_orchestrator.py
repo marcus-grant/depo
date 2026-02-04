@@ -14,7 +14,9 @@ from tests.factories.models import make_link_item, make_pic_item, make_text_item
 from tests.helpers.assertions import assert_field
 
 from depo.model.item import LinkItem, PicItem, TextItem
-from depo.service.orchestrator import PersistResult
+from depo.repo.sqlite import SqliteRepository
+from depo.service.ingest import IngestService
+from depo.service.orchestrator import IngestOrchestrator, PersistResult
 
 
 class TestPersistResult:
@@ -44,3 +46,15 @@ class TestPersistResult:
             item = factory()
             result = PersistResult(item=item, created=False)
             assert result.item is item, f"Failed for {type(item).__name__}"
+
+
+class TestIngestOrchestratorInit:
+    """Tests for IngestOrchestrator constructor."""
+
+    def test_stores_all_members(self, test_db, tmp_fs):
+        """Stores IngestOrchestrator expected members"""
+        service, repo = IngestService(), SqliteRepository(test_db)
+        orchestrator = IngestOrchestrator(service, repo, tmp_fs)
+        assert orchestrator._service == service
+        assert orchestrator._repo == repo
+        assert orchestrator._store == tmp_fs
