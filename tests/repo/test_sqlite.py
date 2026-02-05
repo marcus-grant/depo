@@ -183,6 +183,10 @@ class TestInitDb:
         row = conn.execute("SELECT * FROM items").fetchone()
         assert row is not None
 
+    def test_foreign_keys_enabled(self, test_db):
+        """FK constraints are enabled after init."""
+        assert test_db.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+
 
 class TestRowMappers:
     """Tests for row mapper functions."""
@@ -440,3 +444,46 @@ class TestInsert:
         )
         result = repo.insert(plan)
         assert result.code == "ABCD1234X"  # Extended to 9 chars, no collision
+
+
+class TestDelete:
+    """Tests for SqliteRepository.delete()."""
+
+    def test_delete_cascades_to_subtype(self, test_db):
+        """Deleting item removes row from items and correct subtype table."""
+        hash_suffix = "0123456789ABCDEFGHJKMNP"
+        _insert_text_item(test_db, hash_full=f"T{hash_suffix}", code="TXTC0DE1")
+        _insert_pic_item(test_db, hash_full=f"P{hash_suffix}", code="PICC0DE1")
+        _insert_link_item(test_db, hash_full=f"L{hash_suffix}", code="URLC0DE1")
+        repo = SqliteRepository(test_db)
+
+        def count(t):
+            return test_db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+
+        assert count("items") == 3
+        assert count("text_items") == 1
+        assert count("pic_items") == 1
+        assert count("link_items") == 1
+
+        repo.delete("T0123456789ABCDEFGHJKMNP")
+        assert count("items") == 2
+        assert count("text_items") == 0
+        assert count("pic_items") == 1
+        assert count("link_items") == 1
+
+        repo.delete("P0123456789ABCDEFGHJKMNP")
+        assert count("items") == 1
+        assert count("text_items") == 0
+        assert count("pic_items") == 0
+        assert count("link_items") == 1
+
+        repo.delete("L0123456789ABCDEFGHJKMNP")
+        assert count("items") == 0
+        assert count("text_items") == 0
+        assert count("pic_items") == 0
+        assert count("link_items") == 0
+
+    def test_delete_nonexistent_is_noop(self, test_db):
+        """Deleting nonexistent hash doesn't raise."""
+        repo = SqliteRepository(test_db)
+        repo.delete("DOESNOTEXIST12345678")

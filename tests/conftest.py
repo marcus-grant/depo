@@ -6,6 +6,7 @@ import sqlite3
 import pytest
 
 pytest_plugins = [
+    "tests.fixtures",
     "tests.fixtures.db",
     "tests.fixtures.storage",
 ]
