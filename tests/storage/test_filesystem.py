@@ -10,6 +10,7 @@ License: Apache-2.0
 import pytest
 
 from depo.model.enums import ContentFormat
+from depo.model.formats import extension_for_format
 from depo.storage.filesystem import FilesystemStorage
 
 
@@ -41,81 +42,74 @@ class TestFilesystemStorageInit:
 class TestFilesystemStoragePut:
     """Tests FilesystemStorage.put()."""
 
-    def test_writes_source_bytes_to_correct_path(self, tmp_fs):
+    def test_writes_source_bytes_to_correct_path(self, t_store):
         """Writes source_bytes to {root}/{code}.{ext}"""
-        tmp_fs.put(code="ABC123", format=ContentFormat.PLAINTEXT, source_bytes=b"hello")
-        tmp_fs.put(
-            code="XYZ789", format=ContentFormat.TIFF, source_bytes=b"\x00\xff\x00"
-        )
-        # TIFF -> tif proves extension_for_format is used
-        assert (tmp_fs._root / "ABC123.txt").read_bytes() == b"hello"
-        assert (tmp_fs._root / "XYZ789.tif").read_bytes() == b"\x00\xff\x00"
+        # Use format TIFF to prove extension_for_format is used: TIFF -> .tif
+        f2e, f1, f2 = extension_for_format, ContentFormat.PLAINTEXT, ContentFormat.TIFF
+        c1, c2, e1, e2 = "ABC123", "XYZ789", f2e(f1), f2e(f2)
+        t_store.put(code=c1, format=f1, source_bytes=b"hello")
+        t_store.put(code=c2, format=f2, source_bytes=b"\x00\xff\x00")
+        assert (t_store._root / f"{c1}.{e1}").read_bytes() == b"hello"
+        assert (t_store._root / f"{c2}.{e2}").read_bytes() == b"\x00\xff\x00"
 
-    def test_writes_source_path_to_correct_path(self, tmp_fs):
+    def test_writes_source_path_to_correct_path(self, t_store):
         """Writes source_path contents to {root}/{code}.{ext}"""
         # Assemble temporary files with test data
-        tmp_jpg = tmp_fs._root / "input.jpg"
-        tmp_tif = tmp_fs._root / "input.tif"
-        tmp_jpg.write_bytes(b"hello")
-        tmp_tif.write_bytes(b"\x00\xff\x00")
+        path_jpg, byt_jpg = (t_store._root / "input.jpg"), b"hello"
+        path_tif, byt_tif = (t_store._root / "input.tif"), b"\x00\xff\x00"
+        path_jpg.write_bytes(byt_jpg)
+        path_tif.write_bytes(byt_tif)
         # Act
-        tmp_fs.put(code="jpg12345", format=ContentFormat.JPEG, source_path=tmp_jpg)
-        tmp_fs.put(code="tifmpqrs", format=ContentFormat.TIFF, source_path=tmp_tif)
+        t_store.put(code="jpg12345", format=ContentFormat.JPEG, source_path=path_jpg)
+        t_store.put(code="tifmpqrs", format=ContentFormat.TIFF, source_path=path_tif)
         # Assert
-        assert (tmp_fs._root / "jpg12345.jpg").read_bytes() == b"hello"
-        assert (tmp_fs._root / "tifmpqrs.tif").read_bytes() == b"\x00\xff\x00"
+        assert (t_store._root / "jpg12345.jpg").read_bytes() == byt_jpg
+        assert (t_store._root / "tifmpqrs.tif").read_bytes() == byt_tif
 
-    def test_raises_for_none_or_both_source_args(self, tmp_fs):
+    def test_raises_for_none_or_both_source_args(self, t_store):
         """Raises for both source_* args being both None or both valid values"""
         err = r"(?i)one of.*source"
         with pytest.raises(ValueError, match=err):
-            tmp_fs.put(code="f00bar", format=ContentFormat.PNG)
+            t_store.put(code="f00bar", format=ContentFormat.PNG)
         with pytest.raises(ValueError, match=err):
-            tmp_fs.put(
-                code="f00bar",
-                format=ContentFormat.PNG,
-                source_bytes=b"hi",
-                source_path=tmp_fs._root,
-            )
+            kw = {"code": "f00bar", "format": ContentFormat.PNG}
+            t_store.put(**kw, source_bytes=b"hi", source_path=t_store._root)
 
 
 class TestFilesystemStorageOpen:
     """Tests FilesystemStorage.open()."""
 
-    def test_file_handle_for_existing_file(self, tmp_fs):
+    def test_file_handle_for_existing_file(self, t_store):
         """Returns file handle for existing file"""
         # Assemble existing test file & expected inputs
         code, fmt, data = "19F00BAR", ContentFormat.JSON, b"FooBar"
-        tmp_fs.put(code=code, format=fmt, source_bytes=data)
-
+        t_store.put(code=code, format=fmt, source_bytes=data)
         # Act by opening put test file
-        with tmp_fs.open(code=code, format=fmt) as f:
+        with t_store.open(code=code, format=fmt) as f:
             # Assert by comparing put data with opened
             assert f.read() == data
 
-    def test_raises_for_no_file(self, tmp_fs):
+    def test_raises_for_no_file(self, t_store):
         """Raises FileNotFoundError for missing file"""
         with pytest.raises(FileNotFoundError):
-            tmp_fs.open(code="N0TEX1ST", format=ContentFormat.PNG)
+            t_store.open(code="N0TEX1ST", format=ContentFormat.PNG)
 
 
 class TestFilesystemStorageDelete:
     """Tests FilesystemStorage.delete()."""
 
-    def test_removes_existing_file(self, tmp_fs):
+    def test_removes_existing_file(self, t_store):
         """Removes existing file"""
         # Assemble existing test file with code and format
         code, fmt, data = "F1LEX1ST", ContentFormat.PLAINTEXT, b"Hello, World!"
-        tmp_fs.put(code=code, format=fmt, source_bytes=data)
-
+        t_store.put(code=code, format=fmt, source_bytes=data)
         # Act by using delete() on existing test file
-        tmp_fs.delete(code=code, format=fmt)
-
+        t_store.delete(code=code, format=fmt)
         # Assert the file no longer exists by using .open to raise FileNotFoundError
         with pytest.raises(FileNotFoundError):
-            tmp_fs.open(code=code, format=fmt)
+            t_store.open(code=code, format=fmt)
 
-    def test_no_error_for_missing_file(self, tmp_fs):
+    def test_no_error_for_missing_file(self, t_store):
         """No error when attempting to delete non-existing file"""
         # Act by delete() on non-existing file - asserts by not raising
-        tmp_fs.delete(code="N0TEX1ST", format=ContentFormat.PNG)
+        t_store.delete(code="N0TEX1ST", format=ContentFormat.PNG)
