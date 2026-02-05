@@ -39,6 +39,7 @@ class PayloadKind(StrEnum):
 
     BYTES = "byte"
     FILE = "file"
+    NONE = "none"
 
 
 class ContentFormat(StrEnum):

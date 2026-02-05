@@ -21,13 +21,19 @@ from depo.util.shortcode import hash_full_b32
 class TestIngestServiceInit:
     """Tests IngestService constructor"""
 
-    @pytest.mark.parametrize("min_len,max_size", [(2, 2**10), (4, 2**20), (8, 2**30)])
-    def test_accepts_valid_configs(self, min_len, max_size):
+    @pytest.mark.parametrize(
+        "min_len,max_size,max_url",
+        [(2, 2**10, 2048), (4, 2**20, 1024), (8, 2**30, 4096)],
+    )
+    def test_accepts_valid_configs(self, min_len, max_size, max_url):
         """Accepts min_code_length & max_size_bytes as config"""
-        result = IngestService(min_code_length=min_len, max_size_bytes=max_size)
+        result = IngestService(
+            min_code_length=min_len, max_size_bytes=max_size, max_url_len=max_url
+        )
         assert isinstance(result, IngestService)
         assert result.min_code_length == min_len
         assert result.max_size_bytes == max_size
+        assert result.max_url_len == max_url
 
 
 class TestIngestServiceValidation:
@@ -147,6 +153,46 @@ class TestIngestServiceImage:
             IngestService().build_plan(payload_bytes=b"\xff\xd8\xff\xe1")
 
 
+class TestBuildPlanLinkUrl:
+    """Tests for build_plan() with link_url."""
+
+    def test_returns_plan_with_expected_fields(self):
+        """Returns expected WritePlan with correct field values for urls"""
+        # build_plan doesnt need payload_{bytes,path}, only link_url
+        plan = IngestService().build_plan(link_url="http://a.eu")
+        assert plan.kind == ItemKind.LINK
+        assert plan.link_url == "http://a.eu"
+        assert plan.hash_full == hash_full_b32(bytes("http://a.eu", encoding="utf-8"))
+        assert plan.payload_kind == PayloadKind.NONE
+
+    def test_raises_for_link_and_payload_args(self):
+        """Raises if link_url provided along with any or both payload args"""
+        match, byt, pth, url = r"(?i)one of.*payload", b"\xff", Path("/"), "http://a.eu"
+        with pytest.raises(ValueError, match=match):
+            IngestService().build_plan(link_url=url, payload_bytes=byt)
+        with pytest.raises(ValueError, match=match):
+            IngestService().build_plan(link_url=url, payload_path=pth)
+        with pytest.raises(ValueError, match=match):
+            IngestService().build_plan(
+                link_url=url, payload_bytes=byt, payload_path=pth
+            )
+
+    @pytest.mark.parametrize(
+        "url, match",
+        [
+            ("", r"(?i)(empty|zero)"),
+            ("a" * 2049, r"(?i)(max|big|exceed)"),
+            ("www.example.com", r"(?i)(schema|http)"),
+        ],
+    )
+    def test_raises_for_invalid_link(self, url, match):
+        """Raises if invalid link_url provided
+        Invalid: Empty, Too big, no HTTP(s) prefix
+        """
+        with pytest.raises(ValueError, match=match):
+            IngestService(max_url_len=2048).build_plan(link_url=url)
+
+
 class TestIngestServiceAssembly:
     """Tests IngestService.build_plan WritePlan assembly."""
 
@@ -193,3 +239,24 @@ class TestIngestServiceAssembly:
             requested_format=ContentFormat.PLAINTEXT,
         )
         assert plan.code_min_len == 12
+
+    # TODO: These two payload tests need changing when PayloadKind.FILE is supported
+    def test_writeplan_has_payload_bytes_from_bytes(self):
+        """WritePlan.payload_bytes populated from payload_bytes input."""
+        data = b"hello world"
+        plan = IngestService().build_plan(
+            payload_bytes=data,
+            requested_format=ContentFormat.PLAINTEXT,
+        )
+        assert plan.payload_bytes == data
+
+    def test_writeplan_has_payload_bytes_from_path(self, tmp_path):
+        """WritePlan.payload_bytes populated from payload_path input."""
+        f = tmp_path / "test.txt"
+        data = b"hello world"
+        f.write_bytes(data)
+        plan = IngestService().build_plan(
+            payload_path=f,
+            requested_format=ContentFormat.PLAINTEXT,
+        )
+        assert plan.payload_bytes == data
