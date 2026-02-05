@@ -16,7 +16,6 @@ from tests.helpers.assertions import assert_field
 
 from depo.model.enums import ContentFormat
 from depo.model.item import LinkItem, PicItem, TextItem
-from depo.repo.sqlite import SqliteRepository
 from depo.service.ingest import IngestService
 from depo.service.orchestrator import IngestOrchestrator, PersistResult
 from depo.util.shortcode import hash_full_b32
@@ -24,7 +23,7 @@ from depo.util.shortcode import hash_full_b32
 _EXPECTED_OS_RAISE = "Testing disk write error"
 
 
-def _failing_put(**kwargs):
+def _failing_put(**_):
     raise OSError(_EXPECTED_OS_RAISE)
 
 
@@ -60,67 +59,59 @@ class TestPersistResult:
 class TestIngestOrchestratorInit:
     """Tests for IngestOrchestrator constructor."""
 
-    def test_stores_all_members(self, test_db, tmp_fs):
+    def test_stores_all_members(self, t_repo, t_store):
         """Stores IngestOrchestrator expected members"""
-        service, repo = IngestService(), SqliteRepository(test_db)
-        orchestrator = IngestOrchestrator(service, repo, tmp_fs)
+        service = IngestService()
+        orchestrator = IngestOrchestrator(service, t_repo, t_store)
         assert orchestrator._service is service
-        assert orchestrator._repo is repo
-        assert orchestrator._store is tmp_fs
+        assert orchestrator._repo is t_repo
+        assert orchestrator._store is t_store
 
 
 class TestIngestOrchestratorIngest:
     """Tests for IngestOrchestrator.ingest()."""
 
-    def test_happy_path_text_item(self, test_orchestrator_env):
+    def test_happy_path_text_item(self, t_orch_env):
         """TextItem happy path: created=True, item in repo, bytes in storage."""
-        orch, repo, store = test_orchestrator_env
+        orch, repo, store = t_orch_env  # Assemble orchestrator
         payload, fmt = b"Hello, World!", ContentFormat.PLAINTEXT
-
+        # Act with assembled orchestrator's ingest & test inputs
         result = orch.ingest(payload_bytes=payload, requested_format=fmt)
-        item, hash_full, code = result.item, result.item.hash_full, result.item.code
-
+        # Assert PersistResult with correct field values
         assert isinstance(result, PersistResult)
         assert result.created
-        assert repo.get_by_full_hash(hash_full) == item
-        assert isinstance(item, TextItem)
-        with store.open(code=code, format=item.format) as f:
+        assert repo.get_by_full_hash(result.item.hash_full) == result.item
+        assert isinstance(result.item, TextItem)
+        with store.open(code=result.item.code, format=result.item.format) as f:
             assert f.read() == payload
 
-    def test_happy_path_pic_item(self, test_orchestrator_env):
+    def test_happy_path_pic_item(self, t_orch_env):
         """PicItem happy path: created=True, item in repo, bytes in storage."""
-        orch, repo, storage = test_orchestrator_env
-        payload = gen_image(ContentFormat.PNG, 1, 1)
         # TODO: Modify this test to use payload_path file streaming
-
-        result = orch.ingest(payload_bytes=payload)
-        item, hash_full, code = result.item, result.item.hash_full, result.item.code
-
-        assert isinstance(result, PersistResult)
+        orch, repo, storage = t_orch_env  # Assemble orchestrator
+        payload = gen_image(ContentFormat.PNG, 1, 1)  # and its inputs
+        result = orch.ingest(payload_bytes=payload)  # Act
+        assert isinstance(result, PersistResult)  # Assert
         assert result.created
-        assert repo.get_by_full_hash(hash_full) == item
-        assert isinstance(item, PicItem)
-        with storage.open(code=code, format=item.format) as f:
+        assert repo.get_by_full_hash(result.item.hash_full) == result.item
+        assert isinstance(result.item, PicItem)
+        with storage.open(code=result.item.code, format=result.item.format) as f:
             assert f.read() == payload
 
-    def test_happy_path_link_item(self, test_orchestrator_env):
+    def test_happy_path_link_item(self, t_orch_env):
         """LinkItem happy path: created=True, item in repo, NOT in storage."""
-        # Assemble orchestrator, its repo and its store
-        orch, repo, store = test_orchestrator_env
-
-        result = orch.ingest(link_url="https://www.example.com/")
-        item, hash_full, code = result.item, result.item.hash_full, result.item.code
-
-        assert isinstance(result, PersistResult)
+        orch, repo, store = t_orch_env  # Assemble
+        result = orch.ingest(link_url="https://www.example.com/")  # Act
+        assert isinstance(result, PersistResult)  # Assert
         assert result.created
-        assert repo.get_by_full_hash(hash_full) == item
-        assert isinstance(item, LinkItem)
-        assert list(store._root.glob(f"*{code}*")) == []
+        assert repo.get_by_full_hash(result.item.hash_full) == result.item
+        assert isinstance(result.item, LinkItem)
+        assert list(store._root.glob(f"*{result.item.code}*")) == []
 
-    def test_dedupe_returns_existing_item(self, test_orchestrator_env):
+    def test_dedupe_returns_existing_item(self, t_orch_env):
         """Duplicate payload returns created=False with existing item."""
         # Assemble Orchestrator, and the payload to ingest
-        orch, _, _ = test_orchestrator_env
+        orch, _, _ = t_orch_env
         payload, fmt = b"duplicate content", ContentFormat.PLAINTEXT
 
         # Act by ingesting the same content twice with same args
@@ -132,12 +123,11 @@ class TestIngestOrchestratorIngest:
         assert second.created is False
         assert second.item == first.item
 
-    def test_rollback_on_storage_raise(self, test_orchestrator_env, monkeypatch):
+    def test_rollback_on_storage_raise(self, t_orch_env, monkeypatch):
         """Rollback on storage.put OSError causes repo.delete & re-raises"""
-        orch, repo, store = test_orchestrator_env
+        orch, repo, store = t_orch_env
         monkeypatch.setattr(store, "put", _failing_put)
         hash_full, cf_txt = hash_full_b32(b"hello"), ContentFormat.PLAINTEXT
-
         with pytest.raises(OSError, match=_EXPECTED_OS_RAISE):
             orch.ingest(payload_bytes=b"hello", requested_format=cf_txt)
         assert repo.get_by_full_hash(hash_full) is None
