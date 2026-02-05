@@ -19,18 +19,6 @@ from depo.service.ingest import IngestService
 from depo.service.orchestrator import IngestOrchestrator
 from depo.storage.filesystem import FilesystemStorage
 
-# TODO: Remove when refactor complete
-# Temporary aliases until migration complete
-# from .storage import tmp_fs  # noqa
-
-
-@pytest.fixture
-def conn() -> Generator[sqlite3.Connection, None, None]:  # noqa: F811
-    """Temporary alias for t_conn."""
-    c = sqlite3.connect(":memory:")
-    yield c
-    c.close()
-
 
 @pytest.fixture
 def t_conn() -> Generator[sqlite3.Connection, None, None]:

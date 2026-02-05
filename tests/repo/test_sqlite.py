@@ -168,12 +168,12 @@ class TestInitDb:
         msg = f"missing index: {index_name}"
         assert t_db.execute(q, (index_name,)).fetchone() is not None, msg
 
-    def test_idempotent(self, conn):
+    def test_idempotent(self, t_conn):
         """Calling init_db twice doesn't raise."""
-        init_db(conn)
-        _insert_text_item(conn)
-        init_db(conn)  # Should not raise
-        row = conn.execute("SELECT * FROM items").fetchone()
+        init_db(t_conn)
+        _insert_text_item(t_conn)
+        init_db(t_conn)  # Should not raise
+        row = t_conn.execute("SELECT * FROM items").fetchone()
         assert row is not None
 
     def test_foreign_keys_enabled(self, t_db):
