@@ -112,11 +112,9 @@ class TestInitDb:
             ("origin_at", "INTEGER", False, None, False),
         ],
     )
-    def test_items_table_columns(self, test_db, name, typ, notnull, default, pk):
+    def test_items_table_columns(self, t_db, name, typ, notnull, default, pk):
         """items table has correct column definitions."""
-        assert_column(
-            test_db, "items", name, typ, notnull=notnull, default=default, pk=pk
-        )
+        assert_column(t_db, "items", name, typ, notnull=notnull, default=default, pk=pk)
 
     @pytest.mark.parametrize(
         ("name", "typ", "notnull", "default", "pk"),
@@ -125,11 +123,10 @@ class TestInitDb:
             ("format", "TEXT", True, None, False),
         ],
     )
-    def test_text_items_table_columns(self, test_db, name, typ, notnull, default, pk):
+    def test_text_items_table_columns(self, t_db, name, typ, notnull, default, pk):
         """text_items table has correct column definitions."""
-        assert_column(
-            test_db, "text_items", name, typ, notnull=notnull, default=default, pk=pk
-        )
+        args = (t_db, "text_items", name, typ)
+        assert_column(*args, notnull=notnull, default=default, pk=pk)
 
     @pytest.mark.parametrize(
         ("name", "typ", "notnull", "default", "pk"),
@@ -140,11 +137,10 @@ class TestInitDb:
             ("height", "INTEGER", True, None, False),
         ],
     )
-    def test_pic_items_table_columns(self, test_db, name, typ, notnull, default, pk):
+    def test_pic_items_table_columns(self, t_db, name, typ, notnull, default, pk):
         """pic_items table has correct column definitions."""
-        assert_column(
-            test_db, "pic_items", name, typ, notnull=notnull, default=default, pk=pk
-        )
+        args = (t_db, "pic_items", name, typ)
+        assert_column(*args, notnull=notnull, default=default, pk=pk)
 
     @pytest.mark.parametrize(
         ("name", "typ", "notnull", "default", "pk"),
@@ -153,11 +149,10 @@ class TestInitDb:
             ("url", "TEXT", True, None, False),
         ],
     )
-    def test_link_items_table_columns(self, test_db, name, typ, notnull, default, pk):
+    def test_link_items_table_columns(self, t_db, name, typ, notnull, default, pk):
         """link_items table has correct column definitions."""
-        assert_column(
-            test_db, "link_items", name, typ, notnull=notnull, default=default, pk=pk
-        )
+        args = (t_db, "link_items", name, typ)
+        assert_column(*args, notnull=notnull, default=default, pk=pk)
 
     @pytest.mark.parametrize(
         "index_name",
@@ -167,13 +162,11 @@ class TestInitDb:
             "idx_items_upload",
         ],
     )
-    def test_creates_indexes(self, test_db, index_name):
+    def test_creates_indexes(self, t_db, index_name):
         """init_db creates expected indexes."""
-        cursor = test_db.execute(
-            "SELECT name FROM sqlite_master WHERE type='index' AND name=?",
-            (index_name,),
-        )
-        assert cursor.fetchone() is not None, f"missing index: {index_name}"
+        q = "SELECT name FROM sqlite_master WHERE type='index' AND name=?"
+        msg = f"missing index: {index_name}"
+        assert t_db.execute(q, (index_name,)).fetchone() is not None, msg
 
     def test_idempotent(self, conn):
         """Calling init_db twice doesn't raise."""
@@ -183,26 +176,29 @@ class TestInitDb:
         row = conn.execute("SELECT * FROM items").fetchone()
         assert row is not None
 
-    def test_foreign_keys_enabled(self, test_db):
+    def test_foreign_keys_enabled(self, t_db):
         """FK constraints are enabled after init."""
-        assert test_db.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+        assert t_db.execute("PRAGMA foreign_keys").fetchone()[0] == 1
 
 
 class TestRowMappers:
     """Tests for row mapper functions."""
 
-    def test_row_to_text_item(self, test_db):
+    def test_row_to_text_item(self, t_db):
         """Maps all fields from joined row to TextItem."""
-        test_db.row_factory = sqlite3.Row
-        _insert_text_item(test_db)
-        row = test_db.execute(
+        # Assemble row factory & test row in items and text_items
+        _insert_text_item(t_db)
+        t_db.row_factory = sqlite3.Row
+        row = t_db.execute(
             "SELECT i.*, t.format FROM items i"
             " JOIN text_items t ON i.hash_full = t.hash_full"
             " WHERE i.code = 'ABCD1234'"
         ).fetchone()
 
+        # Act on row mapper
         result = _row_to_text_item(row)
 
+        # Assert Item fields
         assert_item_base_fields(
             result,
             code="ABCD1234",
@@ -213,22 +209,22 @@ class TestRowMappers:
             perm=Visibility.PUBLIC,
             upload_at=123456789,
             origin_at=None,
-        )
+        )  # Assert TextItem specific fields
         assert result.format == ContentFormat.PLAINTEXT
 
-    def test_row_to_pic_item(self, test_db):
+    def test_row_to_pic_item(self, t_db):
         """Maps all fields from joined row to PicItem."""
-        _insert_pic_item(test_db)
-        test_db.row_factory = sqlite3.Row
-        row = test_db.execute(
+        _insert_pic_item(t_db)  # Assemble
+        t_db.row_factory = sqlite3.Row
+        row = t_db.execute(
             "SELECT i.*, p.format, p.width, p.height FROM items i"
             " JOIN pic_items p ON i.hash_full = p.hash_full"
             " WHERE i.code = 'ABCD1234'"
         ).fetchone()
 
-        result = _row_to_pic_item(row)
+        result = _row_to_pic_item(row)  # Act
 
-        assert_item_base_fields(
+        assert_item_base_fields(  # Assert
             result,
             code="ABCD1234",
             hash_full="ABC1234506789DEFGHKMNPQR",
@@ -243,19 +239,19 @@ class TestRowMappers:
         assert result.width == 320
         assert result.height == 240
 
-    def test_row_to_link_item(self, test_db):
+    def test_row_to_link_item(self, t_db):
         """Maps all fields from joined row to LinkItem."""
-        _insert_link_item(test_db)
-        test_db.row_factory = sqlite3.Row
-        row = test_db.execute(
+        _insert_link_item(t_db)
+        t_db.row_factory = sqlite3.Row
+        row = t_db.execute(
             "SELECT i.*, l.url FROM items i"
             " JOIN link_items l ON i.hash_full = l.hash_full"
             " WHERE i.code = 'ABCD1234'"
-        ).fetchone()
+        ).fetchone()  # Assemble
 
-        result = _row_to_link_item(row)
+        result = _row_to_link_item(row)  # Act
 
-        assert_item_base_fields(
+        assert_item_base_fields(  # Assert
             result,
             code="ABCD1234",
             hash_full="ABC1234506789DEFGHKMNPQR",
@@ -272,65 +268,58 @@ class TestRowMappers:
 class TestGetByCode:
     """Tests for SqliteRepository.get_by_code()."""
 
-    def test_none_for_code_not_exist(self, test_db):
+    def test_none_for_code_not_exist(self, t_repo):
         """Returns None for 'Item.code' that doesn't exist"""
-        repo = SqliteRepository(test_db)
-        assert repo.get_by_code("N0TF0VND") is None
+        assert t_repo.get_by_code("N0TF0VND") is None
 
-    def test_text_item_for_text_item_code(self, test_db):
+    def test_text_item_for_text_item_code(self, t_repo):
         """Returns correct TextItem for its 'code' column"""
-        _insert_text_item(test_db)
-        repo = SqliteRepository(test_db)
-        result = repo.get_by_code("ABCD1234")
-        assert isinstance(result, TextItem)
-        assert result.code == "ABCD1234"
+        _insert_text_item(t_repo._conn)  # Assemble text_item record
+        result = t_repo.get_by_code("ABCD1234")  # Act with get
+        assert isinstance(result, TextItem)  # Assert it's a TextItem
+        assert result.code == "ABCD1234"  # Assert it's the same code
 
-    def test_pic_item_for_pic_item_code(self, test_db):
+    def test_pic_item_for_pic_item_code(self, t_repo):
         """Returns correct PicItem for its 'code' column"""
-        _insert_pic_item(test_db)
-        repo = SqliteRepository(test_db)
-        result = repo.get_by_code("ABCD1234")
-        assert isinstance(result, PicItem)
+        _insert_pic_item(t_repo._conn)  # Assemble
+        result = t_repo.get_by_code("ABCD1234")  # Act
+        assert isinstance(result, PicItem)  # Assert
         assert result.code == "ABCD1234"
 
-    def test_link_item_for_link_item_code(self, test_db):
+    def test_link_item_for_link_item_code(self, t_repo):
         """Returns correct LinkItem for its 'code' column"""
-        _insert_link_item(test_db)
-        repo = SqliteRepository(test_db)
-        result = repo.get_by_code("ABCD1234")
-        assert isinstance(result, LinkItem)
+        _insert_link_item(t_repo._conn)  # Assemble
+        result = t_repo.get_by_code("ABCD1234")  # Act
+        assert isinstance(result, LinkItem)  # Assert
         assert result.code == "ABCD1234"
 
 
 class TestGetByFullHash:
     """Tests for SqliteRepository.get_by_full_hash()."""
 
-    def test_none_for_hash_not_exist(self, test_db):
+    def test_none_for_hash_not_exist(self, t_repo):
         """Returns None for nonexistent hash_full"""
-        repo = SqliteRepository(test_db)
+        repo = SqliteRepository(t_repo._conn)
         assert repo.get_by_full_hash("0123456789ABCDEFGHJKMNPQ") is None
 
-    def test_text_item_for_item_hash(self, test_db):
+    def test_text_item_for_item_hash(self, t_repo):
         """Returns correct TextItem for its 'hash_full' PK"""
-        _insert_text_item(test_db)
-        repo = SqliteRepository(test_db)
-        result = repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
+        _insert_text_item(t_repo._conn)
+        result = t_repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
         assert isinstance(result, TextItem)
         assert result.hash_full == "ABC1234506789DEFGHKMNPQR"
 
-    def test_pic_item_for_item_hash(self, test_db):
+    def test_pic_item_for_item_hash(self, t_repo):
         """Returns correct PicItem for its 'hash_full' PK"""
-        _insert_pic_item(test_db)
-        repo = SqliteRepository(test_db)
-        result = repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
+        _insert_pic_item(t_repo._conn)
+        result = t_repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
         assert isinstance(result, PicItem)
         assert result.hash_full == "ABC1234506789DEFGHKMNPQR"
 
-    def test_link_item_for_item_hash(self, test_db):
+    def test_link_item_for_item_hash(self, t_repo):
         """Returns correct LinkItem for its 'hash_full' PK"""
-        _insert_link_item(test_db)
-        repo = SqliteRepository(test_db)
-        result = repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
+        _insert_link_item(t_repo._conn)
+        result = t_repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
         assert isinstance(result, LinkItem)
         assert result.hash_full == "ABC1234506789DEFGHKMNPQR"
 
@@ -338,62 +327,55 @@ class TestGetByFullHash:
 class TestResolveCode:
     """Tests for SqliteRepository.resolve_code()."""
 
-    def test_min_len_prefix_when_no_collisions(self, test_db):
+    def test_min_len_prefix_when_no_collisions(self, t_repo):
         """Returns min_len prefix when no collisions exist."""
-        repo, hash_full = SqliteRepository(test_db), "01234567890ABCDEFGHJKMNP"
-        assert repo.resolve_code(hash_full, min_len=8) == "01234567"
+        assert t_repo.resolve_code("01234567890ABCDEFGHJKMNP", min_len=8) == "01234567"
 
-    def test_prefix_when_collision_exists(self, test_db):
-        """Extends prefix when collision exists."""
-        repo = SqliteRepository(test_db)
-        _insert_text_item(
-            test_db, hash_full="0123456700000000XXXXXXXX", code="01234567"
-        )
-        target_hash = "01234567890ABCDEFGHJKMNP"
-        assert repo.resolve_code(target_hash, min_len=8) == "012345678"
+    def test_prefix_when_collision_exists(self, t_repo):
+        """Extends prefix code length by 1 when 1 colliding prefix exists."""
+        prefix, min_len = "01234567", 8
+        hash1, hash2 = f"{prefix}00000000XXXXXXXX", f"{prefix}890ABCDEFGHJKMNP"
+        _insert_text_item(t_repo._conn, hash_full=hash1, code=prefix)
+        assert t_repo.resolve_code(hash2, min_len=min_len) == prefix + hash2[min_len]
 
-    def test_extends_code_many_times_for_many_collisions(self, test_db):
+    def test_extends_code_many_times_for_many_collisions(self, t_repo):
         """Returns longer code when shorter prefixes collide"""
-        repo = SqliteRepository(test_db)
-        target_hash = "01234567890ABCDEFGHJKMNP"
-
         # Insert items with codes that collide with target's prefixes
+        target_hash = "01234567890ABCDEFGHJKMNP"
         for i in range(8, 24):
-            colliding_code = target_hash[:i]
-            different_hash = f"XXXXXXXXXXXXXXXXXXXXXX{i:02d}"  # unique hash per item
-            _insert_link_item(test_db, hash_full=different_hash, code=colliding_code)
-
+            hash_uniq = f"XXXXXXXXXXXXXXXXXXXXXX{i:02d}"  # unique hash per item
+            code_colide = target_hash[:i]  # Coliding code is one longer than previous
+            _insert_link_item(t_repo._conn, hash_full=hash_uniq, code=code_colide)
         # All prefixes taken, should return full hash
-        assert repo.resolve_code(target_hash, 8) == target_hash
+        assert t_repo.resolve_code(target_hash, 8) == target_hash
 
 
 class TestInsert:
     """Tests for SqliteRepository.insert()."""
 
-    def test_inserts_text_item(self, test_db):
+    def test_inserts_text_item(self, t_repo):
         """Inserts TextItem and returns it"""
-        repo, plan = SqliteRepository(test_db), make_write_plan(format="md")
-        result = repo.insert(plan, uid=69, perm=Visibility.PRIVATE)
-        assert isinstance(result, TextItem)
+        plan = make_write_plan(format="md")  # Assemble WritePlan to Insert with
+        result = t_repo.insert(plan, uid=69, perm=Visibility.PRIVATE)  # Act
+        assert isinstance(result, TextItem)  # Assert correct results
         assert result.code == plan.hash_full[: plan.code_min_len]
         assert result.size_b == plan.size_b
         assert result.upload_at == plan.upload_at
         assert result.uid == 69
         assert result.perm == Visibility.PRIVATE
         assert result.format == ContentFormat.MARKDOWN
-        assert result == repo.get_by_full_hash(plan.hash_full)
+        assert result == t_repo.get_by_full_hash(plan.hash_full)
 
-    def test_inserts_pic_item(self, test_db):
+    def test_inserts_pic_item(self, t_repo):
         """Inserts PicItem and returns it"""
-        repo = SqliteRepository(test_db)
-        plan = make_write_plan(
+        plan = make_write_plan(  # Assemble
             kind=ItemKind.PICTURE,
             format="jpg",
             width=800,
             height=600,
         )
-        result = repo.insert(plan)
-        assert isinstance(result, PicItem)
+        result = t_repo.insert(plan)  # Act
+        assert isinstance(result, PicItem)  # Assert
         assert result.code == plan.hash_full[: plan.code_min_len]
         assert result.size_b == plan.size_b
         assert result.upload_at == plan.upload_at
@@ -403,14 +385,13 @@ class TestInsert:
         assert result.format == ContentFormat.JPEG
         assert result.width == 800
         assert result.height == 600
-        assert result == repo.get_by_full_hash(plan.hash_full)
+        assert result == t_repo.get_by_full_hash(plan.hash_full)
 
-    def test_inserts_link_item(self, test_db):
+    def test_inserts_link_item(self, t_repo):
         """Inserts LinkItem and returns it"""
-        repo = SqliteRepository(test_db)
         kwargs = {"kind": ItemKind.LINK, "link_url": "https://depo.example.com"}
         plan = make_write_plan(**kwargs)
-        result = repo.insert(plan, uid=42, perm=Visibility.UNLISTED)
+        result = t_repo.insert(plan, uid=42, perm=Visibility.UNLISTED)
         assert isinstance(result, LinkItem)
         assert result.code == plan.hash_full[: plan.code_min_len]
         assert result.size_b == plan.size_b
@@ -418,72 +399,57 @@ class TestInsert:
         assert result.uid == 42
         assert result.perm == Visibility.UNLISTED
         assert result.url == "https://depo.example.com"
-        assert result == repo.get_by_full_hash(plan.hash_full)
+        assert result == t_repo.get_by_full_hash(plan.hash_full)
 
-    def test_raises_code_collision_error_on_duplicate_hash(self, test_db):
+    def test_raises_code_collision_error_on_duplicate_hash(self, t_repo):
         """Raises CodeCollisionError when same content inserted twice (dedupe leak)"""
-        repo = SqliteRepository(test_db)
         plan1 = make_write_plan(code_min_len=8, kind="url", link_url="http://a.com")
-        repo.insert(plan1)
-
         plan2 = make_write_plan(code_min_len=8, kind="url", link_url="http://a.com")
+        t_repo.insert(plan1)
         with pytest.raises(CodeCollisionError):
-            repo.insert(plan2)
+            t_repo.insert(plan2)
 
-    def test_resolve_prevents_code_collision(self, test_db):
+    def test_resolve_prevents_code_collision(self, t_repo):
         """resolve_code extends to avoid collision"""
-        _insert_link_item(
-            test_db, hash_full="ZZZZZZZZZZZZZZZZZZZZZZZZ", code="ABCD1234"
-        )
-        repo = SqliteRepository(test_db)
+        prefix = "ABCD1234"
+        _insert_link_item(t_repo._conn, hash_full=("X" * 24), code=prefix)
         plan = make_write_plan(
-            hash_full="ABCD1234XXXXXXXXXXXXXXXX",  # Same 8-char prefix
+            hash_full=f"{prefix}XXXXXXXXXXXXXXXX",  # Same 8-char prefix
             code_min_len=8,
             kind=ItemKind.LINK,
             link_url="http://test.com",
-        )
-        result = repo.insert(plan)
-        assert result.code == "ABCD1234X"  # Extended to 9 chars, no collision
+        )  # Extends to 9 chars, no collision vvv
+        assert t_repo.insert(plan).code == prefix + "X"
 
 
 class TestDelete:
     """Tests for SqliteRepository.delete()."""
 
-    def test_delete_cascades_to_subtype(self, test_db):
+    def test_delete_cascades_to_subtype(self, t_repo):
         """Deleting item removes row from items and correct subtype table."""
-        hash_suffix = "0123456789ABCDEFGHJKMNP"
-        _insert_text_item(test_db, hash_full=f"T{hash_suffix}", code="TXTC0DE1")
-        _insert_pic_item(test_db, hash_full=f"P{hash_suffix}", code="PICC0DE1")
-        _insert_link_item(test_db, hash_full=f"L{hash_suffix}", code="URLC0DE1")
-        repo = SqliteRepository(test_db)
+        con, hash_suffix = t_repo._conn, "0123456789ABCDEFGHJKMNP"  # 23 char suffix
+        _insert_text_item(con, hash_full=f"T{hash_suffix}", code="TXTC0DE1")
+        _insert_pic_item(con, hash_full=f"P{hash_suffix}", code="PICC0DE1")
+        _insert_link_item(con, hash_full=f"L{hash_suffix}", code="URLC0DE1")
 
         def count(t):
-            return test_db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+            return con.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
 
-        assert count("items") == 3
-        assert count("text_items") == 1
-        assert count("pic_items") == 1
-        assert count("link_items") == 1
+        def assert_counts(n_items, n_text, n_pic, n_link):
+            # Assert items & subtype tables have expected counts
+            assert count("items") == n_items
+            assert count("text_items") == n_text
+            assert count("pic_items") == n_pic
+            assert count("link_items") == n_link
 
-        repo.delete("T0123456789ABCDEFGHJKMNP")
-        assert count("items") == 2
-        assert count("text_items") == 0
-        assert count("pic_items") == 1
-        assert count("link_items") == 1
+        assert_counts(3, 1, 1, 1)  # Starting counts before deletions
+        t_repo.delete("T0123456789ABCDEFGHJKMNP")
+        assert_counts(2, 0, 1, 1)  # One less item, one less text item
+        t_repo.delete("P0123456789ABCDEFGHJKMNP")
+        assert_counts(1, 0, 0, 1)  # One less item, one less pic item
+        t_repo.delete("L0123456789ABCDEFGHJKMNP")
+        assert_counts(0, 0, 0, 0)  # Nothing left
 
-        repo.delete("P0123456789ABCDEFGHJKMNP")
-        assert count("items") == 1
-        assert count("text_items") == 0
-        assert count("pic_items") == 0
-        assert count("link_items") == 1
-
-        repo.delete("L0123456789ABCDEFGHJKMNP")
-        assert count("items") == 0
-        assert count("text_items") == 0
-        assert count("pic_items") == 0
-        assert count("link_items") == 0
-
-    def test_delete_nonexistent_is_noop(self, test_db):
+    def test_delete_nonexistent_is_noop(self, t_repo):
         """Deleting nonexistent hash doesn't raise."""
-        repo = SqliteRepository(test_db)
-        repo.delete("DOESNOTEXIST12345678")
+        t_repo.delete("DOESNOTEXIST12345678")
