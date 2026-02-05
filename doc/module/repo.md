@@ -40,19 +40,19 @@ CREATE TABLE items (
 );
 
 CREATE TABLE text_items (
-    hash_full   TEXT PRIMARY KEY REFERENCES items(hash_full),
+    hash_full   TEXT PRIMARY KEY REFERENCES items(hash_full) ON DELETE CASCADE,
     format      TEXT NOT NULL
 );
 
 CREATE TABLE pic_items (
-    hash_full   TEXT PRIMARY KEY REFERENCES items(hash_full),
+    hash_full   TEXT PRIMARY KEY REFERENCES items(hash_full) ON DELETE CASCADE,
     format      TEXT NOT NULL,
     width       INTEGER NOT NULL,
     height      INTEGER NOT NULL
 );
 
 CREATE TABLE link_items (
-    hash_full   TEXT PRIMARY KEY REFERENCES items(hash_full),
+    hash_full   TEXT PRIMARY KEY REFERENCES items(hash_full) ON DELETE CASCADE,
     url         TEXT NOT NULL
 );
 
@@ -78,8 +78,18 @@ SQLite implementation of Repository protocol.
 
 ```python
 def init_db(conn: sqlite3.Connection) -> None:
-    """Apply schema to connection. Idempotent."""
+    """
+    Apply schema to connection. Idempotent.
+    Args:
+        conn: SQLite connection to initialize.
+    """
+    conn.execute("PRAGMA foreign_keys = ON")
+    schema = resources.files("depo.repo").joinpath("schema.sql").read_text()
+    conn.executescript(schema)
 ```
+
+>**NOTE:** PRAGMA foreign_keys enables foreign key behaviors;
+>needed for `ON DELETE CASCADE` behavior when deleting item sub-types.
 
 ### SqliteRepository
 
@@ -125,6 +135,20 @@ class SqliteRepository:
             CodeCollisionError: If resolved code collides (indicates bug).
         """
         ...
+
+
+  def delete(self, hash_full: str) -> None:
+      """Delete item by hash.
+
+      Subtype row cascades automatically via FK constraint.
+
+      Args:
+          hash_full: Full hash of item to delete.
+
+      Note:
+          No-op if item doesn't exist (idempotent for rollback).
+      """
+      ...
 ```
 
 ### Row mappers
@@ -137,10 +161,24 @@ def _row_to_link_item(self, row: sqlite3.Row) -> LinkItem: ...
 
 Map DB rows to frozen domain models.
 
-### Design decisions
+## Design decisions
 
 - **Raw SQL** — no ORM, explicit queries, full control
 - **Manual mapping** — row mappers convert to domain models
 - **Trusts input** — assumes `code` is canonicalized, `plan` is valid
 - **Connection injection** — testable with `:memory:` SQLite
 - **Transactional** — insert writes items + subtype in single transaction
+
+## Future Considerations
+
+- Repo refactor:
+  query construction/execution layers
+- Query builder:
+  simple constants vs method chaining
+  *(SELECT, FROM, WHERE, IN, LIKE, INSERT INTO, JOIN)*
+- Mapper module:
+  WritePlan ↔ SQL, rows → Items
+- INSERT ON CONFLICT for single-transaction dedupe (PostgreSQL)
+- Content/metadata separation:
+  sparse content table + per-user item table
+- Subtype tables FK to content, not item
