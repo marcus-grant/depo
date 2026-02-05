@@ -9,7 +9,6 @@ from depo.service.orchestrator import IngestOrchestrator
 from depo.storage.filesystem import FilesystemStorage
 
 from .db import test_db
-from .storage import tmp_fs
 
 # TODO: Uncomment as implemented
 # from .storage import test_storage, test_storage_root
@@ -32,6 +31,7 @@ def test_orchestrator_env(test_db, tmp_fs):
 
 __all__ = [
     "test_db",
+    "test_store",
     "test_orchestrator_env",
     # "test_storage",
     # "test_storage_root",

@@ -92,6 +92,11 @@ class IngestOrchestrator:
             requested_format=requested_format,
         )  # First build WritePlan with IngestService
 
+        # Exit early if dupe item already exists
+        if item := self._repo.get_by_full_hash(plan.hash_full):
+            # Return dupe item in result but with created=False
+            return PersistResult(item=item, created=False)
+
         # Insert into database with WritePlan
         item = self._repo.insert(plan)
 

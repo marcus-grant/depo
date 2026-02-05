@@ -98,7 +98,8 @@ class TestIngestOrchestratorIngest:
 
     def test_happy_path_link_item(self, test_orchestrator_env):
         """LinkItem happy path: created=True, item in repo, NOT in storage."""
-        orch, repo, storage = test_orchestrator_env
+        # Assemble orchestrator, its repo and its store
+        orch, repo, store = test_orchestrator_env
 
         result = orch.ingest(link_url="https://www.example.com/")
         item, hash_full, code = result.item, result.item.hash_full, result.item.code
@@ -107,4 +108,25 @@ class TestIngestOrchestratorIngest:
         assert result.created
         assert repo.get_by_full_hash(hash_full) == item
         assert isinstance(item, LinkItem)
-        assert list(storage._root.glob(f"*{code}*")) == []
+        assert list(store._root.glob(f"*{code}*")) == []
+
+    def test_dedupe_returns_existing_item(self, test_orchestrator_env):
+        """Duplicate payload returns created=False with existing item."""
+        # Assemble Orchestrator, and the payload to ingest
+        orch, _, _ = test_orchestrator_env
+        payload, fmt = b"duplicate content", ContentFormat.PLAINTEXT
+
+        # Act by ingesting the same content twice with same args
+        first = orch.ingest(payload_bytes=payload, requested_format=fmt)
+        second = orch.ingest(payload_bytes=payload, requested_format=fmt)
+
+        # Assert only first result has .created and that first.item == second.item
+        assert first.created is True
+        assert second.created is False
+        assert second.item == first.item
+
+
+# Dedupe:
+# - existing hash → returns PersistResult with created=False
+# - existing hash → returns existing item, no new insert
+# - existing hash → storage.put not called
