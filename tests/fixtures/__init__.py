@@ -19,8 +19,6 @@ from depo.service.ingest import IngestService
 from depo.service.orchestrator import IngestOrchestrator
 from depo.storage.filesystem import FilesystemStorage
 
-from .db import test_db
-
 # TODO: Remove when refactor complete
 # Temporary aliases until migration complete
 from .storage import tmp_fs  # noqa
@@ -88,7 +86,6 @@ def test_orchestrator_env(test_db, tmp_fs):
 
 
 __all__ = [
-    "test_db",
     "test_store",
     "test_orchestrator_env",
     "tmp_fs",
