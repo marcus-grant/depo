@@ -21,7 +21,7 @@ from depo.storage.filesystem import FilesystemStorage
 
 # TODO: Remove when refactor complete
 # Temporary aliases until migration complete
-from .storage import tmp_fs  # noqa
+# from .storage import tmp_fs  # noqa
 
 
 @pytest.fixture
@@ -70,28 +70,7 @@ def t_orch_env(
     return (orch, t_repo, t_store)
 
 
-@pytest.fixture
-def test_store(tmp_path):
-    """FilesystemStorage instance with temporary root."""
-    return FilesystemStorage(root=tmp_path / "depo-test-store")
-
-
-@pytest.fixture
-def test_orchestrator_env(test_db, tmp_fs):
-    """Returns (orchestrator, repo, storage) tuple"""
-    service = IngestService()
-    repo = SqliteRepository(test_db)
-    orch = IngestOrchestrator(service, repo, tmp_fs)
-    return (orch, repo, tmp_fs)
-
-
 __all__ = [
-    "test_store",
-    "test_orchestrator_env",
-    "tmp_fs",
-    # "test_storage",
-    # "test_storage_root",
-    # TODO: Refactor & rm entries once we've confirmed modules no longer use old
     "t_conn",
     "t_db",
     "t_store",
