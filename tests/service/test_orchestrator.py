@@ -19,6 +19,13 @@ from depo.model.item import LinkItem, PicItem, TextItem
 from depo.repo.sqlite import SqliteRepository
 from depo.service.ingest import IngestService
 from depo.service.orchestrator import IngestOrchestrator, PersistResult
+from depo.util.shortcode import hash_full_b32
+
+_EXPECTED_OS_RAISE = "Testing disk write error"
+
+
+def _failing_put(**kwargs):
+    raise OSError(_EXPECTED_OS_RAISE)
 
 
 class TestPersistResult:
@@ -125,8 +132,12 @@ class TestIngestOrchestratorIngest:
         assert second.created is False
         assert second.item == first.item
 
+    def test_rollback_on_storage_raise(self, test_orchestrator_env, monkeypatch):
+        """Rollback on storage.put OSError causes repo.delete & re-raises"""
+        orch, repo, store = test_orchestrator_env
+        monkeypatch.setattr(store, "put", _failing_put)
+        hash_full, cf_txt = hash_full_b32(b"hello"), ContentFormat.PLAINTEXT
 
-# Dedupe:
-# - existing hash → returns PersistResult with created=False
-# - existing hash → returns existing item, no new insert
-# - existing hash → storage.put not called
+        with pytest.raises(OSError, match=_EXPECTED_OS_RAISE):
+            orch.ingest(payload_bytes=b"hello", requested_format=cf_txt)
+        assert repo.get_by_full_hash(hash_full) is None
