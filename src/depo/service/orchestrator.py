@@ -103,8 +103,12 @@ class IngestOrchestrator:
         # Save into StorageBackend if not a LinkItem
         # TODO: Implement payload_path temp file streaming
         if not isinstance(item, LinkItem):
-            code, format = item.code, item.format
-            self._store.put(code=code, format=format, source_bytes=payload_bytes)
+            code, fmt = item.code, item.format
+            try:  # Try storing as errors can occur in storage layer that needs rollback
+                self._store.put(code=code, format=fmt, source_bytes=payload_bytes)
+            except:
+                self._repo.delete(item.hash_full)
+                raise
 
         # Return PersistResult as result of IngestOrchestrator pipeline
         return PersistResult(item=item, created=True)
