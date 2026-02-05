@@ -76,6 +76,7 @@ class IngestService:
         *,
         min_code_length: int = 8,
         max_size_bytes: int = 2**20,
+        max_url_len: int = 2048,
     ) -> None: ...
 
     def build_plan(
@@ -86,6 +87,7 @@ class IngestService:
         filename: str | None = None,
         declared_mime: str | None = None,
         requested_format: ContentFormat | None = None,
+        link_url: str | None = None,
     ) -> WritePlan: ...
 ```
 
@@ -94,9 +96,15 @@ class IngestService:
 1. Validate payload (exactly one of bytes/path)
 2. Validate size (non-empty, within limit)
 3. Hash content via `hash_full_b32`
-4. Classify via `classify()`
+4. Classify via `classify()` or Assemble early exit `WritePlan` if `LinkItem`
 5. Extract image metadata if `PICTURE` kind
 6. Assemble and return `WritePlan`
+
+>**NOTE:** The `payload_path` just gets re-routed to `payload_bytes`.
+>Deferring `payload_path` handling till streaming content to temp files implemented.
+>
+>**NOTE:** `link_url` is an explicit branch,
+>future inference from text payload as fallback.
 
 **Raises:** `ValueError` for validation or classification failures.
 
@@ -131,6 +139,7 @@ class IngestOrchestrator:
         *,
         payload_bytes: bytes | None = None,
         payload_path: Path | None = None,
+        link_url: str | None = None,
         filename: str | None = None,
         declared_mime: str | None = None,
         requested_format: ContentFormat | None = None,
