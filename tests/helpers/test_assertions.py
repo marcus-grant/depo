@@ -6,11 +6,17 @@ Date: 2026-01-26
 License: Apache-2.0
 """
 
+from dataclasses import dataclass, field
+
 import pytest
 
 from depo.model.enums import ItemKind, Visibility
 from tests.factories import make_item
-from tests.helpers.assertions import assert_column, assert_item_base_fields
+from tests.helpers.assertions import (
+    assert_column,
+    assert_field,
+    assert_item_base_fields,
+)
 
 
 class TestAssertColumn:
@@ -125,3 +131,49 @@ class TestAssertItemBaseFields:
                 upload_at=item.upload_at,
                 origin_at=item.origin_at,
             )
+
+
+@dataclass
+class _SampleDClass:
+    """Minimal dataclass for testing assert_field."""
+
+    req: str
+    opt: int = 42
+    fac: list = field(default_factory=list)
+
+
+class TestAssertField:
+    """Tests for assert_field() helper."""
+
+    def test_required_field_passes(self):
+        assert_field(_SampleDClass, "req", str, True, None)
+
+    def test_required_field_fails_when_has_default(self):
+        with pytest.raises(AssertionError, match="should be required"):
+            assert_field(_SampleDClass, "opt", int, True, None)
+
+    def test_default_field_passes(self):
+        assert_field(_SampleDClass, "opt", int, False, 42)
+
+    def test_default_field_wrong_value(self):
+        with pytest.raises(AssertionError, match="default mismatch"):
+            assert_field(_SampleDClass, "opt", int, False, 99)
+
+    def test_factory_field_passes(self):
+        assert_field(_SampleDClass, "fac", list, False, [], factory=True)
+
+    def test_factory_field_wrong_value(self):
+        with pytest.raises(AssertionError, match="factory default mismatch"):
+            assert_field(_SampleDClass, "fac", list, False, [1, 2], factory=True)
+
+    def test_factory_flag_on_non_factory_fails(self):
+        with pytest.raises(AssertionError, match="should use default_factory"):
+            assert_field(_SampleDClass, "opt", int, False, 42, factory=True)
+
+    def test_missing_field(self):
+        with pytest.raises(AssertionError, match="missing field"):
+            assert_field(_SampleDClass, "nope", str, True, None)
+
+    def test_wrong_type(self):
+        with pytest.raises(AssertionError, match="type mismatch"):
+            assert_field(_SampleDClass, "req", int, True, None)
