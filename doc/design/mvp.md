@@ -1,4 +1,4 @@
-# Design Requirements — MVP (v0.0.1)
+# Design Requirements - MVP (v0.0.1)
 
 These are the requirements for this *content-addressed paste / image service*.
 
@@ -44,15 +44,25 @@ and clean architecture over features.
 
 ```txt
 HTTP Layer (FastAPI)
-  ├── Auth / guards
-  ├── Routing (/{code}, /raw, /info, /upload)
-  ▼
-IngestOrchestrator
-  ├── IngestService.build_plan() → WritePlan
-  ├── Repository (dedupe, resolve code, insert)
-  └── StorageBackend (write bytes)
-  ▼
-PersistResult (item, created)
+  +-- Auth / guards
+  +-- Routing (/{code}, /raw, /info, /upload)
+  +-- Content negotiation (Accept header + /api/ prefix)
+  |
+Service Layer
+  +-- IngestOrchestrator (write path)
+  |   +-- IngestService.build_plan() -> WritePlan
+  |   +-- Repository (dedupe, resolve code, insert)
+  |   +-- StorageBackend (write bytes)
+  |   |
+  |   PersistResult (item, created)
+  |
+  +-- Selector (read path)
+      +-- Repository (lookup by code/hash)
+      +-- StorageBackend (open file for streaming)
+CLI Layer (Click)
+  +-- Config resolution (defaults -> XDG -> local -> env -> flag)
+  +-- Dependency wiring (config -> app factory)
+  +-- Commands: serve, init, config show
 ```
 
 ### Rules
@@ -60,15 +70,18 @@ PersistResult (item, created)
 - No business logic in routes.
 - No framework objects below orchestration.
 - Core decisions are testable without HTTP.
+- Web layer talks to service layer only (orchestrator for writes, selector for reads).
+- Services write, selectors read.
 
 ### 2.2 Module boundaries (recommended)
 
-- `domain/` – DTOs, enums, policies, contracts
-- `services/` – ingest/classification logic
-- `repos/` – persistence logic (SQLite)
-- `storage/` – filesystem storage
-- `web/` – FastAPI routes, templates, HTMX handlers
-- `tests/` – contract tests and integration tests
+- `model/`: DTOs, enums, policies, contracts
+- `service/`: ingest/classification logic, selectors (read path)
+- `repo/`: persistence logic (SQLite)
+- `storage/`: filesystem storage
+- `cli/`: configuration, Click entry point, dependency wiring
+- `web/`: FastAPI routes, templates, HTMX handlers
+- `tests/`: contract tests and integration tests
 
 ---
 
@@ -77,12 +90,29 @@ PersistResult (item, created)
 ### 3.1 URL surface
 
 - `GET /{code}`
-  - Browser-like clients → redirect to `/{code}/info`
-  - API / non-browser clients → redirect to `/{code}/raw`
-- `GET /{code}/raw` → raw bytes
-- `GET /{code}/info` → viewer / metadata
-- `POST /upload` → multipart/form-data (browser)
-- Optional: `POST /upload/raw` → raw body (curl / API)
+  - Browser-like clients (`Accept: text/html`) -> redirect to `/{code}/info`
+  - API / non-browser clients -> redirect to `/{code}/raw`
+  - LinkItem (any client) -> 302 redirect to `link_url`
+- `GET /{code}/raw` -> raw bytes + metadata in HTTP headers
+- `GET /{code}/info` -> viewer / metadata
+- `GET /api/{code}` -> always API behavior (bypasses content negotiation)
+- `GET /api/{code}/raw` -> raw bytes + metadata in HTTP headers
+- `GET /api/{code}/info` -> metadata as plain text key-value pairs
+- `POST /upload` -> multipart/form-data (browser)
+- Optional: `POST /upload/raw` -> raw body (curl / API)
+
+#### Client detection
+
+- `Accept` header content negotiation on non-prefixed routes
+- `/api/` prefix as explicit override - always returns API responses
+
+#### Response format (MVP)
+
+- **Upload response:** plain text URL of created item
+- **`/raw`:** file bytes with metadata in HTTP headers (Content-Type, X-Depo-Code, etc.)
+- **`/info` (API):** plain text key-value pairs (grep-friendly, no jq needed)
+- **`/info` (browser):** HTML page with content + metadata (deferred to browser PR)
+- **No JSON for MVP.** JSON responses can be added via Accept header opt-in later.
 
 ### 3.2 Hashing & short code rules
 
@@ -102,14 +132,14 @@ Storage model:
 
 - Configurable minimum code length (e.g. 8)
 - If collision with different content:
-  - extend prefix length (9, 10, … up to 24)
+  - extend prefix length (9, 10, ..., up to 24)
 - DB stores canonical `code`; `hash_remainder` updates accordingly.
 
 ### 3.4 Canonicalization on input
 
 - Accept ambiguous characters and normalize:
-  - `o` / `O` → `0`
-  - `i` / `I` / `l` / `L` → `1`
+  - `o` / `O` -> `0`
+  - `i` / `I` / `l` / `L` -> `1`
 - Uppercase before DB lookup.
 - DB stores canonical uppercase only.
 
@@ -155,7 +185,7 @@ Storage model:
 
 #### TextItem Fields
 
-- `code` (PK, FK → Item)
+- `code` (PK, FK -> Item)
 - `format`
   - str
   - *(`plain`, `markdown`, `python`, `bash`, `json`, `yaml`, `csv`, `html`)*
@@ -170,7 +200,7 @@ Storage model:
 
 #### PicItem Fields
 
-- `code` (PK, FK → Item)
+- `code` (PK, FK -> Item)
 - `format` (str, e.g. `png`, `jpeg`, `gif`, `webp`)
 - `width` (int)
 - `height` (int)
@@ -184,11 +214,13 @@ SVG and EXIF support deferred to post-MVP.
 #### LinkItem Rules
 
 - Created explicitly (no implicit URL auto-detection in MVP).
-- `/{code}` redirects to target (via `/info` in browser).
+- `/{code}` redirects to target URL (302).
+- `/{code}/raw` also redirects to target URL (302).
+- `/{code}/info` shows link metadata.
 
 #### LinkItem Fields
 
-- `code` (PK, FK → Item)
+- `code` (PK, FK -> Item)
 - `url` (str, validated; schemes default to http/https)
 
 ---
@@ -318,8 +350,8 @@ class Repository(Protocol):
 
 - **Raw SQL** with manual mapping (no ORM)
 - **Return concrete types** (`TextItem | PicItem | LinkItem`), not Protocol
-- **Validation at boundary** — repo trusts inputs are canonical
-- **uid/perm defaults** — superuser (0) and PUBLIC until auth layer exists
+- **Validation at boundary** - repo trusts inputs are canonical
+- **uid/perm defaults** - superuser (0) and PUBLIC until auth layer exists
 
 ### 5.4 Storage backend (MVP)
 
@@ -356,7 +388,7 @@ Paths are derived, not stored. Flat structure:
 {STORAGE_ROOT}/{code}.{ext}
 ```
 
-Extension equals `format.value` (e.g., `ContentFormat.PNG` → `.png`).
+Extension equals `format.value` (e.g., `ContentFormat.PNG` -> `.png`).
 MIME type for HTTP headers is derived via `mime_for_format()` at serve time.
 
 #### LinkItem exception
@@ -395,10 +427,10 @@ class IngestOrchestrator:
     ) -> PersistResult:
         """
         Full pipeline:
-        1. IngestService.build_plan() → WritePlan
-        2. Repo.get_by_full_hash() → dedupe check
-        3. Repo.insert() → resolve code and write metadata
-        4. Storage.put() → write bytes (skip for LinkItem)
+        1. IngestService.build_plan() -> WritePlan
+        2. Repo.get_by_full_hash() -> dedupe check
+        3. Repo.insert() -> resolve code and write metadata
+        4. Storage.put() -> write bytes (skip for LinkItem)
         5. Return PersistResult
         On Storage failure after DB write, calls Repo.delete() for rollback.
         """
@@ -407,10 +439,10 @@ class IngestOrchestrator:
 
 #### IngestOrchestrator - Design decisions
 
-- **Orchestrator owns coordination** — repo and storage are siblings
-- **Dedupe at orchestrator level** — returns existing item without re-writing
-- **Storage before DB** — orphan files easier to cleanup than orphan rows
-- **PersistResult DTO** — web layer can decide whether to show "exists" vs "created"
+- **Orchestrator owns coordination** - repo and storage are siblings
+- **Dedupe at orchestrator level** - returns existing item without re-writing
+- **Storage before DB** - orphan files easier to cleanup than orphan rows
+- **PersistResult DTO** - web layer can decide whether to show "exists" vs "created"
 - **Future-ready**:
   - WAL table (`pending_writes`) can be added for atomic writes
   - Metadata cache layer can skip DB reads for hot items
@@ -419,19 +451,127 @@ class IngestOrchestrator:
     - Think of a cache on local FS for remote S3, SFTP, WebDAV, etc.
   - All without changing the orchestrator's public interface
 
+### 5.6 Selector (read path)
+
+Read-side counterpart to the ingest pipeline. Module-level functions
+in `service/selector.py`.
+
+```python
+def get_item(
+    repo: Repository,
+    code: str,
+) -> TextItem | PicItem | LinkItem:
+    """
+    Fetch item by shortcode.
+
+    Raises:
+        NotFoundError: If code does not exist.
+    """
+    ...
+
+def get_raw(
+    repo: Repository,
+    storage: StorageBackend,
+    code: str,
+) -> tuple[BinaryIO | None, TextItem | PicItem | LinkItem]:
+    """
+    Open stored content for streaming + return item for response headers.
+
+    Returns (file_handle, item) for Text/PicItems.
+    Returns (None, item) for LinkItems (caller issues redirect).
+    File handle is caller's responsibility to close.
+
+    Raises:
+        NotFoundError: If code does not exist.
+    """
+    ...
+
+def get_info(
+    repo: Repository,
+    code: str,
+) -> TextItem | PicItem | LinkItem:
+    """
+    Fetch item metadata. Currently equivalent to get_item().
+    Separate function for future expansion (view counts, access logs, etc.).
+
+    Raises:
+        NotFoundError: If code does not exist.
+    """
+    ...
+```
+
+#### Selector - Design decisions
+
+- **Services write, selectors read** - clear separation of concerns
+  (inspired by HackSoft Django Styleguide's services/selectors pattern)
+- **Module-level functions, not a class** - read path coordination is simple;
+  no shared state needed
+- **Repo and storage as explicit parameters** - no hidden dependencies,
+  trivially testable
+- **get_raw returns tuple** - web layer needs both file handle (for streaming)
+  and item (for response headers); LinkItem returns None handle to signal redirect
+- **get_info as separate function** - thin wrapper today, seam for future
+  concerns (view counting, access control, cache headers)
+
 ---
 
-## 6. HTTP & UI (MVP)
+## 6. Configuration (MVP)
 
-### 6.1 API
+### 6.1 Config format
 
-- `POST /upload` (multipart)
-- Optional: `POST /upload/raw`
-- `GET /{code}` (redirect)
-- `GET /{code}/raw`
-- `GET /{code}/info`
+TOML via `tomllib` (Python 3.11+ stdlib). No external dependencies.
 
-### 6.2 Browser UI
+### 6.2 Settings
+
+| Setting | Type | Default | Description |
+|---|---|---|---|
+| `db_path` | `Path` | `~/.local/share/depo/depo.db` | SQLite database location |
+| `storage_root` | `Path` | `~/.local/share/depo/storage/` | Content storage dir|
+| `host` | `str` | `"127.0.0.1"` | Server bind address |
+| `port` | `int` | `8000` | Server bind port |
+| `max_size_bytes` | `int` | `10_485_760` (10 MB) | Upload size limit |
+| `max_url_len` | `int` | `2048` | Link URL length limit |
+
+### 6.3 Resolution chain (highest priority last)
+
+1. **Hardcoded defaults** - in `DepoConfig` dataclass
+2. **XDG config file** - `$XDG_CONFIG_HOME/depo/config.toml`
+   (fallback `~/.config/depo/config.toml`)
+3. **Project-local file** - `./depo.toml` (for containerized deployments)
+4. **Environment variables** - `DEPO_` prefix (`DEPO_PORT`, `DEPO_DB_PATH`, etc.)
+5. **CLI flag** - `--config /path/to/file.toml` (replaces steps 2+3)
+
+Each layer overrides the previous. Project-local overrides XDG because
+a `depo.toml` next to `docker-compose.yml` represents more specific intent.
+
+### 6.4 CLI commands
+
+- `depo serve` - load config, wire dependencies, start uvicorn
+- `depo init` - create directories + initialize DB schema (idempotent)
+- `depo config show` - print effective resolved config (debugging aid)
+
+### 6.5 Dependency wiring
+
+```txt
+CLI loads DepoConfig > app_factory(config) > FastAPI app with deps wired
+```
+
+Config is the single source of truth. CLI owns the wiring;
+web layer receives fully constructed dependencies.
+
+---
+
+## 7. HTTP & UI (MVP)
+
+### 7.1 API (plain text, MVP)
+
+- `POST /upload` (multipart) -> plain text URL of created item
+- `GET /{code}` -> smart redirect based on client + item type
+- `GET /{code}/raw` -> file bytes + metadata headers
+- `GET /{code}/info` -> plain text key-value metadata
+- `/api/` prefix available as explicit API override
+
+### 7.2 Browser UI (deferred to browser PR)
 
 - Server-rendered HTML
 - HTMX from day one for interactivity on `/info` pages:
@@ -441,7 +581,7 @@ class IngestOrchestrator:
 
 ---
 
-## 7. Auth (MVP)
+## 8. Auth (MVP)
 
 - No anonymous uploads.
 - Manual user provisioning (admin edits DB).
@@ -452,7 +592,7 @@ class IngestOrchestrator:
 
 ---
 
-## 8. Explicit MVP Exclusions
+## 9. Explicit MVP Exclusions
 
 - Aliases
 - Editing UI
@@ -461,3 +601,5 @@ class IngestOrchestrator:
 - Object storage origin
 - Redis / metadata caching
 - Public registration / password recovery
+- JSON API responses (plain text + headers for MVP)
+
