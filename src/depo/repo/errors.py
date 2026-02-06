@@ -17,3 +17,11 @@ class CodeCollisionError(RepoError):
     def __init__(self, code: str):
         self.code = code
         super().__init__(f"Code collision: {code}")
+
+
+class NotFoundError(RepoError):
+    """Lookup found no matching item."""
+
+    def __init__(self, code: str):
+        self.code = code
+        super().__init__(f"Item not found: {code}")
