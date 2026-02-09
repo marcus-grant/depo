@@ -81,7 +81,6 @@ Inspired by HackSoft's Django Styleguide services/selectors pattern,
 adapted for FastAPI with explicit dependency passing.
 
 **Services** coordinate write operations (ingest, delete):
-
 ```python
 class IngestOrchestrator:
     def __init__(self, ingest_service, repo, storage): ...
@@ -89,14 +88,12 @@ class IngestOrchestrator:
 ```
 
 **Selectors** coordinate read operations as module-level functions:
-
 ```python
 def get_item(repo, code: str) -> TextItem | PicItem | LinkItem: ...
 def get_raw(repo, storage, code: str) -> tuple[BinaryIO | None, Item]: ...
 ```
 
 Key differences from Django Styleguide:
-
 - Selectors take repo/storage as explicit parameters (no Django ORM globals)
 - No class needed for selectors — read coordination is simple
 - Naming is `selector.py` not `selectors.py` (matches depo's singular convention)
@@ -194,7 +191,6 @@ Each layer overrides the previous. Supports both containerized deployments
 - **CLI flag** (`--config`) replaces file discovery entirely
 
 The config dataclass is the single source of truth for dependency wiring:
-
 ```txt
 CLI loads DepoConfig → app_factory(config) → FastAPI app
 ```
@@ -291,7 +287,6 @@ Fixtures compose upward: `t_conn` → `t_db` → `t_repo` → `t_orch_env`.
 Each layer adds one concern (schema, repository wrapper, orchestrator wiring).
 
 Key conventions:
-
 - `t_` prefix distinguishes first-party from pytest/third-party fixtures
 - `t_orch_env` returns a tuple so tests can access repo/storage for assertions
 - `t_store` uses `tmp_path` for automatic cleanup

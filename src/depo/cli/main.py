@@ -42,9 +42,11 @@ def init(ctx: click.Context) -> None:
 
 
 @cli.command()
-def serve() -> None:
+@click.pass_context
+def serve(ctx: click.Context) -> None:
     """Start the web server."""
-    raise NotImplementedError
+    cfg: DepoConfig = ctx.obj["config"]
+    click.echo(f"Starting depo on {cfg.host}:{cfg.port} (not implemented)")
 
 
 @cli.group()
