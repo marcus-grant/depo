@@ -14,7 +14,15 @@ from depo.model.enums import ItemKind, Visibility
 from depo.model.item import Item
 
 
-def assert_field(cls: type, name: str, typ: type, required: bool, default: Any) -> None:
+def assert_field(
+    cls: type,
+    name: str,
+    typ: type,
+    required: bool,
+    default: Any,
+    *,
+    factory: bool = False,
+) -> None:
     """
     Assert a dataclass field has the expected specification.
 
@@ -42,7 +50,13 @@ def assert_field(cls: type, name: str, typ: type, required: bool, default: Any) 
     f = field_map[name]
     assert f.type == typ, f"{name} type mismatch: expected {typ}, got {f.type}"
     if required:
-        assert f.default is MISSING, f"{name} should be required"
+        msg = f"{name} should be required"
+        assert f.default is MISSING and f.default_factory is MISSING, msg
+    elif factory:
+        assert f.default_factory is not MISSING, f"{name} should use default_factory"
+        msg = f"{name} factory default mismatch: "
+        msg += f"expected {default}, got {f.default_factory()}"
+        assert f.default_factory() == default, msg
     else:
         msg = f"{name} default mismatch: expected {default}, got {f.default}"
         assert f.default == default, msg
