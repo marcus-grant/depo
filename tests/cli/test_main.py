@@ -10,7 +10,6 @@ License: Apache-2.0
 from dataclasses import fields
 from pathlib import Path
 
-import pytest
 from click.testing import CliRunner
 
 from depo.cli.config import DepoConfig
@@ -76,3 +75,12 @@ class TestConfigShow:
         )
         assert "10.0.0.1" in result.output
         assert "3000" in result.output
+
+
+class TestServe:
+    """Tests for `depo serve`."""
+
+    def test_placeholder(self, tmp_path):
+        result = _invoke("serve", tmp_path=tmp_path)
+        assert result.exit_code == 0
+        assert "not implemented" in result.output.lower()
