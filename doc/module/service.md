@@ -112,7 +112,7 @@ See doc/design/mvp.md §5.2 for design rationale.
 
 ## orchestrator.py
 
-Coordinates full ingest pipeline. Single entry point for web layer.
+Coordinates full ingest pipeline. Single entry point for web layer writes.
 
 ### PersistResult DTO
 
@@ -160,4 +160,72 @@ class IngestOrchestrator:
 #### IngestOrchestrator - Raises
 
 Re-raises exceptions from components.
-CodeCollisionError` on insert constraint violation (application bug).
+`CodeCollisionError` on insert constraint violation (application bug).
+
+## selector.py
+
+Read-side counterpart to the ingest pipeline. Module-level functions
+for fetching items and opening stored content.
+
+Follows the services-write/selectors-read pattern.
+See doc/design/patterns.md for rationale.
+
+### Functions
+
+```python
+def get_item(
+    repo: Repository,
+    code: str,
+) -> TextItem | PicItem | LinkItem:
+    """
+    Fetch item by shortcode.
+
+    Raises:
+        NotFoundError: If code does not exist.
+    """
+    ...
+
+def get_raw(
+    repo: Repository,
+    storage: StorageBackend,
+    code: str,
+) -> tuple[BinaryIO | None, TextItem | PicItem | LinkItem]:
+    """
+    Open stored content for streaming + return item for response headers.
+
+    Returns (file_handle, item) for Text/PicItems.
+    Returns (None, item) for LinkItems (caller issues redirect).
+    File handle is caller's responsibility to close.
+
+    Raises:
+        NotFoundError: If code does not exist.
+    """
+    ...
+
+def get_info(
+    repo: Repository,
+    code: str,
+) -> TextItem | PicItem | LinkItem:
+    """
+    Fetch item metadata.
+    Currently equivalent to get_item().
+    Separate function as seam for future expansion
+    (view counts, access logs, cache headers).
+
+    Raises:
+        NotFoundError: If code does not exist.
+    """
+    ...
+```
+
+### Design decisions
+
+- **Module-level functions, not a class** — read path has no shared state
+- **Repo and storage as explicit parameters** — no hidden dependencies,
+  trivially testable
+- **get_raw returns (BinaryIO | None, Item)** — None handle signals LinkItem,
+  web layer issues 302 redirect; file handle for Text/PicItem, caller closes
+- **get_info as separate function** — thin wrapper today, seam for future
+  concerns (view counting, access control)
+- **Raises NotFoundError** — consistent with repo layer errors,
+  web layer translates to 404
