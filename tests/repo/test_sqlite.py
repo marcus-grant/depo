@@ -9,6 +9,7 @@ License: Apache-2.0
 import sqlite3
 
 import pytest
+from tests.factories.db import insert_link_item, insert_pic_item, insert_text_item
 from tests.factories.models import make_write_plan
 from tests.helpers import assert_column, assert_item_base_fields
 
@@ -22,78 +23,6 @@ from depo.repo.sqlite import (
     _row_to_text_item,
     init_db,
 )
-
-
-# Test helpers for populating the database
-def _insert_text_item(
-    conn,
-    hash_full="ABC1234506789DEFGHKMNPQR",
-    code="ABCD1234",
-    size_b=99,
-    uid=0,
-    perm="pub",
-    upload_at=123456789,
-    origin_at=None,
-    format="txt",
-):
-    conn.execute(
-        "INSERT INTO items"
-        "(hash_full, code, kind, size_b, uid, perm, upload_at, origin_at)"
-        "VALUES (?, ?, 'txt', ?, ?, ?, ?, ?)",
-        (hash_full, code, size_b, uid, perm, upload_at, origin_at),
-    )
-    conn.execute(
-        "INSERT INTO text_items (hash_full, format) VALUES (?, ?)",
-        (hash_full, format),
-    )
-
-
-def _insert_pic_item(
-    conn,
-    hash_full="ABC1234506789DEFGHKMNPQR",
-    code="ABCD1234",
-    size_b=99,
-    uid=0,
-    perm="pub",
-    upload_at=123456789,
-    origin_at=None,
-    format="png",
-    width=320,
-    height=240,
-):
-    conn.execute(
-        "INSERT INTO items"
-        "(hash_full, code, kind, size_b, uid, perm, upload_at, origin_at)"
-        "VALUES (?, ?, 'pic', ?, ?, ?, ?, ?)",
-        (hash_full, code, size_b, uid, perm, upload_at, origin_at),
-    )
-    conn.execute(
-        "INSERT INTO pic_items (hash_full, format, width, height) VALUES (?, ?, ?, ?)",
-        (hash_full, format, width, height),
-    )
-
-
-def _insert_link_item(
-    conn,
-    hash_full="ABC1234506789DEFGHKMNPQR",
-    code="ABCD1234",
-    size_b=99,
-    uid=0,
-    perm="pub",
-    upload_at=123456789,
-    origin_at=None,
-    url="https://example.com",
-):
-    conn.execute(
-        "INSERT INTO items"
-        "(hash_full, code, kind, size_b, uid, perm, upload_at, origin_at)"
-        "VALUES (?, ?, 'url', ?, ?, ?, ?, ?)",
-        (hash_full, code, size_b, uid, perm, upload_at, origin_at),
-    )
-    conn.execute(
-        "INSERT INTO link_items (hash_full, url) VALUES (?, ?)",
-        (hash_full, url),
-    )
 
 
 class TestInitDb:
@@ -171,7 +100,7 @@ class TestInitDb:
     def test_idempotent(self, t_conn):
         """Calling init_db twice doesn't raise."""
         init_db(t_conn)
-        _insert_text_item(t_conn)
+        insert_text_item(t_conn)
         init_db(t_conn)  # Should not raise
         row = t_conn.execute("SELECT * FROM items").fetchone()
         assert row is not None
@@ -187,7 +116,7 @@ class TestRowMappers:
     def test_row_to_text_item(self, t_db):
         """Maps all fields from joined row to TextItem."""
         # Assemble row factory & test row in items and text_items
-        _insert_text_item(t_db)
+        insert_text_item(t_db)
         t_db.row_factory = sqlite3.Row
         row = t_db.execute(
             "SELECT i.*, t.format FROM items i"
@@ -214,7 +143,7 @@ class TestRowMappers:
 
     def test_row_to_pic_item(self, t_db):
         """Maps all fields from joined row to PicItem."""
-        _insert_pic_item(t_db)  # Assemble
+        insert_pic_item(t_db)  # Assemble
         t_db.row_factory = sqlite3.Row
         row = t_db.execute(
             "SELECT i.*, p.format, p.width, p.height FROM items i"
@@ -235,13 +164,13 @@ class TestRowMappers:
             upload_at=123456789,
             origin_at=None,
         )
-        assert result.format == ContentFormat.PNG
+        assert result.format == ContentFormat.JPEG
         assert result.width == 320
         assert result.height == 240
 
     def test_row_to_link_item(self, t_db):
         """Maps all fields from joined row to LinkItem."""
-        _insert_link_item(t_db)
+        insert_link_item(t_db)
         t_db.row_factory = sqlite3.Row
         row = t_db.execute(
             "SELECT i.*, l.url FROM items i"
@@ -274,21 +203,21 @@ class TestGetByCode:
 
     def test_text_item_for_text_item_code(self, t_repo):
         """Returns correct TextItem for its 'code' column"""
-        _insert_text_item(t_repo._conn)  # Assemble text_item record
+        insert_text_item(t_repo._conn)  # Assemble text_item record
         result = t_repo.get_by_code("ABCD1234")  # Act with get
         assert isinstance(result, TextItem)  # Assert it's a TextItem
         assert result.code == "ABCD1234"  # Assert it's the same code
 
     def test_pic_item_for_pic_item_code(self, t_repo):
         """Returns correct PicItem for its 'code' column"""
-        _insert_pic_item(t_repo._conn)  # Assemble
+        insert_pic_item(t_repo._conn)  # Assemble
         result = t_repo.get_by_code("ABCD1234")  # Act
         assert isinstance(result, PicItem)  # Assert
         assert result.code == "ABCD1234"
 
     def test_link_item_for_link_item_code(self, t_repo):
         """Returns correct LinkItem for its 'code' column"""
-        _insert_link_item(t_repo._conn)  # Assemble
+        insert_link_item(t_repo._conn)  # Assemble
         result = t_repo.get_by_code("ABCD1234")  # Act
         assert isinstance(result, LinkItem)  # Assert
         assert result.code == "ABCD1234"
@@ -304,21 +233,21 @@ class TestGetByFullHash:
 
     def test_text_item_for_item_hash(self, t_repo):
         """Returns correct TextItem for its 'hash_full' PK"""
-        _insert_text_item(t_repo._conn)
+        insert_text_item(t_repo._conn)
         result = t_repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
         assert isinstance(result, TextItem)
         assert result.hash_full == "ABC1234506789DEFGHKMNPQR"
 
     def test_pic_item_for_item_hash(self, t_repo):
         """Returns correct PicItem for its 'hash_full' PK"""
-        _insert_pic_item(t_repo._conn)
+        insert_pic_item(t_repo._conn)
         result = t_repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
         assert isinstance(result, PicItem)
         assert result.hash_full == "ABC1234506789DEFGHKMNPQR"
 
     def test_link_item_for_item_hash(self, t_repo):
         """Returns correct LinkItem for its 'hash_full' PK"""
-        _insert_link_item(t_repo._conn)
+        insert_link_item(t_repo._conn)
         result = t_repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
         assert isinstance(result, LinkItem)
         assert result.hash_full == "ABC1234506789DEFGHKMNPQR"
@@ -335,7 +264,7 @@ class TestResolveCode:
         """Extends prefix code length by 1 when 1 colliding prefix exists."""
         prefix, min_len = "01234567", 8
         hash1, hash2 = f"{prefix}00000000XXXXXXXX", f"{prefix}890ABCDEFGHJKMNP"
-        _insert_text_item(t_repo._conn, hash_full=hash1, code=prefix)
+        insert_text_item(t_repo._conn, hash_full=hash1, code=prefix)
         assert t_repo.resolve_code(hash2, min_len=min_len) == prefix + hash2[min_len]
 
     def test_extends_code_many_times_for_many_collisions(self, t_repo):
@@ -345,7 +274,7 @@ class TestResolveCode:
         for i in range(8, 24):
             hash_uniq = f"XXXXXXXXXXXXXXXXXXXXXX{i:02d}"  # unique hash per item
             code_colide = target_hash[:i]  # Coliding code is one longer than previous
-            _insert_link_item(t_repo._conn, hash_full=hash_uniq, code=code_colide)
+            insert_link_item(t_repo._conn, hash_full=hash_uniq, code=code_colide)
         # All prefixes taken, should return full hash
         assert t_repo.resolve_code(target_hash, 8) == target_hash
 
@@ -412,7 +341,7 @@ class TestInsert:
     def test_resolve_prevents_code_collision(self, t_repo):
         """resolve_code extends to avoid collision"""
         prefix = "ABCD1234"
-        _insert_link_item(t_repo._conn, hash_full=("X" * 24), code=prefix)
+        insert_link_item(t_repo._conn, hash_full=("X" * 24), code=prefix)
         plan = make_write_plan(
             hash_full=f"{prefix}XXXXXXXXXXXXXXXX",  # Same 8-char prefix
             code_min_len=8,
@@ -428,9 +357,9 @@ class TestDelete:
     def test_delete_cascades_to_subtype(self, t_repo):
         """Deleting item removes row from items and correct subtype table."""
         con, hash_suffix = t_repo._conn, "0123456789ABCDEFGHJKMNP"  # 23 char suffix
-        _insert_text_item(con, hash_full=f"T{hash_suffix}", code="TXTC0DE1")
-        _insert_pic_item(con, hash_full=f"P{hash_suffix}", code="PICC0DE1")
-        _insert_link_item(con, hash_full=f"L{hash_suffix}", code="URLC0DE1")
+        insert_text_item(con, hash_full=f"T{hash_suffix}", code="TXTC0DE1")
+        insert_pic_item(con, hash_full=f"P{hash_suffix}", code="PICC0DE1")
+        insert_link_item(con, hash_full=f"L{hash_suffix}", code="URLC0DE1")
 
         def count(t):
             return con.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
