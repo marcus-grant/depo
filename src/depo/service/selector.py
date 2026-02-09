@@ -37,38 +37,15 @@ def get_item(repo: SqliteRepository, code: str) -> TextItem | PicItem | LinkItem
     raise NotFoundError(code)
 
 
-def get_raw(
-    repo: SqliteRepository, storage: StorageBackend, code: str
-) -> tuple[BinaryIO | None, TextItem | PicItem | LinkItem]:
+def get_raw(store: StorageBackend, item: TextItem | PicItem) -> BinaryIO:
     """
-    Fetch item and its payload handle.
+    Open payload for reading.
 
     Args:
-        repo: Repository instance.
-        storage: Storage backend.
-        code: Short code identifier.
+        store: Storage backend.
+        item: Item with format and code (must have payload).
 
     Returns:
-        (file_handle, item) for TextItem/PicItem; (None, item) for LinkItem.
-
-    Raises:
-        NotFoundError: If code not found.
+        Binary file handle. Caller responsible for closing.
     """
-    raise NotImplementedError
-
-
-def get_info(repo: SqliteRepository, code: str) -> TextItem | PicItem | LinkItem:
-    """
-    Fetch item metadata. Thin wrapper today, seam for future enrichment.
-
-    Args:
-        repo: Repository instance.
-        code: Short code identifier.
-
-    Returns:
-        Resolved item.
-
-    Raises:
-        NotFoundError: If code not found.
-    """
-    raise NotImplementedError
+    return store.open(code=item.code, format=item.format)

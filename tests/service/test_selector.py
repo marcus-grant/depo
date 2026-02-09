@@ -8,10 +8,11 @@ License: Apache-2.0
 """
 
 import pytest
-from tests.factories.db import seed_all_types
+from tests.factories.db import insert_pic_item, insert_text_item, seed_all_types
 
 from depo.repo.errors import NotFoundError
-from depo.service.selector import get_info, get_item, get_raw
+from depo.service.selector import get_item, get_raw
+from depo.storage.filesystem import FilesystemStorage as FsStore
 
 
 class TestGetItem:
@@ -33,13 +34,18 @@ class TestGetItem:
 class TestGetRaw:
     """Tests for get_raw()."""
 
-    # - returns (file_handle, item) for TextItem/PicItem
-    # - returns (None, item) for LinkItem
-    # - raises NotFoundError when code missing
+    def test_returns_correct_txt_handle(self, t_db, t_store: FsStore):
+        """Returns correct file handle with expected txt content when it exists."""
+        item = insert_text_item(t_db, code="TXT5678")
+        content = b"# Hello, World!"
+        t_store.put(code=item.code, format=item.format, source_bytes=content)
+        with get_raw(t_store, item) as f:
+            assert f.read() == content
 
-
-class TestGetInfo:
-    """Tests for get_info()."""
-
-    # - returns item when code exists
-    # - raises NotFoundError when code missing
+    def test_returns_correct_pic_handle(self, t_db, t_store: FsStore):
+        """Returns correct file handle with expected pic content when it exists."""
+        item = insert_pic_item(t_db, code="PIC5678")
+        content = b"\xff\xd8\xff\x00"
+        t_store.put(code=item.code, format=item.format, source_bytes=content)
+        with get_raw(t_store, item) as f:
+            assert f.read() == content
