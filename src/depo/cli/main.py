@@ -16,6 +16,7 @@ from rich.table import Table
 
 from depo.cli.config import DepoConfig, load_config
 from depo.repo.sqlite import init_db
+from depo.web.app import app_factory
 
 
 @click.group()
@@ -45,8 +46,11 @@ def init(ctx: click.Context) -> None:
 @click.pass_context
 def serve(ctx: click.Context) -> None:
     """Start the web server."""
+    import uvicorn
+
     cfg: DepoConfig = ctx.obj["config"]
-    click.echo(f"Starting depo on {cfg.host}:{cfg.port} (not implemented)")
+    app = app_factory(cfg)
+    uvicorn.run(app, host=cfg.host, port=cfg.port)
 
 
 @cli.group()

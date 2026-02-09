@@ -9,6 +9,7 @@ License: Apache-2.0
 
 from dataclasses import fields
 from pathlib import Path
+from unittest.mock import patch
 
 from click.testing import CliRunner
 
@@ -80,7 +81,8 @@ class TestConfigShow:
 class TestServe:
     """Tests for `depo serve`."""
 
-    def test_placeholder(self, tmp_path):
-        result = _invoke("serve", tmp_path=tmp_path)
+    def test_calls_uvicorn(self, tmp_path):
+        with patch("uvicorn.run") as mock_run:
+            result = _invoke("serve", tmp_path=tmp_path)
         assert result.exit_code == 0
-        assert "not implemented" in result.output.lower()
+        mock_run.assert_called_once()
