@@ -4,8 +4,13 @@ version = "0.0.0"
 description = "Content-addressed paste / image service"
 requires-python = ">=3.12"
 dependencies = [
+    "click>=8.3.1",
     "pillow>=12.1.0",
+    "rich>=14.3.2",
 ]
+
+[project.scripts]
+depo = "depo.cli.main:cli"
 
 [tool.uv]
 dev-dependencies = [
