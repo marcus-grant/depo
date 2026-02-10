@@ -115,4 +115,6 @@ async def execute_upload(
         result = orchestrator.ingest(**dict(params))  # type: ignore[arg-type]
     except ValueError as e:
         return PlainTextResponse(str(e), status_code=400)
+    except ImportError as e:
+        return PlainTextResponse(str(e), status_code=501)
     return upload_response(result)
