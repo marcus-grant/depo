@@ -27,6 +27,8 @@ def health() -> PlainTextResponse:
 
 
 @router.post("/api/upload", status_code=201)
+@router.post("/upload", status_code=201)
+@router.post("/", status_code=201)
 async def upload(
     req: Request,
     orch: IngestOrchestrator = Depends(get_orchestrator),  # noqa: B008
