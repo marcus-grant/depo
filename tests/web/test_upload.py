@@ -9,9 +9,14 @@ Created: 2026-02-09
 License: Apache-2.0
 """
 
-from depo.util.shortcode import _CROCKFORD32
+from io import BytesIO
+from unittest.mock import AsyncMock
+
+import pytest
+from fastapi import UploadFile
+from starlette.datastructures import Headers
+
 from depo.web.upload import _looks_like_url, parse_upload, upload_response
-from tests.factories.web import make_client
 
 
 # TODO: Needs to be moved to proper validate/classify stage of ingest pipeline
@@ -70,11 +75,52 @@ class TestLooksLikeUrl:
 class TestParseUpload:
     """Tests for parse_upload()."""
 
-    # Multipart file extracts payload_bytes, filename, declared_mime
-    # URL query param extracts link_url
-    # Raw body extracts payload_bytes and content-type as declared_mime
-    # Raw body containing URL extracts link_url
-    # No file, no url, no body raises ValueError
+    @pytest.mark.asyncio
+    async def test_multipart_extracts_kwargs(self):
+        """Multipart file extracts payload_bytes, filename, declared_mime."""
+        file = UploadFile(
+            filename="hello.txt",
+            file=BytesIO(b"hello world"),
+            headers=Headers({"content-type": "text/plain"}),
+        )
+        result = dict(await parse_upload(file=file, url=None, request=None))
+        assert result["payload_bytes"] == b"hello world"
+        assert result["filename"] == "hello.txt"
+        assert result["declared_mime"] == "text/plain"
+
+    @pytest.mark.asyncio
+    async def test_url_param_extracts_link_url(self):
+        """URL query param extracts link_url."""
+        result = dict(await parse_upload(file=None, url="http://a.eu", request=None))
+        assert result["link_url"] == "http://a.eu"
+        assert "payload_bytes" not in result
+
+    @pytest.mark.asyncio
+    async def test_raw_body_extracts_payload(self):
+        """Raw body extracts payload_bytes and declared_mime."""
+        mock_request = AsyncMock()
+        mock_request.body.return_value = b"some raw content"
+        mock_request.headers = Headers({"content-type": "application/octet-stream"})
+        result = dict(await parse_upload(file=None, url=None, request=mock_request))
+        assert result["payload_bytes"] == b"some raw content"
+        assert result["declared_mime"] == "application/octet-stream"
+        assert "link_url" not in result
+
+    @pytest.mark.asyncio
+    async def test_raw_body_url_detected_as_link(self):
+        """Raw body containing URL extracts link_url instead of payload_bytes."""
+        mock_request = AsyncMock()
+        mock_request.body.return_value = b"https://example.com"
+        mock_request.headers = Headers({"content-type": "text/plain"})
+        result = dict(await parse_upload(file=None, url=None, request=mock_request))
+        assert result["link_url"] == "https://example.com"
+        assert "payload_bytes" not in result
+
+    @pytest.mark.asyncio
+    async def test_no_input_raises(self):
+        """No file, no url, no body raises ValueError."""
+        with pytest.raises(ValueError, match="routing bug"):
+            await parse_upload(file=None, url=None, request=None)
 
 
 class TestUploadResponse:
