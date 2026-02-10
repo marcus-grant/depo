@@ -29,4 +29,4 @@ def get_storage(request: Request) -> StorageBackend:
 
 def get_orchestrator(request: Request) -> IngestOrchestrator:
     """Provide the IngestOrchestrator from app state."""
-    raise request.app.state.orchestrator
+    return request.app.state.orchestrator

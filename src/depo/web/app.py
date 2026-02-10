@@ -33,8 +33,8 @@ def app_factory(config: DepoConfig) -> FastAPI:
     # Initialize DB, create Repository, StorageBackend
     app.state.config.db_path.parent.mkdir(parents=True, exist_ok=True)
     app.state.config.store_root.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(app.state.config.db_path)
-    init_db(conn)
+    conn = sqlite3.connect(app.state.config.db_path, check_same_thread=False)
+    init_db(conn)  # NOTE: Thread pooling/write queing in repo is not ready yet
     repo = SqliteRepository(conn)
     store = FilesystemStorage(root=app.state.config.store_root)
     service = IngestService()
