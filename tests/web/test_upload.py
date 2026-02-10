@@ -9,15 +9,12 @@ Created: 2026-02-09
 License: Apache-2.0
 """
 
-from fastapi.testclient import TestClient
-
-from depo.cli.config import DepoConfig
-from depo.web.app import app_factory
-from depo.web.routes import _looks_like_url
+from depo.util.shortcode import _CROCKFORD32
+from depo.web.upload import _looks_like_url, parse_upload, upload_response
+from tests.factories.web import make_client
 
 
-
-
+# TODO: Needs to be moved to proper validate/classify stage of ingest pipeline
 class TestLooksLikeUrl:
     """Tests for _looks_like_url() helper."""
 
@@ -68,3 +65,22 @@ class TestLooksLikeUrl:
         assert _looks_like_url(b"hello world") is False
         assert _looks_like_url(b"just some notes") is False
         assert _looks_like_url(b"") is False
+
+
+class TestParseUpload:
+    """Tests for parse_upload()."""
+
+    # Multipart file extracts payload_bytes, filename, declared_mime
+    # URL query param extracts link_url
+    # Raw body extracts payload_bytes and content-type as declared_mime
+    # Raw body containing URL extracts link_url
+    # No file, no url, no body raises ValueError
+
+
+class TestUploadResponse:
+    """Tests for upload_response()."""
+
+    # Returns 201 with short code as body
+    # Sets X-Depo-Code header matching body
+    # Sets X-Depo-Kind header from result item kind
+    # Content-Type is text/plain
