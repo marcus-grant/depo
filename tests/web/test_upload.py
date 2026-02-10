@@ -17,6 +17,7 @@ from fastapi import UploadFile
 from starlette.datastructures import Headers
 
 from depo.web.upload import _looks_like_url, parse_upload, upload_response
+from tests.factories.dto import make_persist_result
 
 
 # TODO: Needs to be moved to proper validate/classify stage of ingest pipeline
@@ -126,7 +127,23 @@ class TestParseUpload:
 class TestUploadResponse:
     """Tests for upload_response()."""
 
-    # Returns 201 with short code as body
-    # Sets X-Depo-Code header matching body
-    # Sets X-Depo-Kind header from result item kind
-    # Content-Type is text/plain
+    def test_returns_201_with_code(self):
+        """Returns 201 with short code as plain text body."""
+        result = make_persist_result()
+        resp = upload_response(result)
+        assert resp.status_code == 201
+        assert resp.body == b"01234567"
+        assert resp.headers["content-type"].startswith("text/plain")
+        assert resp.headers["X-Depo-Code"] == "01234567"
+        assert resp.headers["X-Depo-Kind"] == "txt"
+        assert resp.headers["X-Depo-Created"] == "true"
+
+    def test_dedupe_returns_200(self):
+        """Duplicate upload returns 200 with same code and created=false header."""
+        result = make_persist_result(created=False)
+        resp = upload_response(result)
+        assert resp.status_code == 200
+        assert resp.body == b"01234567"
+        assert resp.headers["X-Depo-Code"] == "01234567"
+        assert resp.headers["X-Depo-Kind"] == "txt"
+        assert resp.headers["X-Depo-Created"] == "false"

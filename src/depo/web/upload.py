@@ -91,4 +91,13 @@ async def parse_upload(
 
 def upload_response(result: PersistResult) -> PlainTextResponse:
     """Build HTTP response from a PersistResult."""
-    raise NotImplementedError
+    return PlainTextResponse(
+        content=result.item.code,
+        status_code=201 if result.created else 200,
+        headers={
+            "content-type": "text/plain",
+            "X-Depo-Code": result.item.code,
+            "X-Depo-Kind": str(result.item.kind),
+            "X-Depo-Created": "true" if result.created else "false",
+        },
+    )
