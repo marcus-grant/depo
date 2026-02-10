@@ -11,6 +11,7 @@ License: Apache-2.0
 """
 
 import re
+from typing import TypedDict
 
 from fastapi import Request, UploadFile
 from fastapi.responses import PlainTextResponse
@@ -35,13 +36,57 @@ def _looks_like_url(data: bytes) -> bool:
     return bool(_URL_RE.match(text))
 
 
+class UploadMultipartParams(TypedDict):
+    """Upload params from multipart file submission."""
+
+    payload_bytes: bytes
+    filename: str
+    declared_mime: str
+
+
+class UploadUrlParams(TypedDict):
+    """Upload params from URL query parameter or detected link."""
+
+    link_url: str
+
+
+class UploadRawBodyParams(TypedDict):
+    """Upload params from raw request body."""
+
+    payload_bytes: bytes
+    declared_mime: str
+
+
+# NOTE: Have a subset of UploadParamas for each upload situation and union them
+UploadParams = UploadMultipartParams | UploadUrlParams | UploadRawBodyParams
+
+
 async def parse_upload(
     file: UploadFile | None,
     url: str | None,
-    request: Request,
-) -> dict:
+    request: Request | None,
+) -> UploadParams:
     """Extract orchestrator.ingest kwargs from an HTTP request."""
-    raise NotImplementedError
+    if request is not None:
+        body = await request.body()
+        if _looks_like_url(body):
+            return UploadUrlParams(link_url=body.decode("utf-8").strip())
+        return UploadRawBodyParams(
+            payload_bytes=body,
+            declared_mime=str(request.headers.get("content-type")),
+        )
+    if file is not None:
+        return UploadMultipartParams(
+            payload_bytes=(await file.read()),
+            filename=(str(file.filename)),
+            declared_mime=(str(file.content_type)),
+        )
+    if url is not None:
+        return UploadUrlParams(link_url=url)
+    raise ValueError(
+        "parse_upload called with no input: file, url, and request are all None. "
+        "This is a routing bug — at least one must be provided."
+    )
 
 
 def upload_response(result: PersistResult) -> PlainTextResponse:
