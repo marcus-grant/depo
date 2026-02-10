@@ -7,12 +7,8 @@ Created: 2026-02-09
 License: Apache-2.0
 """
 
-from pathlib import Path
-
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
-from depo.cli.config import DepoConfig
 from depo.web.app import app_factory
 from tests.factories.config import make_config
 from tests.factories.web import make_client
