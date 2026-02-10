@@ -112,3 +112,88 @@ class TestUploadShortcuts:
         assert resp.headers["X-Depo-Code"] == resp.text
         assert resp.headers["X-Depo-Kind"] == "txt"
         assert resp.headers["X-Depo-Created"] == "true"
+
+
+class TestGetInfo:
+    """Tests for GET /api/{code}/info."""
+
+    def test_text_item_info(self, tmp_path):
+        """Text item returns metadata as plain text."""
+        client = make_client(tmp_path)
+        file = ("hello.txt", b"hello world")
+        upload = client.post("/api/upload", files={"file": file})
+        code = upload.text
+        resp = client.get(f"/api/{code}/info")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/plain")
+        assert f"code={code}" in resp.text
+        assert "kind=txt" in resp.text
+        assert "format=txt" in resp.text
+        assert "size_b=" in resp.text
+
+    def test_pic_item_info(self, tmp_path):
+        """Pic item returns metadata including dimensions."""
+        client = make_client(tmp_path)
+        file = ("img.jpg", gen_image("jpeg", 16, 16))
+        upload = client.post("/api/upload", files={"file": file})
+        code = upload.text
+        resp = client.get(f"/api/{code}/info")
+        assert resp.status_code == 200
+        assert "kind=pic" in resp.text
+        assert "width=16" in resp.text
+        assert "height=16" in resp.text
+
+    def test_link_item_info(self, tmp_path):
+        """Link item returns metadata including URL."""
+        client = make_client(tmp_path)
+        upload = client.post("/api/upload?url=https://example.com")
+        code = upload.text
+        resp = client.get(f"/api/{code}/info")
+        assert resp.status_code == 200
+        assert "kind=url" in resp.text
+        assert "url=https://example.com" in resp.text
+
+    def test_unknown_code_returns_404(self, tmp_path):
+        """Unknown code returns 404."""
+        client = make_client(tmp_path)
+        resp = client.get("/api/ZZZZZZZZ/info")
+        assert resp.status_code == 404
+
+
+class TestGetRaw:
+    """Tests for GET /api/{code}/raw."""
+
+    def test_text_returns_raw_content(self, tmp_path):
+        """Text item returns raw content with text/plain MIME."""
+        client = make_client(tmp_path)
+        file = ("hello.txt", b"Hello, World!")
+        upload = client.post("/api/upload", files={"file": file})
+        resp = client.get(f"/api/{upload.text}/raw")  # upload.text is the code
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/plain")
+        assert "charset=utf-8" in resp.headers["content-type"]
+        assert resp.content == file[1]
+
+    def test_pic_returns_raw_bytes(self, tmp_path):
+        """Pic item returns raw bytes with correct image MIME."""
+        client = make_client(tmp_path)
+        file = ("img.jpg", gen_image("jpeg", 16, 16))
+        upload = client.post("/api/upload", files={"file": file})
+        resp = client.get(f"/api/{upload.text}/raw")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("image/jpeg")
+        assert len(resp.content) > 0
+
+    def test_link_returns_redirect(self, tmp_path):
+        """LinkItem returns redirect to URL."""
+        client = make_client(tmp_path)
+        upload = client.post("/api/upload?url=https://example.com")
+        resp = client.get(f"/api/{upload.text}/raw", follow_redirects=False)
+        assert resp.status_code == 307
+        assert resp.headers["location"] == "https://example.com"
+
+    def test_unknown_code_returns_404(self, tmp_path):
+        """Unknown code returns 404."""
+        client = make_client(tmp_path)
+        resp = client.get("/api/ZZZZZZZZ/raw")
+        assert resp.status_code == 404
