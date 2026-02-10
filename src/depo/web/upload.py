@@ -16,7 +16,7 @@ from typing import TypedDict
 from fastapi import Request, UploadFile
 from fastapi.responses import PlainTextResponse
 
-from depo.service.orchestrator import PersistResult
+from depo.service.orchestrator import IngestOrchestrator, PersistResult
 
 # TODO: This belongs in the right place in ingestion pipeline, probably classify
 # Don't forget to move its test class TestLooksLikeUrl as well
@@ -101,3 +101,18 @@ def upload_response(result: PersistResult) -> PlainTextResponse:
             "X-Depo-Created": "true" if result.created else "false",
         },
     )
+
+
+async def execute_upload(
+    file: UploadFile | None,
+    url: str | None,
+    request: Request | None,
+    orchestrator: IngestOrchestrator,
+) -> PlainTextResponse:
+    """Parse request, ingest, build response."""
+    params = await parse_upload(file=file, url=url, request=request)
+    try:
+        result = orchestrator.ingest(**dict(params))  # type: ignore[arg-type]
+    except ValueError as e:
+        return PlainTextResponse(str(e), status_code=400)
+    return upload_response(result)
