@@ -86,6 +86,21 @@ This module is responsible only for bytes in and bytes out.
 
 See [storage.md](./storage.md) for interface specifications.
 
+### cli/
+
+Command-line interface and configuration.
+
+This includes:
+
+- configuration resolution (config.py)
+- Click CLI commands (main.py)
+- `python -m depo` entry point
+
+Configuration is the dependency root -
+all downstream components receive config values.
+
+See [cli.md](./cli.md) for interface specifications.
+
 ### web/
 
 HTTP boundary of the application.
@@ -98,6 +113,8 @@ This includes:
 - dependency wiring
 
 This is the only place FastAPI should appear.
+
+See [web.md](./web.md) for interface specifications.
 
 ### util/
 

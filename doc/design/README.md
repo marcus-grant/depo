@@ -77,3 +77,7 @@ IngestOrchestrator coordinates Repository and StorageBackend as siblings.
 - [Design Patterns](./patterns.md)
   - Recurring patterns and learnings from development
   - Data-driven classification, test strategies, composition
+
+- [Development Process](./process.md)
+  - Principles and learnings about how we develop depo
+  - Type friction, TDD + typing, commit hygiene

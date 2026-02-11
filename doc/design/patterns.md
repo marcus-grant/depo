@@ -81,6 +81,7 @@ Inspired by HackSoft's Django Styleguide services/selectors pattern,
 adapted for FastAPI with explicit dependency passing.
 
 **Services** coordinate write operations (ingest, delete):
+
 ```python
 class IngestOrchestrator:
     def __init__(self, ingest_service, repo, storage): ...
@@ -88,12 +89,14 @@ class IngestOrchestrator:
 ```
 
 **Selectors** coordinate read operations as module-level functions:
+
 ```python
 def get_item(repo, code: str) -> TextItem | PicItem | LinkItem: ...
 def get_raw(repo, storage, code: str) -> tuple[BinaryIO | None, Item]: ...
 ```
 
 Key differences from Django Styleguide:
+
 - Selectors take repo/storage as explicit parameters (no Django ORM globals)
 - No class needed for selectors — read coordination is simple
 - Naming is `selector.py` not `selectors.py` (matches depo's singular convention)
@@ -191,6 +194,7 @@ Each layer overrides the previous. Supports both containerized deployments
 - **CLI flag** (`--config`) replaces file discovery entirely
 
 The config dataclass is the single source of truth for dependency wiring:
+
 ```txt
 CLI loads DepoConfig → app_factory(config) → FastAPI app
 ```
@@ -287,6 +291,7 @@ Fixtures compose upward: `t_conn` → `t_db` → `t_repo` → `t_orch_env`.
 Each layer adds one concern (schema, repository wrapper, orchestrator wiring).
 
 Key conventions:
+
 - `t_` prefix distinguishes first-party from pytest/third-party fixtures
 - `t_orch_env` returns a tuple so tests can access repo/storage for assertions
 - `t_store` uses `tmp_path` for automatic cleanup
@@ -332,6 +337,45 @@ def _assert_content_class(result, expected_format, msg_prefix=""):
 
 Centralizes multi-field assertions. Reduces boilerplate, improves error messages.
 
+## Type Patterns
+
+### Pattern: Algebraic Types at Layer Boundaries
+
+```python
+class UploadMultipartParams(TypedDict):
+    payload_bytes: bytes
+    filename: str
+    declared_mime: str
+
+class UploadUrlParams(TypedDict):
+    link_url: str
+
+class UploadRawBodyParams(TypedDict):
+    payload_bytes: bytes
+    declared_mime: str
+
+UploadParams = UploadMultipartParams | UploadUrlParams | UploadRawBodyParams
+```
+
+When a function returns different shapes per branch, model each as
+a concrete TypedDict and union them. Pyright narrows on key checks
+or `isinstance`, giving full type safety in both production and test code.
+
+Emerged from: plain `dict` → `TypedDict(total=False)` → algebraic union.
+Each step was forced by real type checker friction, not premature design.
+
+### Pattern: Contained Type Coercion
+
+```python
+ingest_kwargs: dict = dict(params)
+result = orchestrator.ingest(**ingest_kwargs)  # type: ignore[arg-type]
+```
+
+When algebraic types meet a function with optional kwargs, the type
+checker can't prove the union satisfies the signature. Contain the
+`type: ignore` in one place — the glue function that owns both sides
+of the boundary. Tests bracket correctness from both ends.
+
 ## Principles
 
 - **Data structures are the spec**
@@ -344,3 +388,7 @@ Centralizes multi-field assertions. Reduces boilerplate, improves error messages
   - Complex behavior emerges from composing simple parts.
 - **Services write, selectors read**
   - Clear separation between mutation and query paths.
+- **Type friction is signal**
+  - When the type checker fights you, the model is wrong. Investigate, don't suppress.
+  - Only when python's type system can't express the design does it need to be bent.
+  - Otherwise, let it guide you to better abstractions.
