@@ -9,20 +9,17 @@ License: Apache-2.0
 
 from dataclasses import fields
 from pathlib import Path
+from unittest.mock import patch
 
 from click.testing import CliRunner
+from tests.factories.config import make_config
 
 from depo.cli.config import DepoConfig
 from depo.cli.main import cli
 
 
-# TODO: Should this be a fixture?
-def _depo_cfg(p: Path) -> DepoConfig:
-    return DepoConfig(db_path=p / "data" / "depo.db", store_root=p / "store")
-
-
 def _invoke(*args, tmp_path: Path | None = None):
-    cfg = _depo_cfg(tmp_path) if tmp_path else DepoConfig()
+    cfg = make_config(tmp_path) if tmp_path else DepoConfig()
     runner = CliRunner()
     return runner.invoke(cli, list(args), obj={"config": cfg}, env={"COLUMNS": "300"})  # type: ignore
 
@@ -38,7 +35,7 @@ class TestInit:
 
     def test_creates_database(self, tmp_path):
         _invoke("init", tmp_path=tmp_path)
-        assert _depo_cfg(tmp_path).db_path.is_file()
+        assert make_config(tmp_path).db_path.is_file()
 
     def test_idempotent(self, tmp_path):
         _invoke("init", tmp_path=tmp_path)
@@ -55,10 +52,10 @@ class TestConfigShow:
         assert result.exit_code == 0
         assert "store" in result.output
         assert "depo.db" in result.output
-        assert str(_depo_cfg(tmp_path).host) in result.output
-        assert str(_depo_cfg(tmp_path).port) in result.output
-        assert str(_depo_cfg(tmp_path).max_size_bytes) in result.output
-        assert str(_depo_cfg(tmp_path).max_url_len) in result.output
+        assert str(make_config(tmp_path).host) in result.output
+        assert str(make_config(tmp_path).port) in result.output
+        assert str(make_config(tmp_path).max_size_bytes) in result.output
+        assert str(make_config(tmp_path).max_url_len) in result.output
 
     def test_shows_all_expected_fields(self, tmp_path):
         """Tests gaps in coverage for new/different DepoConfig fields"""
@@ -80,7 +77,8 @@ class TestConfigShow:
 class TestServe:
     """Tests for `depo serve`."""
 
-    def test_placeholder(self, tmp_path):
-        result = _invoke("serve", tmp_path=tmp_path)
+    def test_calls_uvicorn(self, tmp_path):
+        with patch("uvicorn.run") as mock_run:
+            result = _invoke("serve", tmp_path=tmp_path)
         assert result.exit_code == 0
-        assert "not implemented" in result.output.lower()
+        mock_run.assert_called_once()
