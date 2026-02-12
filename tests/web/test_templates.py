@@ -8,10 +8,9 @@ License: Apache-2.0
 
 import jinja2
 import pytest
-from fastapi import FastAPI, Request
-from starlette.testclient import TestClient
 
 from depo.web.templates import get_templates, is_htmx
+from tests.factories.web import make_probe_client
 
 
 class TestIsHtmx:
@@ -21,22 +20,13 @@ class TestIsHtmx:
     returns the result of is_htmx() as plain text.
     """
 
-    def _make_app(self) -> TestClient:
-        app = FastAPI()
-
-        @app.get("/probe")
-        def probe(request: Request):
-            return {"htmx": is_htmx(request)}
-
-        return TestClient(app)
-
     def test_true_when_header_present(self):
-        client = self._make_app()
+        client = make_probe_client(lambda r: {"htmx": is_htmx(r)})
         resp = client.get("/probe", headers={"HX-Request": "true"})
         assert resp.json()["htmx"] is True
 
     def test_false_when_header_absent(self):
-        client = self._make_app()
+        client = make_probe_client(lambda r: {"htmx": is_htmx(r)})
         resp = client.get("/probe")
         assert resp.json()["htmx"] is False
 
