@@ -24,7 +24,7 @@ from depo.service.orchestrator import IngestOrchestrator
 from depo.storage.protocol import StorageBackend
 from depo.web.deps import get_orchestrator, get_repo, get_storage
 from depo.web.templates import get_templates
-from depo.web.upload import execute_upload
+from depo.web.upload import ingest_upload, parse_form_upload, upload_response
 
 router = APIRouter()
 
@@ -41,8 +41,30 @@ async def upload_page(req: Request):
     return get_templates().TemplateResponse(request=req, name="upload.html")
 
 
+@router.post("/upload")
+async def upload_form(
+    req: Request,
+    orch: IngestOrchestrator = Depends(get_orchestrator),
+):
+    """Browser form upload: textarea content + format override."""
+    templates = get_templates()
+    try:
+        params = await parse_form_upload(req)
+        result = orch.ingest(**dict(params))  # type: ignore[arg-type]
+    except (ValueError, ImportError) as e:
+        return templates.TemplateResponse(
+            request=req,
+            name="partials/error.html",
+            context={"error": str(e)},
+        )
+    return templates.TemplateResponse(
+        request=req,
+        name="partials/success.html",
+        context={"code": result.item.code, "created": result.created},
+    )
+
+
 @router.post("/api/upload", status_code=201)
-@router.post("/upload", status_code=201)
 @router.post("/", status_code=201)
 async def upload(
     req: Request,
@@ -50,12 +72,14 @@ async def upload(
     url: str | None = None,
     file: UploadFile | None = None,
 ) -> PlainTextResponse:
-    """Accept content via multipart, raw body, or URL param."""
-    if file is not None:
-        return await execute_upload(file, url, None, orch)
-    if url is not None:
-        return await execute_upload(None, url, None, orch)
-    return await execute_upload(None, None, req, orch)
+    """API upload: multipart, raw body, or URL param."""
+    try:
+        result = await ingest_upload(file, url, req, orch)
+    except ValueError as e:
+        return PlainTextResponse(str(e), status_code=400)
+    except ImportError as e:
+        return PlainTextResponse(str(e), status_code=501)
+    return upload_response(result)
 
 
 @router.get("/health")

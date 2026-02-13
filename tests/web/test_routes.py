@@ -95,15 +95,6 @@ class TestUploadLink:
 class TestUploadShortcuts:
     """Tests for convenience route aliases."""
 
-    def test_post_upload_alias(self, tmp_path):
-        """POST /upload routes same as /api/upload."""
-        client = make_client(tmp_path)
-        resp = client.post("/upload", files={"file": ("test.txt", b"hello upload")})
-        assert resp.status_code == 201
-        assert resp.headers["X-Depo-Code"] == resp.text
-        assert resp.headers["X-Depo-Kind"] == "txt"
-        assert resp.headers["X-Depo-Created"] == "true"
-
     def test_post_root_alias(self, tmp_path):
         """POST / routes same as /api/upload."""
         client = make_client(tmp_path)
