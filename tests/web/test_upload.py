@@ -10,13 +10,19 @@ License: Apache-2.0
 """
 
 from io import BytesIO
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import UploadFile
 from starlette.datastructures import Headers
 
-from depo.web.upload import _looks_like_url, parse_upload, upload_response
+from depo.model.enums import ContentFormat
+from depo.web.upload import (
+    _looks_like_url,
+    parse_form_upload,
+    parse_upload,
+    upload_response,
+)
 from tests.factories.dto import make_persist_result
 
 
@@ -122,6 +128,48 @@ class TestParseUpload:
         """No file, no url, no body raises ValueError."""
         with pytest.raises(ValueError, match="routing bug"):
             await parse_upload(file=None, url=None, request=None)
+
+
+@pytest.mark.asyncio
+class TestParseFormUpload:
+    """Parse browser form fields into orchestrator kwargs."""
+
+    async def _test_fn(self, content: str, fmt: str) -> dict:
+        req = MagicMock()
+        req.form = AsyncMock(return_value={"content": content, "format": fmt})
+        return dict(await parse_form_upload(req))
+
+    @pytest.mark.asyncio
+    async def test_textarea_content_extracts_payload(self):
+        """Textarea content is extracted as payload_bytes."""
+        result = await self._test_fn("hello", "")
+        assert result["payload_bytes"] == b"hello"
+
+    @pytest.mark.asyncio
+    async def test_request_format_for_select_option(self):
+        """Select options form for format returns correct requested_format."""
+        cf_txt, cf_md = ContentFormat.PLAINTEXT, ContentFormat.MARKDOWN
+        assert (await self._test_fn("hello", ""))["requested_format"] is None
+        assert (await self._test_fn("hello", "txt"))["requested_format"] == cf_txt
+        assert (await self._test_fn("hello", "md"))["requested_format"] == cf_md
+
+    @pytest.mark.asyncio
+    async def test_empty_content_raises(self):
+        """Empty textarea raises ValueError."""
+        with pytest.raises(ValueError, match="No content provided"):
+            await self._test_fn("", "")
+
+    @pytest.mark.asyncio
+    async def test_whitespace_content_raises(self):
+        """Whitespace-only textarea raises ValueError."""
+        with pytest.raises(ValueError, match="No content provided"):
+            await self._test_fn("   ", "")
+
+    @pytest.mark.asyncio
+    async def test_declared_mime_is_plaintext(self):
+        """Form content always declares text/plain mime."""
+        result = await self._test_fn("hello", "")
+        assert result["declared_mime"] == "text/plain"
 
 
 class TestUploadResponse:

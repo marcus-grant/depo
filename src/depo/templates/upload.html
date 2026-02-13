@@ -2,7 +2,13 @@
 <!-- EXTENDS: base.html -->
 {% extends "base.html" %}
 {% block content %}
-<form method="post" action="/upload">
+<form
+    method="post"
+    action="/upload"
+    hx-post="/upload"
+    hx-target="#result"
+    hx-swap="innerHTML"
+  >
   <textarea name="content">
   </textarea>
   <select name="format">
@@ -22,6 +28,7 @@
   </select>
   <button type="submit">Record</button>
 </form>
+<div id="result"></div>
 <!-- Form: textarea for content, select dropdown for type override, submit button -->
 <!-- Form will use hx-post in next commit, plain POST action for now -->
 <!-- END: upload.html -->
