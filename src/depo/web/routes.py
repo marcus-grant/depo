@@ -23,15 +23,22 @@ from depo.repo.sqlite import SqliteRepository
 from depo.service.orchestrator import IngestOrchestrator
 from depo.storage.protocol import StorageBackend
 from depo.web.deps import get_orchestrator, get_repo, get_storage
+from depo.web.templates import get_templates
 from depo.web.upload import execute_upload
 
 router = APIRouter()
 
 
-@router.get("/health")
-def health() -> PlainTextResponse:
-    """Return plain text health check for liveness probes."""
-    return PlainTextResponse(content="ok", status_code=200)
+@router.get("/")
+async def root_redirect():
+    """Redirect root to canonical upload page."""
+    return RedirectResponse(url="/upload", status_code=302)
+
+
+@router.get("/upload")
+async def upload_page(req: Request):
+    """Serve the upload form as a full HTML page."""
+    return get_templates().TemplateResponse(request=req, name="upload.html")
 
 
 @router.post("/api/upload", status_code=201)
@@ -49,6 +56,12 @@ async def upload(
     if url is not None:
         return await execute_upload(None, url, None, orch)
     return await execute_upload(None, None, req, orch)
+
+
+@router.get("/health")
+def health() -> PlainTextResponse:
+    """Return plain text health check for liveness probes."""
+    return PlainTextResponse(content="ok", status_code=200)
 
 
 @router.get("/api/{code}/info")
