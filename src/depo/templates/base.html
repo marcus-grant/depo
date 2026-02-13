@@ -1,4 +1,19 @@
-<!-- src/depo/templates/base.html -->
+<!-- BEGIN: base.html -->
 <!-- Full page layout wrapper -->
-<!-- Head: load /static/css/pico.min.css, /static/css/depo.css, /static/js/htmx.min.js -->
-<!-- Body: define {% block content %}{% endblock %} -->
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}depo{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/pico.min.css">
+    <link rel="stylesheet" href="/static/css/depo.css">
+    <script defer src="/static/js/htmx.min.js"></script>
+  </head>
+  <body>
+    <main>
+      {% block content %}
+      {% endblock %}
+    </main>
+  </body>
+</html>
+<!-- END: base.html -->
