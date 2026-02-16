@@ -27,6 +27,7 @@ from depo.web.templates import get_templates
 from depo.web.upload import ingest_upload, parse_form_upload, upload_response
 
 router = APIRouter()
+_templates = get_templates()  # Preload templates for route handlers
 
 
 @router.get("/")
@@ -82,10 +83,51 @@ async def upload(
     return upload_response(result)
 
 
-@router.get("/health")
-def health() -> PlainTextResponse:
-    """Return plain text health check for liveness probes."""
-    return PlainTextResponse(content="ok", status_code=200)
+def _response_404(req: Request, code: str, e: Exception) -> Response:
+    return _templates.TemplateResponse(
+        request=req,
+        name="errors/404.html",
+        status_code=404,
+        context={"code": code, "error": str(e)},
+    )
+
+
+@router.get("/{code}/info")
+async def info_page(
+    req: Request,
+    code: str,
+    repo: SqliteRepository = Depends(get_repo),
+    store: StorageBackend = Depends(get_storage),
+) -> Response:
+    """Serve HTML info view, template selected by item kind."""
+    try:
+        item = selector.get_item(repo, code)
+    except NotFoundError as e:
+        return _response_404(req, code, e)
+    if isinstance(item, LinkItem):
+        return _templates.TemplateResponse(
+            request=req,
+            status_code=200,
+            name="info/link.html",
+            context={"request": req, "item": item},
+        )
+    if isinstance(item, TextItem):
+        content = selector.get_raw(store, item).read()
+        return _templates.TemplateResponse(
+            request=req,
+            status_code=200,
+            name="info/text.html",
+            context={"request": req, "item": item, "content": content},
+        )
+    if isinstance(item, PicItem):
+        return _templates.TemplateResponse(
+            request=req,
+            status_code=200,
+            name="info/pic.html",
+            context={"request": req, "item": item},
+        )
+    # TODO: Come up with proper 500 level code response with template
+    return _response_404(req, "F00BAR", Exception("Unexpected item type"))
 
 
 @router.get("/api/{code}/info")
@@ -122,3 +164,9 @@ async def get_raw(
     if isinstance(item, PicItem):
         return Response(content=data.read(), media_type=mime_for_format(item.format))
     return PlainTextResponse("Unexpected item type", status_code=500)
+
+
+@router.get("/health")
+def health() -> PlainTextResponse:
+    """Return plain text health check for liveness probes."""
+    return PlainTextResponse(content="ok", status_code=200)
