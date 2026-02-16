@@ -23,6 +23,7 @@ from depo.repo.sqlite import SqliteRepository
 from depo.service.orchestrator import IngestOrchestrator
 from depo.storage.protocol import StorageBackend
 from depo.web.deps import get_orchestrator, get_repo, get_storage
+from depo.web.negotiate import wants_html
 from depo.web.templates import get_templates
 from depo.web.upload import ingest_upload, parse_form_upload, upload_response
 
@@ -83,6 +84,27 @@ async def upload(
     return upload_response(result)
 
 
+@router.get("/health")
+def health() -> PlainTextResponse:
+    """Return plain text health check for liveness probes."""
+    return PlainTextResponse(content="ok", status_code=200)
+
+
+@router.get("/api/{code}/info")
+async def get_info(  # TODO: This needs proper JSON serialization later
+    code: str,
+    repo: SqliteRepository = Depends(get_repo),
+) -> PlainTextResponse:
+    """Return item metadata for the given code."""
+    try:
+        item = selector.get_item(repo, code)
+    except NotFoundError as e:
+        return PlainTextResponse(content=str(e), status_code=404)
+    lines = [f"{f.name}={getattr(item, f.name)}" for f in dataclasses.fields(item)]
+    body = "\n".join(lines)
+    return PlainTextResponse(content=body)
+
+
 def _response_404(req: Request, code: str, e: Exception) -> Response:
     return _templates.TemplateResponse(
         request=req,
@@ -90,6 +112,27 @@ def _response_404(req: Request, code: str, e: Exception) -> Response:
         status_code=404,
         context={"code": code, "error": str(e)},
     )
+
+
+@router.get("/api/{code}/raw")
+async def get_raw(
+    code: str,
+    repo: SqliteRepository = Depends(get_repo),
+    store: StorageBackend = Depends(get_storage),
+) -> Response:
+    """Return raw content for the given code."""
+    try:
+        item = selector.get_item(repo, code)
+    except NotFoundError as e:
+        return PlainTextResponse(content=str(e), status_code=404)
+    if isinstance(item, LinkItem):
+        return RedirectResponse(item.url, status_code=307)
+    data = selector.get_raw(store, item)
+    if isinstance(item, TextItem):
+        return Response(content=data.read(), media_type="text/plain; charset=utf-8")
+    if isinstance(item, PicItem):
+        return Response(content=data.read(), media_type=mime_for_format(item.format))
+    return PlainTextResponse("Unexpected item type", status_code=500)
 
 
 @router.get("/{code}/info")
@@ -130,43 +173,9 @@ async def info_page(
     return _response_404(req, "F00BAR", Exception("Unexpected item type"))
 
 
-@router.get("/api/{code}/info")
-async def get_info(  # TODO: This needs proper JSON serialization later
-    code: str,
-    repo: SqliteRepository = Depends(get_repo),
-) -> PlainTextResponse:
-    """Return item metadata for the given code."""
-    try:
-        item = selector.get_item(repo, code)
-    except NotFoundError as e:
-        return PlainTextResponse(content=str(e), status_code=404)
-    lines = [f"{f.name}={getattr(item, f.name)}" for f in dataclasses.fields(item)]
-    body = "\n".join(lines)
-    return PlainTextResponse(content=body)
-
-
-@router.get("/api/{code}/raw")
-async def get_raw(
-    code: str,
-    repo: SqliteRepository = Depends(get_repo),
-    store: StorageBackend = Depends(get_storage),
-) -> Response:
-    """Return raw content for the given code."""
-    try:
-        item = selector.get_item(repo, code)
-    except NotFoundError as e:
-        return PlainTextResponse(content=str(e), status_code=404)
-    if isinstance(item, LinkItem):
-        return RedirectResponse(item.url, status_code=307)
-    data = selector.get_raw(store, item)
-    if isinstance(item, TextItem):
-        return Response(content=data.read(), media_type="text/plain; charset=utf-8")
-    if isinstance(item, PicItem):
-        return Response(content=data.read(), media_type=mime_for_format(item.format))
-    return PlainTextResponse("Unexpected item type", status_code=500)
-
-
-@router.get("/health")
-def health() -> PlainTextResponse:
-    """Return plain text health check for liveness probes."""
-    return PlainTextResponse(content="ok", status_code=200)
+@router.get("/{code}")
+async def shortcut(req: Request, code: str) -> Response:
+    """Redirect shortcut to canonical route based on client type."""
+    if wants_html(req):
+        return RedirectResponse(url=f"/{code}/info", status_code=302)
+    return RedirectResponse(url=f"/api/{code}/raw", status_code=302)
