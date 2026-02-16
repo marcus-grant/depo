@@ -17,6 +17,7 @@ from depo.model.enums import ContentFormat, ItemKind, PayloadKind
 from depo.model.write_plan import WritePlan
 from depo.service.classify import classify
 from depo.service.media import get_image_info
+from depo.util.errors import PayloadTooLargeError
 from depo.util.shortcode import hash_full_b32
 
 
@@ -115,7 +116,7 @@ class IngestService:
         size = len(data)
         if size > self.max_size_bytes:
             msg = f"Payload size {size} bytes exceeds limit {self.max_size_bytes}"
-            raise ValueError(msg)
+            raise PayloadTooLargeError(msg)
         if size <= 0:
             raise ValueError("Payload is empty")
 

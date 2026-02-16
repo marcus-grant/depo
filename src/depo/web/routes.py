@@ -22,6 +22,7 @@ from depo.repo.errors import NotFoundError
 from depo.repo.sqlite import SqliteRepository
 from depo.service.orchestrator import IngestOrchestrator
 from depo.storage.protocol import StorageBackend
+from depo.util.errors import PayloadTooLargeError
 from depo.web.deps import get_orchestrator, get_repo, get_storage
 from depo.web.negotiate import wants_html
 from depo.web.templates import get_templates
@@ -29,6 +30,31 @@ from depo.web.upload import ingest_upload, parse_form_upload, upload_response
 
 router = APIRouter()
 _templates = get_templates()  # Preload templates for route handlers
+
+
+def _response_404(req: Request, code: str, e: Exception) -> Response:
+    return _templates.TemplateResponse(
+        request=req,
+        name="errors/404.html",
+        status_code=404,
+        context={"code": code, "error": str(e)},
+    )
+
+
+def _response_500(req: Request, detail: str) -> Response:
+    """Return a 500 response with debug context."""
+    return _templates.TemplateResponse(
+        request=req,
+        name="errors/500.html",
+        status_code=500,
+        context={
+            "message": "Something went wrong",
+            "path": req.url.path,
+            "method": req.method,
+            "detail": detail,
+            "issues_url": "https://github.com/marcus-grant/depo/issues",
+        },
+    )
 
 
 @router.get("/")
@@ -53,8 +79,15 @@ async def upload_form(
     try:
         params = await parse_form_upload(req)
         result = orch.ingest(**dict(params))  # type: ignore[arg-type]
+    except PayloadTooLargeError as e:
+        return _templates.TemplateResponse(
+            request=req,
+            name="partials/error.html",
+            context={"error": str(e)},
+            status_code=413,
+        )
     except (ValueError, ImportError) as e:
-        return templates.TemplateResponse(
+        return _templates.TemplateResponse(
             request=req,
             name="partials/error.html",
             context={"error": str(e)},
@@ -77,6 +110,8 @@ async def upload(
     """API upload: multipart, raw body, or URL param."""
     try:
         result = await ingest_upload(file, url, req, orch)
+    except PayloadTooLargeError as e:
+        return PlainTextResponse(str(e), status_code=413)
     except ValueError as e:
         return PlainTextResponse(str(e), status_code=400)
     except ImportError as e:
@@ -103,15 +138,6 @@ async def get_info(  # TODO: This needs proper JSON serialization later
     lines = [f"{f.name}={getattr(item, f.name)}" for f in dataclasses.fields(item)]
     body = "\n".join(lines)
     return PlainTextResponse(content=body)
-
-
-def _response_404(req: Request, code: str, e: Exception) -> Response:
-    return _templates.TemplateResponse(
-        request=req,
-        name="errors/404.html",
-        status_code=404,
-        context={"code": code, "error": str(e)},
-    )
 
 
 @router.get("/api/{code}/raw")
@@ -169,8 +195,7 @@ async def info_page(
             name="info/pic.html",
             context={"request": req, "item": item},
         )
-    # TODO: Come up with proper 500 level code response with template
-    return _response_404(req, "F00BAR", Exception("Unexpected item type"))
+    return _response_500(req, f"Unexpected item type for code {code}")
 
 
 @router.get("/{code}")
