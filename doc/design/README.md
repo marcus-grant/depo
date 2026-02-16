@@ -81,3 +81,7 @@ IngestOrchestrator coordinates Repository and StorageBackend as siblings.
 - [Development Process](./process.md)
   - Principles and learnings about how we develop depo
   - Type friction, TDD + typing, commit hygiene
+
+- [Design Language](./language.md)
+  - Visual system, color philosophy, structural primitives
+  - Palette candidates, template conventions, self-check criteria
