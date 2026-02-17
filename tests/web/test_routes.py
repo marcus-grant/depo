@@ -11,7 +11,7 @@ License: Apache-2.0
 """
 
 from depo.util.shortcode import _CROCKFORD32
-from tests.factories import gen_image, make_client
+from tests.factories import gen_image
 
 
 class TestUploadText:
@@ -94,43 +94,33 @@ class TestUploadShortcuts:
 
 
 class TestGetInfo:
-    """Tests for GET /api/{code}/info."""
+    """Tests for GET /api/{code}/info.
+    Uses t_seeded for pre-populated items, t_client for 404."""
 
-    def test_text_item_info(self, tmp_path):
+    def test_text_item_info(self, t_seeded):
         """Text item returns metadata as plain text."""
-        client = make_client(tmp_path)
-        file = ("hello.txt", b"hello world")
-        upload = client.post("/api/upload", files={"file": file})
-        code = upload.text
-        resp = client.get(f"/api/{code}/info")
+        resp = t_seeded.client.get(f"/api/{t_seeded.txt.code}/info")
         assert resp.status_code == 200
         assert resp.headers["content-type"].startswith("text/plain")
-        assert f"code={code}" in resp.text
+        assert f"code={t_seeded.txt.code}" in resp.text
         assert "kind=txt" in resp.text
-        assert "format=txt" in resp.text
+        assert "format=md" in resp.text
         assert "size_b=" in resp.text
 
-    def test_pic_item_info(self, tmp_path):
+    def test_pic_item_info(self, t_seeded):
         """Pic item returns metadata including dimensions."""
-        client = make_client(tmp_path)
-        file = ("img.jpg", gen_image("jpeg", 16, 16))
-        upload = client.post("/api/upload", files={"file": file})
-        code = upload.text
-        resp = client.get(f"/api/{code}/info")
+        resp = t_seeded.client.get(f"/api/{t_seeded.pic.code}/info")
         assert resp.status_code == 200
         assert "kind=pic" in resp.text
-        assert "width=16" in resp.text
-        assert "height=16" in resp.text
+        assert "width=320" in resp.text
+        assert "height=240" in resp.text
 
-    def test_link_item_info(self, tmp_path):
+    def test_link_item_info(self, t_seeded):
         """Link item returns metadata including URL."""
-        client = make_client(tmp_path)
-        upload = client.post("/api/upload?url=https://example.com")
-        code = upload.text
-        resp = client.get(f"/api/{code}/info")
+        resp = t_seeded.client.get(f"/api/{t_seeded.link.code}/info")
         assert resp.status_code == 200
         assert "kind=url" in resp.text
-        assert "url=https://example.com" in resp.text
+        assert "url=http://example.com" in resp.text
 
     def test_unknown_code_returns_404(self, t_client):
         """Unknown code returns 404."""
@@ -138,36 +128,30 @@ class TestGetInfo:
 
 
 class TestGetRaw:
-    """Tests for GET /api/{code}/raw."""
+    """Tests for GET /api/{code}/raw.
+    Uses t_seeded for pre-populated items, t_client for 404."""
 
-    def test_text_returns_raw_content(self, tmp_path):
+    def test_text_returns_raw_content(self, t_seeded):
         """Text item returns raw content with text/plain MIME."""
-        client = make_client(tmp_path)
-        file = ("hello.txt", b"Hello, World!")
-        upload = client.post("/api/upload", files={"file": file})
-        resp = client.get(f"/api/{upload.text}/raw")  # upload.text is the code
+        resp = t_seeded.client.get(f"/api/{t_seeded.txt.code}/raw")
         assert resp.status_code == 200
         assert resp.headers["content-type"].startswith("text/plain")
         assert "charset=utf-8" in resp.headers["content-type"]
-        assert resp.content == file[1]
+        assert b"# Hello, World!" in resp.content
 
-    def test_pic_returns_raw_bytes(self, tmp_path):
+    def test_pic_returns_raw_bytes(self, t_seeded):
         """Pic item returns raw bytes with correct image MIME."""
-        client = make_client(tmp_path)
-        file = ("img.jpg", gen_image("jpeg", 16, 16))
-        upload = client.post("/api/upload", files={"file": file})
-        resp = client.get(f"/api/{upload.text}/raw")
+        resp = t_seeded.client.get(f"/api/{t_seeded.pic.code}/raw")
         assert resp.status_code == 200
         assert resp.headers["content-type"].startswith("image/jpeg")
-        assert len(resp.content) > 0
+        assert len(resp.content) == t_seeded.pic.size_b
 
-    def test_link_returns_redirect(self, tmp_path):
+    def test_link_returns_redirect(self, t_seeded):
         """LinkItem returns redirect to URL."""
-        client = make_client(tmp_path)
-        upload = client.post("/api/upload?url=https://example.com")
-        resp = client.get(f"/api/{upload.text}/raw", follow_redirects=False)
+        endpoint = f"/api/{t_seeded.link.code}/raw"
+        resp = t_seeded.client.get(endpoint, follow_redirects=False)
         assert resp.status_code == 307
-        assert resp.headers["location"] == "https://example.com"
+        assert resp.headers["location"] == "http://example.com"
 
     def test_unknown_code_returns_404(self, t_client):
         """Unknown code returns 404."""
