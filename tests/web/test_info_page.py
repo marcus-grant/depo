@@ -8,8 +8,8 @@ License: Apache-2.0
 
 from bs4 import BeautifulSoup
 
-from tests.factories.payloads import gen_image
 from tests.factories import make_client
+from tests.factories.payloads import gen_image
 
 
 class TestInfoPageText:
