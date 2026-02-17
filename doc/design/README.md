@@ -63,25 +63,25 @@ IngestOrchestrator coordinates Repository and StorageBackend as siblings.
 
 ## Documents
 
-- [Design Requirements — MVP (v0.0.1)](./mvp.md)
-  - Authoritative scope and invariants for the initial implementation
-  - All MVP work must conform to this document
-
-- [Design Requirements — v1.0](./v1.md)
-  - Post-MVP direction and constraints
-  - Explains why certain MVP decisions exist
-  - Not to be implemented until the MVP is complete
-  - This is a future reference not meant to be read till after MVP
-    - With the one exception of better understanding architecture in MVP
-
 - [Design Patterns](./patterns.md)
   - Recurring patterns and learnings from development
   - Data-driven classification, test strategies, composition
 
-- [Development Process](./process.md)
-  - Principles and learnings about how we develop depo
-  - Type friction, TDD + typing, commit hygiene
-
 - [Design Language](./language.md)
   - Visual system, color philosophy, structural primitives
   - Palette candidates, template conventions, self-check criteria
+
+- [Architecture](./architecture.md)
+  - System layering, module boundaries, key design rules
+
+- [Shortcodes](./shortcodes.md)
+  - Hashing, encoding, collision handling, canonicalization
+
+- [Routes](./routes.md)
+  - URL surface, content negotiation, handler naming conventions
+
+- [Items](./items.md)
+  - Domain model, subtypes, immutability rules
+
+- [Ingest](./ingest.md)
+  - Write pipeline, classification, orchestration
