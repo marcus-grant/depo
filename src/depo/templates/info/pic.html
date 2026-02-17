@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- BEGIN: info/pic.html (extends base.html) -->
+<code class="shortcode">{{ item.code | upper }}</code>
+<dl>
+  <dt>Format</dt><dd>{{ item.format }}</dd>
+  <dt>Size</dt><dd>{{ item.size_b }} bytes</dd>
+  <dt>Dimensions</dt><dd>{{item.width}}x{{item.height}}</dd>
+  <dt>Uploaded</dt><dd>{{ item.upload_at }}</dd>
+</dl>
+<div class="content__container--pic">
+  <img src="/api/{{ item.code }}/raw">
+</div>
+<!-- END: info/pic.html -->
+{% endblock %}

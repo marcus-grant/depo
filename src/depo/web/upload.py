@@ -16,6 +16,7 @@ from typing import TypedDict
 from fastapi import Request, UploadFile
 from fastapi.responses import PlainTextResponse
 
+from depo.model.enums import ContentFormat
 from depo.service.orchestrator import IngestOrchestrator, PersistResult
 
 # TODO: This belongs in the right place in ingestion pipeline, probably classify
@@ -57,8 +58,18 @@ class UploadRawBodyParams(TypedDict):
     declared_mime: str
 
 
+class UploadFormParams(TypedDict):
+    """Upload params from browser form submission."""
+
+    payload_bytes: bytes
+    declared_mime: str
+    requested_format: ContentFormat | None
+
+
 # NOTE: Have a subset of UploadParamas for each upload situation and union them
-UploadParams = UploadMultipartParams | UploadUrlParams | UploadRawBodyParams
+UploadParams = (
+    UploadMultipartParams | UploadUrlParams | UploadRawBodyParams | UploadFormParams
+)
 
 
 async def parse_upload(
@@ -89,6 +100,22 @@ async def parse_upload(
     )
 
 
+async def parse_form_upload(
+    req: Request,
+) -> UploadFormParams:
+    """Extract orchestrator.ingest kwargs from browser form submission."""
+    form = await req.form()
+    content = str(form.get("content", "")).strip()
+    fmt = str(form.get("format", ""))
+    if not content:
+        raise ValueError("No content provided.")
+    return UploadFormParams(
+        payload_bytes=content.encode("utf-8"),
+        declared_mime="text/plain",
+        requested_format=ContentFormat(fmt) if fmt else None,
+    )
+
+
 def upload_response(result: PersistResult) -> PlainTextResponse:
     """Build HTTP response from a PersistResult."""
     return PlainTextResponse(
@@ -103,18 +130,13 @@ def upload_response(result: PersistResult) -> PlainTextResponse:
     )
 
 
-async def execute_upload(
+async def ingest_upload(
     file: UploadFile | None,
     url: str | None,
     request: Request | None,
     orchestrator: IngestOrchestrator,
-) -> PlainTextResponse:
-    """Parse request, ingest, build response."""
-    params = await parse_upload(file=file, url=url, request=request)
-    try:
-        result = orchestrator.ingest(**dict(params))  # type: ignore[arg-type]
-    except ValueError as e:
-        return PlainTextResponse(str(e), status_code=400)
-    except ImportError as e:
-        return PlainTextResponse(str(e), status_code=501)
-    return upload_response(result)
+) -> PersistResult:
+    """Parse request and ingest. Raises ValueError/ImportError on failure."""
+    req = None if file is not None or url is not None else request
+    params = await parse_upload(file=file, url=url, request=req)
+    return orchestrator.ingest(**dict(params))  # type: ignore[arg-type]

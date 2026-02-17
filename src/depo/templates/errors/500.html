@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- BEGIN: errors/500.html -->
+<h2>{{ message }}</h2>
+<p>An unexpected error occurred. If this persists, please
+  <a href="{{ issues_url }}">report it</a>.
+</p>
+<details>
+  <summary>Debug info</summary>
+  <dl>
+    <dt>Path</dt><dd>{{ path }}</dd>
+    <dt>Method</dt><dd>{{ method }}</dd>
+    <dt>Detail</dt><dd>{{ detail }}</dd>
+  </dl>
+</details>
+<!-- END: errors/500.html -->
+{% endblock %}
