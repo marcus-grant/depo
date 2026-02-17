@@ -253,48 +253,54 @@ No signature change, no migration.
 ```python
 # tests/fixtures/__init__.py
 
-@pytest.fixture
-def t_conn() -> Generator[sqlite3.Connection, None, None]:
-    """Raw in-memory SQLite connection (no schema)."""
-    c = sqlite3.connect(":memory:")
-    yield c
-    c.close()
+@dataclass(frozen=True)
+class SeededApp:
+    """TestClient bundled with pre-populated items."""
+    client: TestClient
+    txt: TextItem
+    pic: PicItem
+    link: LinkItem
 
 @pytest.fixture
-def t_db() -> Generator[sqlite3.Connection, None, None]:
-    """In-memory SQLite repository with schema."""
-    c = sqlite3.connect(":memory:")
-    init_db(c)
-    yield c
-    c.close()
+def t_conn():
+    """Raw in-memory SQLite connection, no schema."""
 
 @pytest.fixture
-def t_repo(t_db) -> SqliteRepository:
-    """SqliteRepository instance using in-memory DB."""
-    return SqliteRepository(t_db)
+def t_db():
+    """In-memory SQLite with schema initialized."""
 
 @pytest.fixture
-def t_store(tmp_path) -> FilesystemStorage:
-    """FilesystemStorage instance with temporary root."""
-    return FilesystemStorage(root=tmp_path / "depo-test-store")
+def t_repo(t_db):
+    """SqliteRepository over in-memory DB."""
 
 @pytest.fixture
-def t_orch_env(
-    t_repo, t_store
-) -> tuple[IngestOrchestrator, SqliteRepository, FilesystemStorage]:
-    service = IngestService()
-    orch = IngestOrchestrator(service, t_repo, t_store)
-    return (orch, t_repo, t_store)
+def t_store(tmp_path):
+    """FilesystemStorage at a tmp_path subdirectory."""
+
+@pytest.fixture
+def t_orch_env(t_repo, t_store):
+    """Orchestrator wired to t_repo and t_store."""
+
+@pytest.fixture
+def t_client(tmp_path):
+    """Bare TestClient with empty database and storage."""
+
+@pytest.fixture
+def t_seeded(tmp_path):
+    """TestClient with one text, pic, and link item pre-populated.
+    Returns SeededApp. Seeds via repo and store, no upload round-trip."""
 ```
 
 Fixtures compose upward: `t_conn` → `t_db` → `t_repo` → `t_orch_env`.
 Each layer adds one concern (schema, repository wrapper, orchestrator wiring).
+Web fixtures (`t_client`, `t_seeded`) use `make_client` from `tests/factories`.
 
 Key conventions:
 
 - `t_` prefix distinguishes first-party from pytest/third-party fixtures
 - `t_orch_env` returns a tuple so tests can access repo/storage for assertions
-- `t_store` uses `tmp_path` for automatic cleanup
+- `t_seeded` returns `SeededApp` so tests can reference item codes and fields
+- `t_store` and web fixtures use `tmp_path` for automatic cleanup
 - `t_conn` exists for raw schema/SQL tests that don't need the full repo
 - Registered via `conftest.py` `pytest_plugins` for project-wide availability
 
