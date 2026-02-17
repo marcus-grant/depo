@@ -40,6 +40,12 @@ As a result:
 - deeper detail is reached by hopping through READMEs
 - links remain stable as documentation grows
 
+## Planning
+
+Tracks priorities, remaining work, and development workflow.
+
+- [Planning documentation](./planning/README.md)
+
 ## Design requirements
 
 The authoritative design specifications live under
