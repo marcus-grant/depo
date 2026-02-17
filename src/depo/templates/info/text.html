@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- BEGIN: info/text.html (extends base.html) -->
+<!-- Rendered text content + metadata -->
+<code class="shortcode">{{ item.code | upper }}</code>
+<dl>
+  <dt>Format</dt><dd>{{ item.format }}</dd>
+  <dt>Size</dt><dd>{{ item.size_b }} bytes</dd>
+  <dt>Uploaded</dt><dd>{{ item.upload_at }}</dd>
+</dl>
+<pre class="content__container--text">
+  <code>{{ content }}</code>
+</pre>
+<!-- END: info/text.html -->
+{% endblock %}

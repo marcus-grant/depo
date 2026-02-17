@@ -10,8 +10,10 @@ License: Apache-2.0
 """
 
 import sqlite3
+from pathlib import Path
 
 from fastapi import FastAPI
+from starlette.staticfiles import StaticFiles
 
 from depo.cli.config import DepoConfig
 from depo.repo.sqlite import SqliteRepository, init_db
@@ -48,4 +50,8 @@ def app_factory(config: DepoConfig) -> FastAPI:
 
     # Store the router for FastAPI
     app.include_router(router)
+
+    # Mount static assets directory for frontend - must come AFTER routes
+    static_dir = Path(__file__).parent.parent / "static"
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
     return app  # Return FastAPI app
