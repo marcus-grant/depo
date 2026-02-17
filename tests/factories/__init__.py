@@ -48,18 +48,34 @@ __all__ = [
 
 
 def make_config(p: Path) -> DepoConfig:
-    """Build a DepoConfig with paths under p."""
+    """Build a DepoConfig with db and store paths under p.
+
+    Typically called with pytest's tmp_path fixture.
+    Creates paths at p/data/depo.db and p/store but does
+    not initialize the database or create directories.
+    Used internally by make_client.
+    """
     return DepoConfig(db_path=p / "data" / "depo.db", store_root=p / "store")
 
 
 def make_client(p: Path) -> TestClient:
-    """Build a TestClient from a DepoConfig pointing at tmp_path."""
+    """Build a full-stack TestClient rooted at p.
+
+    Wraps make_config and app_factory. The app initializes
+    its own DB and storage from the config paths. Use for
+    integration tests against real routes. Prefer the
+    t_client fixture unless you need a custom path.
+    """
     return TestClient(app_factory(make_config(p)))
 
 
 def make_probe_client(probe_fn: Callable[[Request], Any]) -> TestClient:
-    """Build a minimal test app with a single GET /probe route.
-    probe_fn receives the Request, its return value becomes the response.
+    """Build a minimal app with a single GET /probe route.
+
+    No database, storage, or config. probe_fn receives the
+    Request and its return value becomes the JSON response.
+    Use for testing middleware behavior (content negotiation,
+    HTMX detection) in isolation from the full app.
     """
     app = FastAPI()
 
@@ -77,7 +93,13 @@ def make_persist_result(
     item: TextItem | PicItem | LinkItem | None = None,
     created: bool = True,
 ) -> PersistResult:
-    """Build a PersistResult with sensible defaults."""
+    """Build a PersistResult for route-level unit tests.
+
+    No database or storage involved. Supplies a default
+    TextItem when item is None. Use for testing handlers
+    that receive orchestrator output without running the
+    full ingest pipeline.
+    """
     if item is None:
         item = TextItem(
             hash_full="0123456789ABCDEFGHJKMNPQ",
