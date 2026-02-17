@@ -11,8 +11,7 @@ License: Apache-2.0
 """
 
 from depo.util.shortcode import _CROCKFORD32
-from tests.factories.payloads import gen_image
-from tests.factories.web import make_client
+from tests.factories import gen_image, make_client
 
 
 class TestUploadText:

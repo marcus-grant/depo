@@ -9,7 +9,7 @@ License: Apache-2.0
 import pytest
 
 from depo.web.negotiate import wants_html
-from tests.factories.web import make_probe_client
+from tests.factories import make_probe_client
 
 
 class TestWantsHtml:
