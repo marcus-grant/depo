@@ -571,13 +571,17 @@ web layer receives fully constructed dependencies.
 - `GET /{code}/info` -> plain text key-value metadata
 - `/api/` prefix available as explicit API override
 
-### 7.2 Browser UI (deferred to browser PR)
+### 7.2 Browser UI
 
-- Server-rendered HTML
-- HTMX from day one for interactivity on `/info` pages:
+- Server-rendered HTML via Jinja2 templates
+- Pico CSS (classless/semantic) with Palette B custom properties
+- HTMX for upload form interactivity (partial responses)
+- Per-type info views: text (inline), pic (image), link (clickable URL)
+- Content negotiation on GET /{code} via Accept header
+- Remaining browser work:
   - toggle raw/rendered views (especially markdown/data)
   - inline metadata panes
-  - progressive enhancement
+  - styling and structural primitives (dither patterns, TUI borders)
 
 ---
 
@@ -602,4 +606,3 @@ web layer receives fully constructed dependencies.
 - Redis / metadata caching
 - Public registration / password recovery
 - JSON API responses (plain text + headers for MVP)
-
