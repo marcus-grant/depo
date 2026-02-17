@@ -9,7 +9,7 @@ License: Apache-2.0
 from bs4 import BeautifulSoup
 
 from depo.model.formats import ContentFormat, ItemKind, kind_for_format
-from tests.factories.web import make_client
+from tests.factories import make_client
 
 
 class TestGetUploadPage:

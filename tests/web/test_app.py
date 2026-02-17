@@ -10,8 +10,7 @@ License: Apache-2.0
 from fastapi import FastAPI
 
 from depo.web.app import app_factory
-from tests.factories.config import make_config
-from tests.factories.web import make_client
+from tests.factories import make_client, make_config
 
 
 class TestAppFactory:

@@ -7,7 +7,7 @@ Created: 2026-02-12
 License: Apache-2.0
 """
 
-from tests.factories.web import make_client
+from tests.factories import make_client
 
 
 class TestStaticFiles:
