@@ -34,6 +34,7 @@ from .models import (
 from .payloads import gen_image
 
 __all__ = [
+    "HEADER_HTMX",
     "gen_image",
     "make_client",
     "make_config",
@@ -45,6 +46,8 @@ __all__ = [
     "make_text_item",
     "make_write_plan",
 ]
+
+HEADER_HTMX = {"HX-Request": "true"}
 
 
 def make_config(p: Path) -> DepoConfig:

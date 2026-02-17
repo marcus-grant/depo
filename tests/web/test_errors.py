@@ -10,16 +10,15 @@ from bs4 import BeautifulSoup
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from tests.factories import make_client
+from tests.factories import HEADER_HTMX
 
 
 class TestError404Page:
-    """404 error page rendering"""
+    """404 error page rendering. Makes use of t_client fixture."""
 
-    def test_response(self, tmp_path):
+    def test_response(self, t_client):
         """404 page renders with code and base template."""
-        client = make_client(tmp_path)
-        resp = client.get("/ZZZZZZZZ/info")
+        resp = t_client.get("/ZZZZZZZZ/info")
         assert resp.status_code == 404
         assert "<!-- BEGIN: base.html" in resp.text
         assert "<!-- BEGIN: errors/404.html" in resp.text
@@ -27,61 +26,44 @@ class TestError404Page:
 
 
 class TestError413Page:
-    """413 payload too large error"""
+    """413 payload too large error.
+    Makes use of t_client fixture & factory HEADER_HTMX to clean up testing."""
 
-    def test_api_oversized_returns_413(self, tmp_path):
+    def test_api_oversized_returns_413(self, t_client):
         """API upload exceeding max size returns 413."""
-        client = make_client(tmp_path)
         payload = b"x" * (2**20 + 1)
-        resp = client.post("/api/upload", files={"file": ("big.txt", payload)})
+        resp = t_client.post("/api/upload", files={"file": ("big.txt", payload)})
         assert resp.status_code == 413
 
-    def test_htmx_oversized_returns_413(self, tmp_path):
+    def test_htmx_oversized_returns_413(self, t_client):
         """HTMX upload exceeding max size returns error partial."""
-        client = make_client(tmp_path)
-        content = "x" * (2**20 + 1)
-        resp = client.post(
-            "/upload",
-            data={"content": content, "format": ""},
-            headers={"HX-Request": "true"},
-        )
+        data = {"content": "x" * (2**20 + 1), "format": ""}
+        resp = t_client.post("/upload", data=data, headers=HEADER_HTMX)
         assert resp.status_code == 413
         assert "<!-- BEGIN: partials/error.html" in resp.text
 
 
 class TestHtmxErrorPartial:
-    """HTMX requests receive error partials, not full pages"""
+    """HTMX requests receive error partials, not full pages.
+    Makes use of t_client fixture & factory HEADER_HTMX to clean up testing."""
 
-    def test_error_partial_no_base_template(self, tmp_path):
+    def test_error_partial_no_base_template(self, t_client):
         """HTMX error response is a fragment, not wrapped in base.html."""
-        client = make_client(tmp_path)
-        resp = client.post(
-            "/upload",
-            data={"content": "", "format": ""},
-            headers={"HX-Request": "true"},
-        )
+        data = {"content": "", "format": ""}
+        resp = t_client.post("/upload", data=data, headers=HEADER_HTMX)
         assert "<!-- BEGIN: partials/error.html" in resp.text
         assert "<!-- BEGIN: base.html" not in resp.text
 
-    def test_error_partial_contains_message(self, tmp_path):
+    def test_error_partial_contains_message(self, t_client):
         """HTMX error partial includes the error message."""
-        client = make_client(tmp_path)
-        resp = client.post(
-            "/upload",
-            data={"content": "", "format": ""},
-            headers={"HX-Request": "true"},
-        )
+        data = {"content": "", "format": ""}
+        resp = t_client.post("/upload", data=data, headers=HEADER_HTMX)
         assert "No content provided" in resp.text
 
-    def test_413_partial_no_base_template(self, tmp_path):
+    def test_413_partial_no_base_template(self, t_client):
         """HTMX 413 error is a fragment, not wrapped in base.html."""
-        client = make_client(tmp_path)
-        content = "x" * (2**20 + 1)
-        resp = client.post(
-            "/upload",
-            data={"content": content, "format": ""},
-            headers={"HX-Request": "true"},
-        )
+        data = {"content": "x" * (2**20 + 1), "format": ""}
+        resp = t_client.post("/upload", data=data, headers=HEADER_HTMX)
         assert resp.status_code == 413
         assert "<!-- BEGIN: partials/error.html" in resp.text
         assert "<!-- BEGIN: base.html" not in resp.text

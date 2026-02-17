@@ -9,20 +9,19 @@ License: Apache-2.0
 from bs4 import BeautifulSoup
 
 from depo.model.formats import ContentFormat, ItemKind, kind_for_format
-from tests.factories import make_client
 
 
 class TestGetUploadPage:
     """GET /upload serves the upload form"""
 
-    def test_returns_200_and_html_content(self, tmp_path):
-        resp = make_client(tmp_path).get(url="/upload")
+    def test_returns_200_and_html_content(self, t_client):
+        resp = t_client.get(url="/upload")
         assert resp.status_code == 200
         assert resp.headers.get("content-type") == "text/html; charset=utf-8"
 
-    def test_returns_expected_html(self, tmp_path):
+    def test_returns_expected_html(self, t_client):
         """Returns template markers, form elements & content-type overrides"""
-        resp = make_client(tmp_path).get(url="/upload")
+        resp = t_client.get(url="/upload")
         assert "<!-- BEGIN: upload.html -->" in resp.text
         assert "<!-- END: upload.html -->" in resp.text
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -34,9 +33,9 @@ class TestGetUploadPage:
         assert button or input_submit
         assert soup.find_all("optgroup")
 
-    def test_format_select_covers_all_formats(self, tmp_path):
+    def test_format_select_covers_all_formats(self, t_client):
         """Every ContentFormat has an option, every ItemKind has an optgroup."""
-        soup = BeautifulSoup(make_client(tmp_path).get("/upload").text, "html.parser")
+        soup = BeautifulSoup(t_client.get("/upload").text, "html.parser")
         select = soup.find("select", attrs={"name": "format"})
 
         # Auto-detect default exists with empty value
@@ -89,8 +88,8 @@ class TestRootRedirect:
     # Redirects to /upload
     """
 
-    def test_redirects_to_upload_302(self, tmp_path):
+    def test_redirects_to_upload_302(self, t_client):
         """GET / redirects with 302 to /upload"""
-        resp = make_client(tmp_path).get(url="/", follow_redirects=False)
+        resp = t_client.get(url="/", follow_redirects=False)
         assert resp.status_code == 302
         assert resp.headers.get("location") == "/upload"
