@@ -7,25 +7,23 @@ Created: 2026-02-12
 License: Apache-2.0
 """
 
-from tests.factories.web import make_client
-
 
 class TestStaticFiles:
     """Static assets are served correctly."""
 
-    def test_htmx_served(self, tmp_path):
+    def test_htmx_served(self, t_client):
         """HTMX JS bundle is accessible."""
-        resp = make_client(tmp_path).get("/static/js/htmx.min.js")
+        resp = t_client.get("/static/js/htmx.min.js")
         assert resp.status_code == 200
         assert "javascript" in resp.headers["content-type"]
 
-    def test_pico_served(self, tmp_path):
+    def test_pico_served(self, t_client):
         """Pico CSS bundle is accessible."""
-        resp = make_client(tmp_path).get("/static/css/pico.min.css")
+        resp = t_client.get("/static/css/pico.min.css")
         assert resp.status_code == 200
         assert "css" in resp.headers["content-type"]
 
-    def test_missing_static_404(self, tmp_path):
+    def test_missing_static_404(self, t_client):
         """Non-existent static file returns 404."""
-        resp = make_client(tmp_path).get("/static/nope.js")
+        resp = t_client.get("/static/nope.js")
         assert resp.status_code == 404

@@ -23,7 +23,7 @@ from depo.web.upload import (
     parse_upload,
     upload_response,
 )
-from tests.factories.dto import make_persist_result
+from tests.factories import make_persist_result
 
 
 # TODO: Needs to be moved to proper validate/classify stage of ingest pipeline

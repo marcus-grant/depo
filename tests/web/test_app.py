@@ -10,8 +10,7 @@ License: Apache-2.0
 from fastapi import FastAPI
 
 from depo.web.app import app_factory
-from tests.factories.config import make_config
-from tests.factories.web import make_client
+from tests.factories import make_config
 
 
 class TestAppFactory:
@@ -30,10 +29,9 @@ class TestAppFactory:
 class TestHealthCheck:
     """Tests for GET /health."""
 
-    def test_health_returns_200_plaintext(self, tmp_path):
+    def test_health_returns_200_plaintext(self, t_client):
         """Response to /health is 200 with useful plaintext response"""
-        client = make_client(tmp_path)
-        resp = client.get("/health")
+        resp = t_client.get("/health")
         assert resp.status_code == 200
         assert resp.headers["content-type"].startswith("text/plain")
         assert resp.text == "ok"
