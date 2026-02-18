@@ -51,16 +51,18 @@ _FMT_KIND = [(f, k) for f, _, _, k in _FORMAT_SPECS]
 _MIME_FMT = [(m, f) for f, m, _, _ in _FORMAT_SPECS]
 _EXT_FMT = [(e, f) for f, _, e, _ in _FORMAT_SPECS]
 
-# NOTE: Special cases
-# Some special cases need a different pattern
-# Below is an example where two MIMEs map to same ContentFormat
+# NOTE: Extended parametrize lists
+# Mappings that don't fit the four-tuple spec above
 _MIME_FMT_WITH_LEGACY = _MIME_FMT + [("application/x-yaml", ContentFormat.YAML)]
-
-# Variant extensions mapping to same format
 _EXT_FMT_WITH_VARIANTS = _EXT_FMT + [
     ("yml", ContentFormat.YAML),
     ("jpeg", ContentFormat.JPEG),
 ]
+_FMT_KIND = _FMT_KIND + [(ContentFormat.LINK, ItemKind.LINK)]
+
+# NOTE: Exclusion sets
+# Formats that lack certain property mappings
+_FMT_WITHOUT_MIME = {ContentFormat.LINK}
 
 
 class TestMimeForFormat:
@@ -71,9 +73,11 @@ class TestMimeForFormat:
         """Returns correct MIME string for given ContentFormat."""
         assert mime_for_format(fmt) == mime
 
-    def test_all_formats_have_mime(self):
-        """All ContentFormat members have a MIME mapping."""
+    def test_all_mime_formats_have_mime(self):
+        """All ContentFormat members with MIME representations have a MIME mapping."""
         for fmt in ContentFormat:
+            if fmt in _FMT_WITHOUT_MIME:
+                continue
             result = mime_for_format(fmt)
             msg = f"Expected str for {fmt.name}, got {type(result)}"
             assert isinstance(result, str), msg
@@ -96,10 +100,13 @@ class TestFormatForMime:
         Example: application/yaml & application/x-yaml => ContentFormat.YAML."""
         assert format_for_mime(mime) == fmt
 
-    def test_all_formats_reachable(self):
-        """All ContentFormat members are reachable via some MIME type."""
+    def test_all_mime_formats_reachable(self):
+        """All ContentFormat members with MIME representations are
+        reachable via some MIME type."""
         reachable = {fmt for _, fmt in _MIME_FMT}
         for fmt in ContentFormat:
+            if fmt in _FMT_WITHOUT_MIME:
+                continue
             msg = f"ContentFormat {fmt.name} has no MIME mapping"
             assert fmt in reachable, msg
 
