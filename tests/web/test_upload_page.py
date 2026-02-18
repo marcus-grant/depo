@@ -55,6 +55,9 @@ class TestGetUploadPage:
         # Every ItemKind has an optgroup (except LINK — pending URL classification PR)
         ## TODO: Remove when URL enters pipeline as content
         _DEFERRED_KINDS = {ItemKind.LINK}
+        _DEFERRED_FORMATS = {
+            f for f in ContentFormat if kind_for_format(f) in _DEFERRED_KINDS
+        }
         for kind in ItemKind:
             if kind in _DEFERRED_KINDS:
                 continue
@@ -76,8 +79,9 @@ class TestGetUploadPage:
                 assert kind_for_format(fmt) == expected_kind, f"{fmt} in wrong group"
 
         # Every ContentFormat is represented
-        assert seen_formats == set(ContentFormat), (
-            f"Missing: {set(ContentFormat) - seen_formats}"
+        # TODO: Remove when URL classification is wired to upload form
+        assert seen_formats == set(ContentFormat) - _DEFERRED_FORMATS, (
+            f"Missing: {set(ContentFormat) - seen_formats - _DEFERRED_FORMATS}"
         )
 
 
