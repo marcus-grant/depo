@@ -443,6 +443,8 @@ _PRIO_1 = ContentFormat.YAML  # YAML
 _PRIO_MIME = "application/json"  # JSON
 _PRIO_DATA = b"\x89PNG\r\n\x1a\n"  # PNG magic bytes
 _PRIO_FILENAME = "notes.md"  # Markdown
+_PRIO_URL = b"https://example.com"  # URL pattern
+_PRIO_TEXT = b"just some plain text"  # Text fallback
 
 
 class TestClassify:
@@ -459,6 +461,12 @@ class TestClassify:
             (None, None, _PRIO_DATA, _PRIO_FILENAME, ContentFormat.PNG),
             # No requested, no mime, no magic match → uses filename (MD)
             (None, None, b"no magic", _PRIO_FILENAME, ContentFormat.MARKDOWN),
+            # URL content with filename hint → filename wins over URL pattern
+            (None, None, _PRIO_URL, _PRIO_FILENAME, ContentFormat.MARKDOWN),
+            # No requested, no mime, no magic, no filename → URL pattern
+            (None, None, _PRIO_URL, None, ContentFormat.LINK),
+            # No requested, no mime, no magic, no filename, no URL → text fallback
+            (None, None, _PRIO_TEXT, None, ContentFormat.PLAINTEXT),
         ],
     )
     def test_classification_priority(
@@ -477,4 +485,5 @@ class TestClassify:
     def test_raises_when_nothing_matches(self):
         """Raises ValueError when no classification strategy matches."""
         with pytest.raises(ValueError, match=r"^Unable to classify.*"):
-            classify(b"no magic", filename="no_extension", declared_mime="fake/mime")
+            f = "no_extension"
+            classify(b"\xff\xfe\xfd", filename=f, declared_mime="fake/mime")

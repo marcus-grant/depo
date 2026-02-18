@@ -35,7 +35,7 @@ class TestUploadText:
 
     def test_unclassifiable_returns_400(self, t_client):
         """Unclassifiable content returns 400 with message."""
-        resp = t_client.post("/api/upload", files={"file": ("noext", b"mystery data")})
+        resp = t_client.post("/api/upload", files={"file": ("noext", b"\xff\xfe\xfd")})
         assert resp.status_code == 400
         assert len(resp.text) > 0  # error message present
 

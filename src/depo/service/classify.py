@@ -304,6 +304,8 @@ def classify(
             or _from_declared_mime(declared_mime)
             or _from_magic_bytes(data)
             or _from_filename(filename)
+            or _from_url_pattern(data)
+            or _from_text_content(data)
         )
     except ValueError as e:
         raise ValueError(f"Unable to classify: Classification error: {e}") from None

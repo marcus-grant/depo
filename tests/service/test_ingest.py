@@ -125,7 +125,7 @@ class TestIngestServiceClassify:
         """Raises ValueError if content cannot be classified."""
         with pytest.raises(ValueError, match=r"(?i)(classify|unsupport)"):
             IngestService().build_plan(
-                payload_bytes=b"unrecognizable content",
+                payload_bytes=b"\xff\xfe\xfd",
                 filename="no_extension",
             )
 
