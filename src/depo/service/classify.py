@@ -10,6 +10,7 @@ Date: 2026-01-20
 License: Apache-2.0
 """
 
+import re
 from dataclasses import dataclass
 
 from depo.model.enums import ContentFormat, ItemKind
@@ -59,6 +60,38 @@ def _from_declared_mime(declared_mime: str | None) -> ContentClassification | No
         return None
     kind = kind_for_format(fmt)
     return ContentClassification(kind=kind, format=fmt)
+
+
+_URL_PATTERN = r"^[^\s<>{}\[\]:]+\.[^\s<>{}\[\]:]{1,8}([/?#][^\s<>{}\[\]]*)?$"
+_URL_REGEX = re.compile(_URL_PATTERN)
+
+
+def _from_url_pattern(data: bytes) -> ContentClassification | None:
+    """Classify from URL pattern in byte content.
+
+    Attempts UTF-8 decode, then matches against HTTP(S) URL pattern.
+    Strips surrounding whitespace before matching.
+
+    Args:
+        data: Content bytes.
+
+    Returns:
+        ContentClassification(LINK, LINK) if URL detected, None otherwise.
+    """
+    if data.count(b"://") != 1:  # Only exactly one scheme separator allowed
+        return None
+    try:  # URLs must be UTF-8 encoded as with all text content
+        text = data.decode("utf-8").strip().lower()
+    except UnicodeDecodeError:
+        return None
+    schema, text = text.split("://", 1)
+    if schema not in ("http", "https"):  # Only support HTTP(S) URLs for now
+        return None
+    if not _URL_REGEX.match(
+        text
+    ):  # TODO: Simplify pattern by removing schema & domain matching
+        return None
+    return ContentClassification(kind=ItemKind.LINK, format=ContentFormat.LINK)
 
 
 def _detect_png_magic(data: bytes) -> ContentFormat | None:

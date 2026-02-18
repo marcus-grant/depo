@@ -24,6 +24,7 @@ from depo.service.classify import (
     _from_filename,
     _from_magic_bytes,
     _from_requested_format,
+    _from_url_pattern,
     classify,
 )
 
@@ -96,6 +97,76 @@ class TestFromDeclaredMime:
     def test_none_for_unsupported_mime(self):
         """Returns None for unsupported MIME types."""
         assert _from_declared_mime("fake/MIME") is None
+
+
+class TestFromUrlPattern:
+    """Tests for _from_url_pattern URL detection from bytes."""
+
+    def test_happy_paths(self):
+        """Valid URLs return LINK/LINK classification"""
+        CC, test_fn = ContentClassification, _from_url_pattern
+        expected = CC(kind=ItemKind.LINK, format=ContentFormat.LINK)
+        assert test_fn(b"http://example.com") == expected
+        assert test_fn(b"https://example.com") == expected
+        assert test_fn(b"https://example.com/path/to/thing") == expected
+        assert test_fn(b"https://example.com/page?q=search&lang=en") == expected
+        assert test_fn(b"https://sub.domain.example.com") == expected
+        assert test_fn(b"https://example.io") == expected
+        assert test_fn(b"  https://example.com  \r\n") == expected  # whitespace trimmed
+        assert test_fn(b"\nhttps://example.com  \r\n") == expected  # whitespace trimmed
+        # URLs should be treated as case, though paths & query params aren't
+        # For classification purposes, we don't care query or paths are case sensitive
+        assert test_fn(b"httpS://EXAMPLE.com/page?q=search&lang=en") == expected
+        assert test_fn(b"HTTP://eXample.COM/page?Q=search&lang=EN") == expected
+
+    def test_multiple_urls(self):
+        """Multiple URLs in payload returns None."""
+        assert _from_url_pattern(b"https://a.com\nhttps://b.com") is None
+        assert _from_url_pattern(b"https://a.com https://b.com") is None
+        assert _from_url_pattern(b"https://a.com\r\nhttps://b.com") is None
+        assert _from_url_pattern(b"https://a.comhttps://b.com") is None
+
+    # TODO: How do we allow people to give schema-less urls?
+    # TODO: How do we better split classification logic so it isn't so huge
+    #       - Could put this task in with the classification endpoint
+    def test_invalid_schemes(self):
+        """Non-http(s) schemes return None."""
+        assert _from_url_pattern(b"ftp://example.com") is None
+        assert _from_url_pattern(b"mailto://example.com") is None
+        assert _from_url_pattern(b"www.example.com") is None
+        assert _from_url_pattern(b"example.com") is None
+
+    def test_scheme_only(self):
+        """Scheme without domain returns None."""
+        assert _from_url_pattern(b"https://") is None
+        assert _from_url_pattern(b"http://") is None
+
+    def test_no_dot_in_domain(self):
+        """Domain without TLD dot returns None."""
+        assert _from_url_pattern(b"https://localhost") is None
+        assert _from_url_pattern(b"http://example") is None
+
+    def test_whitespace_in_body(self):
+        """URLs containing whitespace return None."""
+        assert _from_url_pattern(b"https://example.com/some path") is None
+        assert _from_url_pattern(b"https://example .com") is None
+
+    def test_unsafe_characters(self):
+        """URLs with non-URL-safe characters return None."""
+        assert _from_url_pattern(b"https://example.com/<script>") is None
+        assert _from_url_pattern(b"https://example.com/{bad}") is None
+        assert _from_url_pattern(b"https://example.com/[nope]") is None
+
+    def test_binary_data(self):
+        """Non-UTF8 binary data returns None."""
+        assert _from_url_pattern(b"\x89PNG\r\n\x1a\n") is None
+        assert _from_url_pattern(b"\xff\xd8\xff\xe0") is None
+
+    def test_plain_text(self):
+        """Ordinary text content returns None."""
+        assert _from_url_pattern(b"hello world") is None
+        assert _from_url_pattern(b"just some notes") is None
+        assert _from_url_pattern(b"") is None
 
 
 _PNG = b"\x89PNG\r\n\x1a\n"
