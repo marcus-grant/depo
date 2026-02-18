@@ -10,7 +10,6 @@ Date: 2026-01-20
 License: Apache-2.0
 """
 
-import re
 from dataclasses import dataclass
 
 from depo.model.enums import ContentFormat, ItemKind
@@ -142,6 +141,35 @@ def _from_url_pattern(data: bytes) -> ContentClassification | None:
     if path and not _valid_path_or_query(path):
         return None
     return ContentClassification(kind=ItemKind.LINK, format=ContentFormat.LINK)
+
+
+_ALLOWED_CONTROL = {0x09, 0x0A, 0x0D, 0x1A, 0x04}  # tab, LF, CR, DOS EOF, Unix EOF
+
+
+def _from_text_content(data: bytes) -> ContentClassification | None:
+    """Classify valid plain text from byte content.
+
+    Conservative fallback: valid UTF-8, no null bytes, no control
+    characters beyond common whitespace (tab, newline, CR).
+
+    Args:
+        data: Content bytes.
+
+    Returns:
+        ContentClassification(TEXT, PLAINTEXT) if safe text, None otherwise.
+    """
+    if len(data) == 0:
+        return None
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    if not text.strip():
+        return None
+    # Chars below 0x20 (space) are mostly control chars, except for allowed whitespace
+    if any((b < 0x20 and b not in _ALLOWED_CONTROL) or b == 0x7F for b in data):
+        return None
+    return ContentClassification(kind=ItemKind.TEXT, format=ContentFormat.PLAINTEXT)
 
 
 def _detect_png_magic(data: bytes) -> ContentFormat | None:
