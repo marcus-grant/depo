@@ -62,8 +62,57 @@ def _from_declared_mime(declared_mime: str | None) -> ContentClassification | No
     return ContentClassification(kind=kind, format=fmt)
 
 
-_URL_PATTERN = r"^[^\s<>{}\[\]:]+\.[^\s<>{}\[\]:]{1,8}([/?#][^\s<>{}\[\]]*)?$"
-_URL_REGEX = re.compile(_URL_PATTERN)
+def _valid_scheme(scheme: str) -> bool:
+    """Check URL scheme is supported (http/https).
+
+    Args:
+        scheme: Scheme portion before '://', already lowercased.
+
+    Returns:
+        True if http or https, False otherwise.
+    """
+    return scheme in {"http", "https"}
+
+
+_DOMAIN_CHARS = set("abcdefghijklmnopqrstuvwxyz0123456789-.")
+
+
+def _valid_domain(domain: str) -> bool:
+    """Check domain has a TLD dot and no banned characters.
+
+    Args:
+        domain: Domain portion after scheme, before first '/'.
+
+    Returns:
+        True if structurally valid, False otherwise.
+    """
+    if not domain:
+        return False
+    if not all(c in _DOMAIN_CHARS for c in domain.lower()):
+        return False
+    labels = domain.split(".")
+    if len(labels) < 2:
+        return False
+    return all(
+        len(label) > 0 and not label.startswith("-") and not label.endswith("-")
+        for label in labels
+    )
+
+
+# NOTE: Actually invalid path, query params, fragment chars
+_BANNED_PATH_CHARS = set("<>{}[] \t\n\r\x00")
+
+
+def _valid_path_or_query(path: str) -> bool:
+    """Check path/query/fragment portion has no banned characters.
+
+    Args:
+        path: Everything after the domain.
+
+    Returns:
+        True if valid or empty, False otherwise.
+    """
+    return not any(c in _BANNED_PATH_CHARS for c in path)
 
 
 def _from_url_pattern(data: bytes) -> ContentClassification | None:
@@ -78,18 +127,19 @@ def _from_url_pattern(data: bytes) -> ContentClassification | None:
     Returns:
         ContentClassification(LINK, LINK) if URL detected, None otherwise.
     """
-    if data.count(b"://") != 1:  # Only exactly one scheme separator allowed
+    if data.count(b"://") != 1:
         return None
-    try:  # URLs must be UTF-8 encoded as with all text content
-        text = data.decode("utf-8").strip().lower()
+    try:
+        text = data.decode("utf-8", errors="ignore").strip().lower()
     except UnicodeDecodeError:
         return None
-    schema, text = text.split("://", 1)
-    if schema not in ("http", "https"):  # Only support HTTP(S) URLs for now
+    scheme, rest = text.split("://", 1)
+    if not _valid_scheme(scheme):
         return None
-    if not _URL_REGEX.match(
-        text
-    ):  # TODO: Simplify pattern by removing schema & domain matching
+    domain, _, path = rest.partition("/")
+    if not _valid_domain(domain):
+        return None
+    if path and not _valid_path_or_query(path):
         return None
     return ContentClassification(kind=ItemKind.LINK, format=ContentFormat.LINK)
 

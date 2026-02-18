@@ -25,6 +25,9 @@ from depo.service.classify import (
     _from_magic_bytes,
     _from_requested_format,
     _from_url_pattern,
+    _valid_domain,
+    _valid_path_or_query,
+    _valid_scheme,
     classify,
 )
 
@@ -99,6 +102,83 @@ class TestFromDeclaredMime:
         assert _from_declared_mime("fake/MIME") is None
 
 
+class TestValidScheme:
+    """Tests for _valid_scheme URL scheme validation."""
+
+    def test_valid_scheme(self):
+        """Tests valid schemes return True."""
+        assert _valid_scheme("http")
+        assert _valid_scheme("https")
+
+    def test_invalid_scheme(self):
+        """Invalid schemes return False. Includes easy to make caller errors."""
+        assert not _valid_scheme("ftp")  # Unsupported scheme
+        assert not _valid_scheme("mailto")  # Unsupported scheme
+        assert not _valid_scheme("")  # Failure to split out scheme from marker
+        assert not _valid_scheme("http://")  # Failure to split out scheme from marker
+
+
+class TestValidDomain:
+    """Tests for _valid_domain domain validation."""
+
+    def test_valid_domain(self):
+        """Tests valid domains"""
+        assert _valid_domain("example.com")
+        assert _valid_domain("sub.domain.example.com")
+        assert _valid_domain("CAPS.ARE.FINE.com")
+
+    def test_invalid_domain(self):
+        """Invalids are: no dot, banned chars, empty, query or path params"""
+        assert not _valid_domain("")  # Empty
+        assert not _valid_domain("localhost")  # No dot
+        assert not _valid_domain("example.com:8080")  # Port is not allowed in domain
+        assert not _valid_domain("example")  # No dot
+        assert not _valid_domain("example.com/")  # Path is not allowed in domain
+        assert not _valid_domain("example.com?q=1")  # Query is not allowed in domain
+        assert not _valid_domain("a.com#fragment")  # Fragment is not allowed in domain
+        assert not _valid_domain("example.com<bad>")  # Banned chars
+        assert not _valid_domain("example.{bad}.com")  # Banned chars
+        assert not _valid_domain("[bad].example.com")  # Banned chars
+        assert not _valid_domain("example.com-")  # Bad TLD
+        assert not _valid_domain("example.com.")  # Bad TLD
+        assert not _valid_domain("-bad.example.com.")  # Bad subdomain
+        assert not _valid_domain(".example.com")  # Bad subdomain
+        assert not _valid_domain("example..com")  # Consecutive dots
+        assert not _valid_domain("example.-bad.com")  # Label starts with hyphen
+        assert not _valid_domain("example.bad-.com")  # Label ends with hyphen
+
+
+class TestValidPathOrQuery:
+    """Tests for _valid_path path/query validation."""
+
+    def test_valid_paths(self):
+        """Tests valid paths, queries and fragments."""
+        assert _valid_path_or_query("")  # No path is valid
+        assert _valid_path_or_query("/")  # Root path
+        assert _valid_path_or_query("/path/to/resource")  # Valid path
+        assert _valid_path_or_query("/shop/search?q=example&lang=en")  # Valid query
+        assert _valid_path_or_query("/article/page#section1")  # Valid fragment
+        assert _valid_path_or_query("/#section2")  # Valid fragment
+        assert _valid_path_or_query("/a/s?q=example#results")  # query+fragment+path
+        assert _valid_path_or_query("/path%20with%20spaces")  # Percent-encoded spaces
+        assert _valid_path_or_query("/s?q=hello%26world")  # Percent-encoded ampersand
+        assert _valid_path_or_query("/path/%E2%9C%93")  # Percent-encoded unicode
+
+    def test_invalid_paths(self):
+        """Tests invalid paths with banned characters."""
+        assert not _valid_path_or_query("/some path")  # Whitespace
+        assert not _valid_path_or_query("/path\ttab")  # Tab
+        assert not _valid_path_or_query("/path\nnewline")  # Newline
+        assert not _valid_path_or_query("/<script>")  # Banned chars
+        assert not _valid_path_or_query("/{bad}")  # Banned chars
+        assert not _valid_path_or_query("/[nope]")  # Banned chars
+        assert not _valid_path_or_query("?q=<script>")  # Banned in query
+        assert not _valid_path_or_query("#frag{bad}")  # Banned in fragment
+        assert not _valid_path_or_query("/path\rreturn")  # Carriage return
+        assert not _valid_path_or_query("/path\x00null")  # Null byte
+
+
+# TODO: Refactor these to be more concerned with use of its helpers
 class TestFromUrlPattern:
     """Tests for _from_url_pattern URL detection from bytes."""
 
