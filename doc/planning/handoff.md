@@ -6,17 +6,43 @@ get replaced each time.
 
 ## How to use this document **[static]**
 
-Read this document at the start of every session. Follow links to planning
-and reference docs only as needed for the current work - do not read
-everything every time.
+This handoff is read by a collaborator at the start of a session.
+The collaborator does not have direct access to the project filesystem.
+The user shares file contents by running shell commands and piping
+output to clipboard with their `cc` command.
+The collaborator's role is to suggest commands for the user to run,
+then work with whatever they paste back.
+
+Sections marked **[static]** persist across all handoffs. Sections marked
+**[per-session]** get replaced each time.
+
+At session start:
+
+- Read this document in full
+- Follow links to planning and reference docs only as needed
+  for the current work
+
+During the session:
+
+- Stubs, snippets, and instructions over full implementations
+- One task at a time, one question at a time
+- Suggest shell commands for the user to run, don't assume
+  filesystem access
+- Present commit messages as plain text, not in code blocks
+- Don't present code and non-code (like commit messages) in
+  the same block
 
 Before ending a session:
 
-- Update this document with the current state
+- Fill out all per-session sections to reflect current state
 - Document any deferrals in the appropriate planning doc
-- Move completed work from planning docs to reference docs (or create new ones)
+- Move completed work from planning docs to reference docs
 - Add new session learnings
 - Trim anything that's been resolved
+- Present the completed handoff for the user to copy and persist
+- Trim completed sections from planning docs
+- Use completed planning items to identify which reference
+  docs (design/, module/, others or new ones) need updating
 
 ## Orientation **[per-session]**
 

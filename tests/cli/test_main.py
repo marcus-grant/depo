@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from click.testing import CliRunner
-from tests.factories.config import make_config
+from tests.factories import make_config
 
 from depo.cli.config import DepoConfig
 from depo.cli.main import cli

@@ -30,16 +30,6 @@ service, repo, and storage. Dedupe by content hash.
 
 Ordered by dependency. Each heading is roughly one PR.
 
-### Test infra
-
-Two-tier test client fixtures to replace scattered `make_client(tmp_path)` calls.
-
-- `t_client` - bare app instance, manages tmp_path internally. For upload/POST
-  tests where you create content as part of the test.
-- `t_seeded_client` - pre-populated with known items (text, pic, link). For
-  GET/info/raw tests where content is a precondition.
-- Evaluate consolidating small factory modules in `tests/factories/`.
-
 ### URL classification and ingest refactor
 
 URLs should enter the pipeline as payload bytes like any other content,
@@ -51,6 +41,10 @@ not through the special-cased `link_url` parameter.
 - Rethink URL size limit validation when URLs are payload bytes
 - Re-add Link optgroup to format dropdown once classification handles it
 - Evaluate client-side vs server-side classification strategies
+- tests/web/test_upload_page.py:
+  - TestGetUploadPage.test_format_select_covers_all_formats:
+    - has _DEFERRED_KINDS excluding ItemKind.LINK.
+    - Remove exclusion when link enters the classification pipeline.
 
 ### Route refactoring
 
@@ -74,6 +68,13 @@ Handler naming:
 - `page_` - full page renders (`page_upload`, `page_info`)
 - `hx_` - HTMX partial responses (`hx_upload`, `hx_info`)
 - `api_` - API/plain text responses (`api_upload`, `api_info`)
+
+Test files with endpoints that will need updating:
+
+- tests/web/test_routes.py:
+  - TestGetInfo, TestGetRaw:
+    - use /api/{code}/info and /api/{code}/raw paths
+- tests/web/test_info_page.py: all classes use /{code}/info paths
 
 Split `routes.py` into per-concern routers. Fixed-path routers register first,
 wildcard router last.

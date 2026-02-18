@@ -11,7 +11,7 @@ import pytest
 from bs4 import BeautifulSoup, Comment
 
 from depo.web.templates import get_templates, is_htmx
-from tests.factories.web import make_probe_client
+from tests.factories import make_probe_client
 
 
 class TestIsHtmx:
