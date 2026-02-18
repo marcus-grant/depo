@@ -24,6 +24,7 @@ from depo.service.classify import (
     _from_filename,
     _from_magic_bytes,
     _from_requested_format,
+    _from_text_content,
     _from_url_pattern,
     _valid_domain,
     _valid_path_or_query,
@@ -178,7 +179,6 @@ class TestValidPathOrQuery:
         assert not _valid_path_or_query("/path\x00null")  # Null byte
 
 
-# TODO: Refactor these to be more concerned with use of its helpers
 class TestFromUrlPattern:
     """Tests for _from_url_pattern URL detection from bytes."""
 
@@ -206,9 +206,6 @@ class TestFromUrlPattern:
         assert _from_url_pattern(b"https://a.com\r\nhttps://b.com") is None
         assert _from_url_pattern(b"https://a.comhttps://b.com") is None
 
-    # TODO: How do we allow people to give schema-less urls?
-    # TODO: How do we better split classification logic so it isn't so huge
-    #       - Could put this task in with the classification endpoint
     def test_invalid_schemes(self):
         """Non-http(s) schemes return None."""
         assert _from_url_pattern(b"ftp://example.com") is None
@@ -247,6 +244,38 @@ class TestFromUrlPattern:
         assert _from_url_pattern(b"hello world") is None
         assert _from_url_pattern(b"just some notes") is None
         assert _from_url_pattern(b"") is None
+
+
+class TestFromTextContent:
+    """Tests for _from_text_content text fallback classifier."""
+
+    def test_valid_text(self):
+        test_fn, CC = _from_text_content, ContentClassification
+        expected = CC(kind=ItemKind.TEXT, format=ContentFormat.PLAINTEXT)
+        assert test_fn(b"Hello, world!.") == expected  # plain ascii
+        assert test_fn(b"line1\nline2") == expected  # LF
+        assert test_fn(b"line1\r\nline2") == expected  # CR+LF
+        assert test_fn(b"col1\tcol2") == expected  # Tab
+        assert test_fn(b"old dos file\x1a") == expected  # DOS EOF
+        assert test_fn(b"unix eof\x04") == expected  # Unix EOF
+        assert test_fn("Héllo wörld".encode()) == expected  # Accented chars
+        assert test_fn("日本語テキスト".encode()) == expected  # CJK
+        assert test_fn("🎉 emoji".encode()) == expected  # Emoji
+
+    def test_invalid_text(self):
+        test_fn = _from_text_content
+        assert test_fn(b"") is None  # empty
+        assert test_fn(b"\xff\xfe\xfd") is None  # invalid UTF-8
+        assert test_fn(b"Null byte\x00in text") is None  # null byte
+        assert test_fn(b"has\x00null") is None  # Null
+        assert test_fn(b"has\x01soh") is None  # Start of heading
+        assert test_fn(b"has\x07bell") is None  # Bell
+        assert test_fn(b"has\x08backspace") is None  # Backspace
+        assert test_fn(b"has\x0eshift") is None  # Shift out
+        assert test_fn(b"has\x7fdelete") is None  # DEL
+        assert test_fn(b"   ") is None  # Whitespace only
+        assert test_fn(b"\n\n\n") is None  # Newlines only
+        assert test_fn(b"\t \r\n") is None  # Mixed whitespace only
 
 
 _PNG = b"\x89PNG\r\n\x1a\n"
