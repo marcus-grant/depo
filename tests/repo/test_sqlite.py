@@ -318,7 +318,7 @@ class TestInsert:
 
     def test_inserts_link_item(self, t_repo):
         """Inserts LinkItem and returns it"""
-        kwargs = {"kind": ItemKind.LINK, "link_url": "https://depo.example.com"}
+        kwargs = {"kind": ItemKind.LINK, "payload_bytes": b"http://a.eu"}
         plan = make_write_plan(**kwargs)
         result = t_repo.insert(plan, uid=42, perm=Visibility.UNLISTED)
         assert isinstance(result, LinkItem)
@@ -327,13 +327,14 @@ class TestInsert:
         assert result.upload_at == plan.upload_at
         assert result.uid == 42
         assert result.perm == Visibility.UNLISTED
-        assert result.url == "https://depo.example.com"
+        assert result.url == "http://a.eu"
         assert result == t_repo.get_by_full_hash(plan.hash_full)
 
     def test_raises_code_collision_error_on_duplicate_hash(self, t_repo):
         """Raises CodeCollisionError when same content inserted twice (dedupe leak)"""
-        plan1 = make_write_plan(code_min_len=8, kind="url", link_url="http://a.com")
-        plan2 = make_write_plan(code_min_len=8, kind="url", link_url="http://a.com")
+        kwargs = {"code_min_len": 8, "kind": "url", "payload_bytes": b"http://a.eu"}
+        plan1 = make_write_plan(**kwargs)
+        plan2 = make_write_plan(**kwargs)
         t_repo.insert(plan1)
         with pytest.raises(CodeCollisionError):
             t_repo.insert(plan2)
@@ -346,7 +347,7 @@ class TestInsert:
             hash_full=f"{prefix}XXXXXXXXXXXXXXXX",  # Same 8-char prefix
             code_min_len=8,
             kind=ItemKind.LINK,
-            link_url="http://test.com",
+            payload_bytes=b"http://test.com",
         )  # Extends to 9 chars, no collision vvv
         assert t_repo.insert(plan).code == prefix + "X"
 

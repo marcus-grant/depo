@@ -128,6 +128,11 @@ class IngestService:
             requested_format=requested_format,
         )
 
+        # For some content we need to validate AFTER classification
+        if content_class.kind == ItemKind.LINK:  # If content is a link/url...
+            if size > self.max_url_len:  # Validate URL length
+                raise ValueError(f"URL len {size} exceeds limit {self.max_url_len}")
+
         # If ItemKind.PICTURE - Extract Image metadata & verify image data
         width, height = None, None
         if content_class.kind == ItemKind.PICTURE:

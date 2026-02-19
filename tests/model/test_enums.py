@@ -70,11 +70,9 @@ class TestPayloadKind:
 
     def test_member_count(self):
         """Always 2 members for now"""
-        assert len(PayloadKind) == 3
+        assert len(PayloadKind) == 2
 
-    @pytest.mark.parametrize(
-        "key,val", [("BYTES", "byte"), ("FILE", "file"), ("NONE", "none")]
-    )
+    @pytest.mark.parametrize("key,val", [("BYTES", "byte"), ("FILE", "file")])
     def test_member_key_values(self, key, val):
         """Should have these expected member names"""
         member = PayloadKind[key]
