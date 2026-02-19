@@ -106,10 +106,12 @@ def upload_response(result: PersistResult) -> PlainTextResponse:
 async def ingest_upload(
     file: UploadFile | None,
     url: str | None,
-    request: Request | None,
-    orchestrator: IngestOrchestrator,
+    req: Request | None,
+    orch: IngestOrchestrator,
+    req_fmt: ContentFormat | None = None,
 ) -> PersistResult:
-    """Parse request and ingest. Raises ValueError/ImportError on failure."""
-    req = None if file is not None or url is not None else request
+    """Parse request and ingest with IngestOrchestrator given.
+    Raises ValueError/ImportError on failure."""
+    req = None if file is not None or url is not None else req
     params = await parse_upload(file=file, url=url, request=req)
-    return orchestrator.ingest(**dict(params))  # type: ignore[arg-type]
+    return orch.ingest(**dict(params), requested_format=req_fmt)  # type: ignore[arg-type]
