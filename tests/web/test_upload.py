@@ -17,11 +17,7 @@ from fastapi import UploadFile
 from starlette.datastructures import Headers
 
 from depo.model.enums import ContentFormat
-from depo.web.upload import (
-    parse_form_upload,
-    parse_upload,
-    upload_response,
-)
+from depo.web.upload import parse_form_upload, parse_upload, upload_response
 from tests.factories import make_persist_result
 
 
@@ -42,11 +38,11 @@ class TestParseUpload:
         assert result["declared_mime"] == "text/plain"
 
     @pytest.mark.asyncio
-    async def test_url_param_extracts_link_url(self):
-        """URL query param extracts link_url."""
+    async def test_url_param_extracts_payload_bytes(self):
+        """URL query param extracts links to payload_bytes."""
         result = dict(await parse_upload(file=None, url="http://a.eu", request=None))
-        assert result["link_url"] == "http://a.eu"
-        assert "payload_bytes" not in result
+        assert result["payload_bytes"] == b"http://a.eu"
+        assert result["declared_mime"] is None
 
     @pytest.mark.asyncio
     async def test_raw_body_extracts_payload(self):
@@ -58,16 +54,6 @@ class TestParseUpload:
         assert result["payload_bytes"] == b"some raw content"
         assert result["declared_mime"] == "application/octet-stream"
         assert "link_url" not in result
-
-    @pytest.mark.asyncio
-    async def test_raw_body_url_detected_as_link(self):
-        """Raw body containing URL extracts link_url instead of payload_bytes."""
-        mock_request = AsyncMock()
-        mock_request.body.return_value = b"https://example.com"
-        mock_request.headers = Headers({"content-type": "text/plain"})
-        result = dict(await parse_upload(file=None, url=None, request=mock_request))
-        assert result["link_url"] == "https://example.com"
-        assert "payload_bytes" not in result
 
     @pytest.mark.asyncio
     async def test_no_input_raises(self):

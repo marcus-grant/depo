@@ -10,7 +10,6 @@ Created: 2026-02-10
 License: Apache-2.0
 """
 
-import re
 from typing import TypedDict
 
 from fastapi import Request, UploadFile
@@ -18,23 +17,6 @@ from fastapi.responses import PlainTextResponse
 
 from depo.model.enums import ContentFormat
 from depo.service.orchestrator import IngestOrchestrator, PersistResult
-
-# TODO: This belongs in the right place in ingestion pipeline, probably classify
-# Don't forget to move its test class TestLooksLikeUrl as well
-# TODO: This remains after migration, regex is a brittle way of text validating a URL
-
-_URL_RE = re.compile(
-    r"^https?://[^\s<>{}\[\]]+\.[^\s<>{}\[\]]{1,8}([/?#][^\s<>{}\[\]]*)?$"
-)
-
-
-def _looks_like_url(data: bytes) -> bool:
-    """Naive URL detection. TODO: Move to ingestion pipeline."""
-    try:
-        text = data.decode("utf-8").strip()
-    except UnicodeDecodeError:
-        return False
-    return bool(_URL_RE.match(text))
 
 
 class UploadMultipartParams(TypedDict):
@@ -45,17 +27,11 @@ class UploadMultipartParams(TypedDict):
     declared_mime: str
 
 
-class UploadUrlParams(TypedDict):
-    """Upload params from URL query parameter or detected link."""
-
-    link_url: str
-
-
 class UploadRawBodyParams(TypedDict):
     """Upload params from raw request body."""
 
     payload_bytes: bytes
-    declared_mime: str
+    declared_mime: str | None
 
 
 class UploadFormParams(TypedDict):
@@ -67,9 +43,7 @@ class UploadFormParams(TypedDict):
 
 
 # NOTE: Have a subset of UploadParamas for each upload situation and union them
-UploadParams = (
-    UploadMultipartParams | UploadUrlParams | UploadRawBodyParams | UploadFormParams
-)
+UploadParams = UploadMultipartParams | UploadRawBodyParams | UploadFormParams
 
 
 async def parse_upload(
@@ -78,10 +52,8 @@ async def parse_upload(
     request: Request | None,
 ) -> UploadParams:
     """Extract orchestrator.ingest kwargs from an HTTP request."""
-    if request is not None:
+    if request is not None:  # The URL endpoint has path/query meta to use
         body = await request.body()
-        if _looks_like_url(body):
-            return UploadUrlParams(link_url=body.decode("utf-8").strip())
         return UploadRawBodyParams(
             payload_bytes=body,
             declared_mime=str(request.headers.get("content-type")),
@@ -93,7 +65,8 @@ async def parse_upload(
             declared_mime=(str(file.content_type)),
         )
     if url is not None:
-        return UploadUrlParams(link_url=url)
+        kwargs = {"payload_bytes": url.encode("utf-8"), "declared_mime": None}
+        return UploadRawBodyParams(**kwargs)
     raise ValueError(
         "parse_upload called with no input: file, url, and request are all None. "
         "This is a routing bug — at least one must be provided."

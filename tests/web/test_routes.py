@@ -65,9 +65,6 @@ class TestUploadImage:
 class TestUploadLink:
     """Tests for link/URL submission."""
 
-    import pytest
-
-    @pytest.mark.skip(reason="URL as payload_bytes not implemented yet")
     def test_url_param_returns_201(self, t_client):
         """URL query param returns 201 with url kind."""
         resp = t_client.post("/api/upload?url=https://example.com")
@@ -76,7 +73,9 @@ class TestUploadLink:
         assert resp.headers["X-Depo-Created"] == "true"
         assert all(char in _CROCKFORD32 for char in resp.text)
 
-    @pytest.mark.skip(reason="URL as payload_bytes not implemented yet")
+    import pytest
+
+    @pytest.mark.skip(reason="Needs requested_format API param override declared MIME")
     def test_raw_body_url_returns_201(self, t_client):
         """Raw body containing URL returns 201 with url kind."""
         url, head = b"https://example.com", {"content-type": "text/plain"}
