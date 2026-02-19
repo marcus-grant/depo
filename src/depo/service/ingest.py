@@ -52,7 +52,6 @@ class IngestService:
         filename: str | None = None,
         declared_mime: str | None = None,
         requested_format: ContentFormat | None = None,
-        link_url: str | None = None,
     ) -> WritePlan:
         """Build a WritePlan from upload data.
 
