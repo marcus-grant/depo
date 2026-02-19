@@ -73,15 +73,37 @@ class TestUploadLink:
         assert resp.headers["X-Depo-Created"] == "true"
         assert all(char in _CROCKFORD32 for char in resp.text)
 
-    import pytest
-
-    @pytest.mark.skip(reason="Needs requested_format API param override declared MIME")
     def test_raw_body_url_returns_201(self, t_client):
         """Raw body containing URL returns 201 with url kind."""
         url, head = b"https://example.com", {"content-type": "text/plain"}
-        resp = t_client.post("/api/upload", content=url, headers=head)
+        resp = t_client.post("/api/upload?format=url", content=url, headers=head)
         assert resp.status_code == 201
         assert resp.headers["X-Depo-Kind"] == "url"
+
+
+class TestUploadFormat:
+    """Tests for API format override via query param and X-Depo-Format header."""
+
+    def test_format_query_param_overrides_classification(self, t_client):
+        """Query param format overrides automatic classification."""
+        data, head = b"# Hello", {"content-type": "text/plain"}
+        resp = t_client.post("/api/upload?format=md", content=data, headers=head)
+        assert resp.status_code == 201
+        assert resp.headers["X-Depo-Kind"] == "txt"
+
+    def test_format_header_overrides_classification(self, t_client):
+        """X-Depo-Format header overrides automatic classification."""
+        data, head = b"# Hello", {"X-Depo-Format": "md"}
+        resp = t_client.post("/api/upload", content=data, headers=head)
+        assert resp.status_code == 201
+        assert resp.headers["X-Depo-Kind"] == "txt"
+
+    def test_format_query_param_wins_over_header(self, t_client):
+        """Query param takes precedence over header."""
+        data, head = b"key: value", {"X-Depo-Format": "json"}
+        resp = t_client.post("/api/upload?format=yaml", content=data, headers=head)
+        assert resp.status_code == 201
+        assert resp.headers["X-Depo-Kind"] == "txt"
 
 
 class TestUploadShortcuts:
