@@ -71,36 +71,9 @@ class IngestService:
             ValueError: If invalid size payload given
         """
         # Validate source data
-        provided_sources = sum(
-            [payload_bytes is not None, payload_path is not None, link_url is not None]
-        )
-        if provided_sources != 1:
-            raise ValueError("Expected one of payload_bytes, payload_path or link_url.")
-
-        # Shortcut process for link_url - no need to classify & different validation
         # TODO: Refactor: Validation should be its own module
-        if link_url is not None:
-            # Validate size & encode str to utf-8 to normalize hashed data
-            link_bytes = link_url.encode("utf-8")
-            ll = len(link_bytes)
-            if ll <= 0:
-                raise ValueError("link_url string is empty")
-            if ll > self.max_url_len:
-                raise ValueError(f"Link url len {ll} exceeds limit {self.max_url_len}")
-            # Validate URI Format
-            if not link_url.startswith(("http://", "https://")):
-                raise ValueError("Link url must start with http:// or https://")
-
-            # Assemble & return WritePlan
-            return WritePlan(
-                hash_full=hash_full_b32(link_bytes),
-                code_min_len=self.min_code_length,
-                payload_kind=PayloadKind.NONE,
-                kind=ItemKind.LINK,
-                size_b=ll,
-                upload_at=int(time.time()),
-                link_url=link_url,
-            )  # From here, we are no longer dealing with link_url
+        if sum([payload_bytes is not None, payload_path is not None]) != 1:
+            raise ValueError("Expected one of payload_bytes or payload_path.")
 
         # Determine PayloadKind and read data if needed
         data: bytes
