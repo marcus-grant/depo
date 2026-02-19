@@ -59,7 +59,6 @@ class IngestOrchestrator:
         *,
         payload_bytes: bytes | None = None,
         payload_path: Path | None = None,
-        link_url: str | None = None,
         filename: str | None = None,
         declared_mime: str | None = None,
         requested_format: ContentFormat | None = None,
@@ -86,7 +85,6 @@ class IngestOrchestrator:
         plan = self._service.build_plan(
             payload_bytes=payload_bytes,
             payload_path=payload_path,
-            link_url=link_url,
             filename=filename,
             declared_mime=declared_mime,
             requested_format=requested_format,

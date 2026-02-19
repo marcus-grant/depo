@@ -153,44 +153,20 @@ class TestIngestServiceImage:
             IngestService().build_plan(payload_bytes=b"\xff\xd8\xff\xe1")
 
 
-class TestBuildPlanLinkUrl:
-    """Tests for build_plan() with link_url."""
+class TestIngestServiceLink:
+    """Tests for build_plan() with URL content classified as LINK."""
 
-    def test_returns_plan_with_expected_fields(self):
-        """Returns expected WritePlan with correct field values for urls"""
-        # build_plan doesnt need payload_{bytes,path}, only link_url
-        plan = IngestService().build_plan(link_url="http://a.eu")
+    def test_writeplan_fields_for_url_payload(self):
+        """URL payload_bytes classes as LINK with BYTES payload_kind & right hash"""
+        plan = IngestService().build_plan(payload_bytes=b"http://a.eu")
         assert plan.kind == ItemKind.LINK
-        assert plan.link_url == "http://a.eu"
+        assert plan.payload_kind == PayloadKind.BYTES
         assert plan.hash_full == hash_full_b32(bytes("http://a.eu", encoding="utf-8"))
-        assert plan.payload_kind == PayloadKind.NONE
 
-    def test_raises_for_link_and_payload_args(self):
-        """Raises if link_url provided along with any or both payload args"""
-        match, byt, pth, url = r"(?i)one of.*payload", b"\xff", Path("/"), "http://a.eu"
-        with pytest.raises(ValueError, match=match):
-            IngestService().build_plan(link_url=url, payload_bytes=byt)
-        with pytest.raises(ValueError, match=match):
-            IngestService().build_plan(link_url=url, payload_path=pth)
-        with pytest.raises(ValueError, match=match):
-            IngestService().build_plan(
-                link_url=url, payload_bytes=byt, payload_path=pth
-            )
-
-    @pytest.mark.parametrize(
-        "url, match",
-        [
-            ("", r"(?i)(empty|zero)"),
-            ("a" * 2049, r"(?i)(max|big|exceed)"),
-            ("www.example.com", r"(?i)(schema|http)"),
-        ],
-    )
-    def test_raises_for_invalid_link(self, url, match):
-        """Raises if invalid link_url provided
-        Invalid: Empty, Too big, no HTTP(s) prefix
-        """
-        with pytest.raises(ValueError, match=match):
-            IngestService(max_url_len=2048).build_plan(link_url=url)
+    def test_raises_if_url_exceeds_max_url_len(self):
+        """Raises ValueError if classified URL payload exceeds max_url_len."""
+        with pytest.raises(ValueError, match=r"(?i)url.*(siz|len).*exceed"):
+            IngestService(max_url_len=4).build_plan(payload_bytes=b"http://a.eu")
 
 
 class TestIngestServiceAssembly:
