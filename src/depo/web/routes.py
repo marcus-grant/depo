@@ -12,10 +12,11 @@ License: Apache-2.0
 
 import dataclasses
 
-from fastapi import APIRouter, Depends, Request, UploadFile
+from fastapi import APIRouter, Depends, Query, Request, UploadFile
 from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 
 import depo.service.selector as selector
+from depo.model.enums import ContentFormat
 from depo.model.formats import mime_for_format
 from depo.model.item import LinkItem, PicItem, TextItem
 from depo.repo.errors import NotFoundError
@@ -106,10 +107,13 @@ async def upload(
     orch: IngestOrchestrator = Depends(get_orchestrator),
     url: str | None = None,
     file: UploadFile | None = None,
+    fmt: str | None = Query(None, alias="format"),
 ) -> PlainTextResponse:
     """API upload: multipart, raw body, or URL param."""
+    req_fmt_str = fmt or req.headers.get("x-depo-format")
+    req_fmt = ContentFormat(req_fmt_str) if req_fmt_str else None
     try:
-        result = await ingest_upload(file, url, req, orch)
+        result = await ingest_upload(file, url, req, orch, req_fmt=req_fmt)
     except PayloadTooLargeError as e:
         return PlainTextResponse(str(e), status_code=413)
     except ValueError as e:

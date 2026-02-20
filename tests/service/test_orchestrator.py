@@ -101,7 +101,7 @@ class TestIngestOrchestratorIngest:
     def test_happy_path_link_item(self, t_orch_env):
         """LinkItem happy path: created=True, item in repo, NOT in storage."""
         orch, repo, store = t_orch_env  # Assemble
-        result = orch.ingest(link_url="https://www.example.com/")  # Act
+        result = orch.ingest(payload_bytes=b"https://www.example.com/")  # Act
         assert isinstance(result, PersistResult)  # Assert
         assert result.created
         assert repo.get_by_full_hash(result.item.hash_full) == result.item

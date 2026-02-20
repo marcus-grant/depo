@@ -127,6 +127,7 @@ def format_for_extension(ext: str) -> ContentFormat | None:
 
 
 _FORMAT_TO_KIND_MAP: dict[ContentFormat, ItemKind] = {
+    ContentFormat.LINK: ItemKind.LINK,
     ContentFormat.PLAINTEXT: ItemKind.TEXT,
     ContentFormat.MARKDOWN: ItemKind.TEXT,
     ContentFormat.JSON: ItemKind.TEXT,

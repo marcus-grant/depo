@@ -61,6 +61,117 @@ def _from_declared_mime(declared_mime: str | None) -> ContentClassification | No
     return ContentClassification(kind=kind, format=fmt)
 
 
+def _valid_scheme(scheme: str) -> bool:
+    """Check URL scheme is supported (http/https).
+
+    Args:
+        scheme: Scheme portion before '://', already lowercased.
+
+    Returns:
+        True if http or https, False otherwise.
+    """
+    return scheme in {"http", "https"}
+
+
+_DOMAIN_CHARS = set("abcdefghijklmnopqrstuvwxyz0123456789-.")
+
+
+def _valid_domain(domain: str) -> bool:
+    """Check domain has a TLD dot and no banned characters.
+
+    Args:
+        domain: Domain portion after scheme, before first '/'.
+
+    Returns:
+        True if structurally valid, False otherwise.
+    """
+    if not domain:
+        return False
+    if not all(c in _DOMAIN_CHARS for c in domain.lower()):
+        return False
+    labels = domain.split(".")
+    if len(labels) < 2:
+        return False
+    return all(
+        len(label) > 0 and not label.startswith("-") and not label.endswith("-")
+        for label in labels
+    )
+
+
+# NOTE: Actually invalid path, query params, fragment chars
+_BANNED_PATH_CHARS = set("<>{}[] \t\n\r\x00")
+
+
+def _valid_path_or_query(path: str) -> bool:
+    """Check path/query/fragment portion has no banned characters.
+
+    Args:
+        path: Everything after the domain.
+
+    Returns:
+        True if valid or empty, False otherwise.
+    """
+    return not any(c in _BANNED_PATH_CHARS for c in path)
+
+
+def _from_url_pattern(data: bytes) -> ContentClassification | None:
+    """Classify from URL pattern in byte content.
+
+    Attempts UTF-8 decode, then matches against HTTP(S) URL pattern.
+    Strips surrounding whitespace before matching.
+
+    Args:
+        data: Content bytes.
+
+    Returns:
+        ContentClassification(LINK, LINK) if URL detected, None otherwise.
+    """
+    if data.count(b"://") != 1:
+        return None
+    try:
+        text = data.decode("utf-8").strip().lower()
+    except UnicodeDecodeError:
+        return None
+    scheme, rest = text.split("://", 1)
+    if not _valid_scheme(scheme):
+        return None
+    domain, _, path = rest.partition("/")
+    if not _valid_domain(domain):
+        return None
+    if path and not _valid_path_or_query(path):
+        return None
+    return ContentClassification(kind=ItemKind.LINK, format=ContentFormat.LINK)
+
+
+_ALLOWED_CONTROL = {0x09, 0x0A, 0x0D, 0x1A, 0x04}  # tab, LF, CR, DOS EOF, Unix EOF
+
+
+def _from_text_content(data: bytes) -> ContentClassification | None:
+    """Classify valid plain text from byte content.
+
+    Conservative fallback: valid UTF-8, no null bytes, no control
+    characters beyond common whitespace (tab, newline, CR).
+
+    Args:
+        data: Content bytes.
+
+    Returns:
+        ContentClassification(TEXT, PLAINTEXT) if safe text, None otherwise.
+    """
+    if len(data) == 0:
+        return None
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    if not text.strip():
+        return None
+    # Chars below 0x20 (space) are mostly control chars, except for allowed whitespace
+    if any((b < 0x20 and b not in _ALLOWED_CONTROL) or b == 0x7F for b in data):
+        return None
+    return ContentClassification(kind=ItemKind.TEXT, format=ContentFormat.PLAINTEXT)
+
+
 def _detect_png_magic(data: bytes) -> ContentFormat | None:
     """Detect PNG from magic bytes.
 
@@ -193,6 +304,8 @@ def classify(
             or _from_declared_mime(declared_mime)
             or _from_magic_bytes(data)
             or _from_filename(filename)
+            or _from_url_pattern(data)
+            or _from_text_content(data)
         )
     except ValueError as e:
         raise ValueError(f"Unable to classify: Classification error: {e}") from None

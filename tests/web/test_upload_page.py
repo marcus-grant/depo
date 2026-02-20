@@ -52,29 +52,21 @@ class TestGetUploadPage:
         groups = select.find_all("optgroup")
         group_labels = {g["label"].lower() for g in groups}  # type: ignore
 
-        # Every ItemKind has an optgroup (except LINK — pending URL classification PR)
+        # Every ItemKind has an optgroup
         ## TODO: Remove when URL enters pipeline as content
-        _DEFERRED_KINDS = {ItemKind.LINK}
         for kind in ItemKind:
-            if kind in _DEFERRED_KINDS:
-                continue
             assert kind in label_to_kind.values(), f"No label mapping for {kind}"
-
         for label, kind in label_to_kind.items():
-            if kind in _DEFERRED_KINDS:
-                continue
             assert label in group_labels, f"Missing optgroup for {kind}"
-
         # Every option maps to the correct kind via kind_for_format
         seen_formats = set()
         for group in groups:
-            expected_kind = label_to_kind[group["label"].lower()]  # type: ignore
+            expected_kind = label_to_kind[str(group["label"]).lower()]
             for option in group.find_all("option"):
                 fmt = ContentFormat(option["value"])
                 assert fmt not in seen_formats, f"Duplicate option: {fmt}"
                 seen_formats.add(fmt)
                 assert kind_for_format(fmt) == expected_kind, f"{fmt} in wrong group"
-
         # Every ContentFormat is represented
         assert seen_formats == set(ContentFormat), (
             f"Missing: {set(ContentFormat) - seen_formats}"
