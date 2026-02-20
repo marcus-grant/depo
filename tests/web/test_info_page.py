@@ -14,7 +14,7 @@ class TestInfoPageText:
 
     def test_response(self, t_seeded):
         """Text info page returns correct template, shortcode, content, and metadata."""
-        resp = t_seeded.client.get(f"/{t_seeded.txt.code}/info")
+        resp = t_seeded.browser.get(f"/{t_seeded.txt.code}/info")
         msg = "Response is not HTML"
         assert resp.headers.get("content-type", "").startswith("text/html"), msg
         assert resp.status_code == 200
@@ -38,7 +38,7 @@ class TestInfoPagePic:
 
     def test_response(self, t_seeded):
         """Text info page returns correct template, shortcode, content, and metadata."""
-        resp = t_seeded.client.get(f"/{t_seeded.pic.code}/info")
+        resp = t_seeded.browser.get(f"/{t_seeded.pic.code}/info")
         assert resp.status_code == 200
         assert "<!-- BEGIN: info/pic.html" in resp.text
         assert "<!-- END: info/pic.html -->" in resp.text
@@ -63,7 +63,7 @@ class TestInfoPageLink:
 
     def test_response(self, t_seeded):
         """Link info page returns correct template, shortcode, and clickable URL."""
-        resp = t_seeded.client.get(f"/{t_seeded.link.code}/info")
+        resp = t_seeded.browser.get(f"/{t_seeded.link.code}/info")
         assert resp.status_code == 200
         assert "<!-- BEGIN: info/link.html" in resp.text
         assert "<!-- END: info/link.html -->" in resp.text
@@ -83,6 +83,6 @@ class TestInfoPageLink:
 class TestInfoPageNotFound:
     """GET /{code}/info for unknown code"""
 
-    def test_unknown_code_returns_404(self, t_client):
+    def test_unknown_code_returns_404(self, t_browser):
         """Unknown code returns 404."""
-        assert t_client.get("/ZZZZZZZZ/info").status_code == 404
+        assert t_browser.get("/ZZZZZZZZ/info").status_code == 404

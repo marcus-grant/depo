@@ -65,13 +65,13 @@ async def root_redirect():
 
 
 @router.get("/upload")
-async def upload_page(req: Request):
+async def page_upload(req: Request):
     """Serve the upload form as a full HTML page."""
     return get_templates().TemplateResponse(request=req, name="upload.html")
 
 
 @router.post("/upload")
-async def upload_form(
+async def hx_upload(
     req: Request,
     orch: IngestOrchestrator = Depends(get_orchestrator),
 ):
@@ -102,7 +102,7 @@ async def upload_form(
 
 @router.post("/api/upload", status_code=201)
 @router.post("/", status_code=201)
-async def upload(
+async def api_upload(
     req: Request,
     orch: IngestOrchestrator = Depends(get_orchestrator),
     url: str | None = None,
@@ -129,8 +129,24 @@ def health() -> PlainTextResponse:
     return PlainTextResponse(content="ok", status_code=200)
 
 
-@router.get("/api/{code}/info")
-async def get_info(  # TODO: This needs proper JSON serialization later
+@router.get("/{code}/info")
+async def info(
+    req: Request,
+    code: str,
+    repo: SqliteRepository = Depends(get_repo),
+    store: StorageBackend = Depends(get_storage),
+) -> Response:
+    """Dispatcher for item info by content negotiation.
+    Delegates to page_info for browser requests,
+    api_info for API/CLI requests.
+    """
+    if wants_html(req):
+        return await page_info(req, code, repo, store)
+    return await api_info(code, repo)
+
+
+# TODO: Needs proper JSON/plaintxt serialization later
+async def api_info(
     code: str,
     repo: SqliteRepository = Depends(get_repo),
 ) -> PlainTextResponse:
@@ -145,7 +161,7 @@ async def get_info(  # TODO: This needs proper JSON serialization later
 
 
 @router.get("/api/{code}/raw")
-async def get_raw(
+async def raw(
     code: str,
     repo: SqliteRepository = Depends(get_repo),
     store: StorageBackend = Depends(get_storage),
@@ -165,8 +181,7 @@ async def get_raw(
     return PlainTextResponse("Unexpected item type", status_code=500)
 
 
-@router.get("/{code}/info")
-async def info_page(
+async def page_info(
     req: Request,
     code: str,
     repo: SqliteRepository = Depends(get_repo),

@@ -119,12 +119,12 @@ class TestUploadShortcuts:
 
 
 class TestGetInfo:
-    """Tests for GET /api/{code}/info.
+    """Tests for GET /{code}/info.
     Uses t_seeded for pre-populated items, t_client for 404."""
 
     def test_text_item_info(self, t_seeded):
         """Text item returns metadata as plain text."""
-        resp = t_seeded.client.get(f"/api/{t_seeded.txt.code}/info")
+        resp = t_seeded.client.get(f"/{t_seeded.txt.code}/info")
         assert resp.status_code == 200
         assert resp.headers["content-type"].startswith("text/plain")
         assert f"code={t_seeded.txt.code}" in resp.text
@@ -134,7 +134,7 @@ class TestGetInfo:
 
     def test_pic_item_info(self, t_seeded):
         """Pic item returns metadata including dimensions."""
-        resp = t_seeded.client.get(f"/api/{t_seeded.pic.code}/info")
+        resp = t_seeded.client.get(f"/{t_seeded.pic.code}/info")
         assert resp.status_code == 200
         assert "kind=pic" in resp.text
         assert "width=320" in resp.text
@@ -142,14 +142,14 @@ class TestGetInfo:
 
     def test_link_item_info(self, t_seeded):
         """Link item returns metadata including URL."""
-        resp = t_seeded.client.get(f"/api/{t_seeded.link.code}/info")
+        resp = t_seeded.client.get(f"/{t_seeded.link.code}/info")
         assert resp.status_code == 200
         assert "kind=url" in resp.text
         assert "url=http://example.com" in resp.text
 
-    def test_unknown_code_returns_404(self, t_client):
+    def test_unknown_code_404(self, t_client):
         """Unknown code returns 404."""
-        assert t_client.get("/api/ZZZZZZZZ/info").status_code == 404
+        assert t_client.get("/ZZZZZZZZ/info").status_code == 404
 
 
 class TestGetRaw:

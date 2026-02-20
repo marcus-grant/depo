@@ -105,6 +105,19 @@ def t_client(tmp_path) -> TestClient:
     return client
 
 
+@pytest.fixture
+def t_browser(tmp_path) -> TestClient:
+    """Bare TestClient with Accept: text/html and empty database and storage.
+    App is fully wired (DB initialized, store directory created)
+    but contains no items. Use for browser-context tests where the
+    test creates its own content. Wraps the same app as make_client
+    with default browser headers.
+    Depends on pytest builtin fixture: tmp_path for isolated filesystem.
+    """
+    client = make_client(tmp_path)
+    return TestClient(client.app, headers={"Accept": "text/html"})
+
+
 @dataclass(frozen=True)
 class SeededApp:
     """TestClient bundled with pre-populated items.
@@ -116,6 +129,7 @@ class SeededApp:
     """
 
     client: TestClient
+    browser: TestClient
     txt: TextItem
     pic: PicItem
     link: LinkItem
@@ -131,6 +145,7 @@ def t_seeded(tmp_path) -> SeededApp:
     GET/info/raw tests where content is a precondition.
     """
     client = make_client(tmp_path)
+    browser = TestClient(client.app, headers={"Accept": "text/html"})
     app = cast(FastAPI, client.app)
     conn = app.state.repo._conn
     store: FilesystemStorage = app.state.store
@@ -166,7 +181,9 @@ def t_seeded(tmp_path) -> SeededApp:
     store.put(code=item_txt.code, format=item_txt.format, source_bytes=txt_data)
     store.put(code=item_pic.code, format=item_pic.format, source_bytes=pic_data)
 
-    return SeededApp(client=client, txt=item_txt, pic=item_pic, link=item_link)
+    return SeededApp(
+        client=client, browser=browser, txt=item_txt, pic=item_pic, link=item_link
+    )
 
 
 __all__ = [

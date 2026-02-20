@@ -72,6 +72,16 @@ def make_client(p: Path) -> TestClient:
     return TestClient(app_factory(make_config(p)))
 
 
+def make_browser_client(p: Path) -> TestClient:
+    """Build a full-stack TestClient with Accept: text/html.
+    Wraps make_config and app_factory with browser-default
+    headers. Use for integration tests against HTML page
+    responses. Prefer the t_browser fixture unless you
+    need a custom path.
+    """
+    return TestClient(app_factory(make_config(p)), headers={"Accept": "text/html"})
+
+
 def make_probe_client(probe_fn: Callable[[Request], Any]) -> TestClient:
     """Build a minimal app with a single GET /probe route.
 
