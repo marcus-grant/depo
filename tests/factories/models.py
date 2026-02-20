@@ -63,6 +63,5 @@ def make_write_plan(**overrides) -> WritePlan:
         payload_path=None,
         width=None,
         height=None,
-        link_url=None,
     )
     return WritePlan(**(defaults | overrides))  # pyright: ignore[reportArgumentType]

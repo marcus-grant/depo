@@ -24,6 +24,11 @@ from depo.service.classify import (
     _from_filename,
     _from_magic_bytes,
     _from_requested_format,
+    _from_text_content,
+    _from_url_pattern,
+    _valid_domain,
+    _valid_path_or_query,
+    _valid_scheme,
     classify,
 )
 
@@ -96,6 +101,188 @@ class TestFromDeclaredMime:
     def test_none_for_unsupported_mime(self):
         """Returns None for unsupported MIME types."""
         assert _from_declared_mime("fake/MIME") is None
+
+
+class TestValidScheme:
+    """Tests for _valid_scheme URL scheme validation."""
+
+    def test_valid_scheme(self):
+        """Tests valid schemes return True."""
+        assert _valid_scheme("http")
+        assert _valid_scheme("https")
+
+    def test_invalid_scheme(self):
+        """Invalid schemes return False. Includes easy to make caller errors."""
+        assert not _valid_scheme("ftp")  # Unsupported scheme
+        assert not _valid_scheme("mailto")  # Unsupported scheme
+        assert not _valid_scheme("")  # Failure to split out scheme from marker
+        assert not _valid_scheme("http://")  # Failure to split out scheme from marker
+
+
+class TestValidDomain:
+    """Tests for _valid_domain domain validation."""
+
+    def test_valid_domain(self):
+        """Tests valid domains"""
+        assert _valid_domain("example.com")
+        assert _valid_domain("sub.domain.example.com")
+        assert _valid_domain("CAPS.ARE.FINE.com")
+
+    def test_invalid_domain(self):
+        """Invalids are: no dot, banned chars, empty, query or path params"""
+        assert not _valid_domain("")  # Empty
+        assert not _valid_domain("localhost")  # No dot
+        assert not _valid_domain("example.com:8080")  # Port is not allowed in domain
+        assert not _valid_domain("example")  # No dot
+        assert not _valid_domain("example.com/")  # Path is not allowed in domain
+        assert not _valid_domain("example.com?q=1")  # Query is not allowed in domain
+        assert not _valid_domain("a.com#fragment")  # Fragment is not allowed in domain
+        assert not _valid_domain("example.com<bad>")  # Banned chars
+        assert not _valid_domain("example.{bad}.com")  # Banned chars
+        assert not _valid_domain("[bad].example.com")  # Banned chars
+        assert not _valid_domain("example.com-")  # Bad TLD
+        assert not _valid_domain("example.com.")  # Bad TLD
+        assert not _valid_domain("-bad.example.com.")  # Bad subdomain
+        assert not _valid_domain(".example.com")  # Bad subdomain
+        assert not _valid_domain("example..com")  # Consecutive dots
+        assert not _valid_domain("example.-bad.com")  # Label starts with hyphen
+        assert not _valid_domain("example.bad-.com")  # Label ends with hyphen
+
+
+# TODO: Refactor to split into valid & invalid paths in parametrize w/ messages
+class TestValidPathOrQuery:
+    """Tests for _valid_path path/query validation."""
+
+    def test_valid_paths(self):
+        """Tests valid paths, queries and fragments."""
+        assert _valid_path_or_query("")  # No path is valid
+        assert _valid_path_or_query("/")  # Root path
+        assert _valid_path_or_query("/path/to/resource")  # Valid path
+        assert _valid_path_or_query("/shop/search?q=example&lang=en")  # Valid query
+        assert _valid_path_or_query("/article/page#section1")  # Valid fragment
+        assert _valid_path_or_query("/#section2")  # Valid fragment
+        assert _valid_path_or_query("/a/s?q=example#results")  # query+fragment+path
+        assert _valid_path_or_query("/path%20with%20spaces")  # Percent-encoded spaces
+        assert _valid_path_or_query("/s?q=hello%26world")  # Percent-encoded ampersand
+        assert _valid_path_or_query("/path/%E2%9C%93")  # Percent-encoded unicode
+
+    def test_invalid_paths(self):
+        """Tests invalid paths with banned characters."""
+        assert not _valid_path_or_query("/some path")  # Whitespace
+        assert not _valid_path_or_query("/path\ttab")  # Tab
+        assert not _valid_path_or_query("/path\nnewline")  # Newline
+        assert not _valid_path_or_query("/<script>")  # Banned chars
+        assert not _valid_path_or_query("/{bad}")  # Banned chars
+        assert not _valid_path_or_query("/[nope]")  # Banned chars
+        assert not _valid_path_or_query("?q=<script>")  # Banned in query
+        assert not _valid_path_or_query("#frag{bad}")  # Banned in fragment
+        assert not _valid_path_or_query("/path\rreturn")  # Carriage return
+        assert not _valid_path_or_query("/path\x00null")  # Null byte
+
+
+# TODO: Refactor to split into valid & invalid paths in parametrize w/ messages
+class TestFromUrlPattern:
+    """Tests for _from_url_pattern URL detection from bytes."""
+
+    def test_happy_paths(self):
+        """Valid URLs return LINK/LINK classification"""
+        CC, test_fn = ContentClassification, _from_url_pattern
+        expected = CC(kind=ItemKind.LINK, format=ContentFormat.LINK)
+        assert test_fn(b"http://example.com") == expected
+        assert test_fn(b"https://example.com") == expected
+        assert test_fn(b"https://example.com/path/to/thing") == expected
+        assert test_fn(b"https://example.com/page?q=search&lang=en") == expected
+        assert test_fn(b"https://sub.domain.example.com") == expected
+        assert test_fn(b"https://example.io") == expected
+        assert test_fn(b"  https://example.com  \r\n") == expected  # whitespace trimmed
+        assert test_fn(b"\nhttps://example.com  \r\n") == expected  # whitespace trimmed
+        # URLs should be treated as case, though paths & query params aren't
+        # For classification purposes, we don't care query or paths are case sensitive
+        assert test_fn(b"httpS://EXAMPLE.com/page?q=search&lang=en") == expected
+        assert test_fn(b"HTTP://eXample.COM/page?Q=search&lang=EN") == expected
+
+    def test_multiple_urls(self):
+        """Multiple URLs in payload returns None."""
+        assert _from_url_pattern(b"https://a.com\nhttps://b.com") is None
+        assert _from_url_pattern(b"https://a.com https://b.com") is None
+        assert _from_url_pattern(b"https://a.com\r\nhttps://b.com") is None
+        assert _from_url_pattern(b"https://a.comhttps://b.com") is None
+
+    def test_invalid_schemes(self):
+        """Non-http(s) schemes return None."""
+        assert _from_url_pattern(b"ftp://example.com") is None
+        assert _from_url_pattern(b"mailto://example.com") is None
+        assert _from_url_pattern(b"www.example.com") is None
+        assert _from_url_pattern(b"example.com") is None
+
+    def test_scheme_only(self):
+        """Scheme without domain returns None."""
+        assert _from_url_pattern(b"https://") is None
+        assert _from_url_pattern(b"http://") is None
+
+    def test_no_dot_in_domain(self):
+        """Domain without TLD dot returns None."""
+        assert _from_url_pattern(b"https://localhost") is None
+        assert _from_url_pattern(b"http://example") is None
+
+    def test_whitespace_in_body(self):
+        """URLs containing whitespace return None."""
+        assert _from_url_pattern(b"https://example.com/some path") is None
+        assert _from_url_pattern(b"https://example .com") is None
+
+    def test_unsafe_characters(self):
+        """URLs with non-URL-safe characters return None."""
+        assert _from_url_pattern(b"https://example.com/<script>") is None
+        assert _from_url_pattern(b"https://example.com/{bad}") is None
+        assert _from_url_pattern(b"https://example.com/[nope]") is None
+
+    def test_binary_data(self):
+        """Non-UTF8 binary data returns None."""
+        assert _from_url_pattern(b"\x89PNG\r\n\x1a\n") is None
+        assert _from_url_pattern(b"\xff\xd8\xff\xe0") is None
+
+    def test_plain_text(self):
+        """Ordinary text content returns None."""
+        assert _from_url_pattern(b"hello world") is None
+        assert _from_url_pattern(b"just some notes") is None
+        assert _from_url_pattern(b"") is None
+
+    def test_invalid_utf8_in_url(self):
+        """URL-like content with invalid UTF-8 bytes returns None."""
+        assert _from_url_pattern(b"https://example\xff.com") is None
+        assert _from_url_pattern(b"https://example.com/\xfe\xfd") is None
+
+
+class TestFromTextContent:
+    """Tests for _from_text_content text fallback classifier."""
+
+    def test_valid_text(self):
+        test_fn, CC = _from_text_content, ContentClassification
+        expected = CC(kind=ItemKind.TEXT, format=ContentFormat.PLAINTEXT)
+        assert test_fn(b"Hello, world!.") == expected  # plain ascii
+        assert test_fn(b"line1\nline2") == expected  # LF
+        assert test_fn(b"line1\r\nline2") == expected  # CR+LF
+        assert test_fn(b"col1\tcol2") == expected  # Tab
+        assert test_fn(b"old dos file\x1a") == expected  # DOS EOF
+        assert test_fn(b"unix eof\x04") == expected  # Unix EOF
+        assert test_fn("Héllo wörld".encode()) == expected  # Accented chars
+        assert test_fn("日本語テキスト".encode()) == expected  # CJK
+        assert test_fn("🎉 emoji".encode()) == expected  # Emoji
+
+    def test_invalid_text(self):
+        test_fn = _from_text_content
+        assert test_fn(b"") is None  # empty
+        assert test_fn(b"\xff\xfe\xfd") is None  # invalid UTF-8
+        assert test_fn(b"Null byte\x00in text") is None  # null byte
+        assert test_fn(b"has\x00null") is None  # Null
+        assert test_fn(b"has\x01soh") is None  # Start of heading
+        assert test_fn(b"has\x07bell") is None  # Bell
+        assert test_fn(b"has\x08backspace") is None  # Backspace
+        assert test_fn(b"has\x0eshift") is None  # Shift out
+        assert test_fn(b"has\x7fdelete") is None  # DEL
+        assert test_fn(b"   ") is None  # Whitespace only
+        assert test_fn(b"\n\n\n") is None  # Newlines only
+        assert test_fn(b"\t \r\n") is None  # Mixed whitespace only
 
 
 _PNG = b"\x89PNG\r\n\x1a\n"
@@ -263,6 +450,8 @@ _PRIO_1 = ContentFormat.YAML  # YAML
 _PRIO_MIME = "application/json"  # JSON
 _PRIO_DATA = b"\x89PNG\r\n\x1a\n"  # PNG magic bytes
 _PRIO_FILENAME = "notes.md"  # Markdown
+_PRIO_URL = b"https://example.com"  # URL pattern
+_PRIO_TEXT = b"just some plain text"  # Text fallback
 
 
 class TestClassify:
@@ -279,6 +468,12 @@ class TestClassify:
             (None, None, _PRIO_DATA, _PRIO_FILENAME, ContentFormat.PNG),
             # No requested, no mime, no magic match → uses filename (MD)
             (None, None, b"no magic", _PRIO_FILENAME, ContentFormat.MARKDOWN),
+            # URL content with filename hint → filename wins over URL pattern
+            (None, None, _PRIO_URL, _PRIO_FILENAME, ContentFormat.MARKDOWN),
+            # No requested, no mime, no magic, no filename → URL pattern
+            (None, None, _PRIO_URL, None, ContentFormat.LINK),
+            # No requested, no mime, no magic, no filename, no URL → text fallback
+            (None, None, _PRIO_TEXT, None, ContentFormat.PLAINTEXT),
         ],
     )
     def test_classification_priority(
@@ -297,4 +492,5 @@ class TestClassify:
     def test_raises_when_nothing_matches(self):
         """Raises ValueError when no classification strategy matches."""
         with pytest.raises(ValueError, match=r"^Unable to classify.*"):
-            classify(b"no magic", filename="no_extension", declared_mime="fake/mime")
+            f = "no_extension"
+            classify(b"\xff\xfe\xfd", filename=f, declared_mime="fake/mime")

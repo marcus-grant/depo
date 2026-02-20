@@ -23,10 +23,8 @@ repo, and storage layers.
 
 Framework-agnostic DTO that passes between inference and persistence. Carries
 identity (hash, code length), payload reference (bytes or path), classification
-(kind, format), and type-specific metadata (dimensions, URL).
-
-Hashing happens before persistence. Bytes are never modified. The DTO has
-no ORM or request objects.
+(kind, format), and type-specific metadata (dimensions). Hashing happens before
+persistence. Bytes are never modified. The DTO has no ORM or request objects.
 
 ### IngestService
 
@@ -51,17 +49,21 @@ created or deduplicated.
 - Dedupe happens at the orchestrator level before any writes.
 - Storage writes before DB insert. Orphan files are easier to clean up than
   orphan rows.
-- LinkItem has no payload bytes. The orchestrator skips storage for links.
+- LinkItem payload is the URL as bytes. The repo decodes it for storage.
+  The orchestrator skips file storage for links.
 
 ## Classification
 
 Content is classified through a strategy chain with priority:
-
-requested_format > declared_mime > magic bytes > filename extension
+requested_format > declared_mime > magic bytes > filename > URL pattern > text
 
 Classification is data-driven. Format mappings in the model layer are
 the source of truth. The classifier delegates to isolated helpers for
-each strategy.
+each strategy. URL detection validates scheme, domain, and path separately.
+Text fallback requires valid UTF-8 with no banned control characters.
+
+The API accepts format overrides via `?format=` query param or
+`X-Depo-Format` header. Query param takes precedence.
 
 ## Related docs
 

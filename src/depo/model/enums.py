@@ -39,7 +39,6 @@ class PayloadKind(StrEnum):
 
     BYTES = "byte"
     FILE = "file"
-    NONE = "none"
 
 
 class ContentFormat(StrEnum):
@@ -49,6 +48,7 @@ class ContentFormat(StrEnum):
     identification. MIME types are derived at serve time via util/formats.py.
     """
 
+    LINK = "url"
     PLAINTEXT = "txt"
     MARKDOWN = "md"
     JSON = "json"

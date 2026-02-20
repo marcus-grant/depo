@@ -43,6 +43,10 @@ Before ending a session:
 - Trim completed sections from planning docs
 - Use completed planning items to identify which reference
   docs (design/, module/, others or new ones) need updating
+- Verify per-session sections reflect current state, don't carry
+  forward stale content from previous handoffs
+- Every deferral must have a cross-reference to a planning doc
+- Layer status should only list what changed or has caveats
 
 ## Orientation **[per-session]**
 
@@ -50,30 +54,35 @@ Date: YYYY-MM-DD
 
 What just finished:
 
-- (brief summary of completed work)
+- (1-3 bullet summary of completed work, not a changelog)
+- (focus on outcomes, not individual steps)
 
 What's in progress:
 
-- (anything partially done)
+- (anything partially done, with enough context to resume)
+- (omit if nothing is in progress)
 
 What's next:
 
-- (the next planned task, link to planning doc for details)
+- (the next planned task from [mvp.md](./mvp.md) or relevant planning doc)
+- (link to the specific section, not just the doc)
 
 ## Layer status **[per-session]**
 
-Only list layers with notable changes or caveats. If a layer is stable
-and complete, omit it.
+Only list layers that changed this session or have caveats for the
+next session. If a layer is stable and untouched, omit it. The goal
+is to flag what the next collaborator needs to be careful about.
 
 | Layer | Status | Notes |
 |-------|--------|-------|
+| (e.g. service/classify) | (changed/broken/stable) | (brief caveat) |
 
-## Current deferrals **[per-session]**
+## Known issues **[per-session]**
 
-Decisions or tasks deferred during this session. Each one must be documented
-in the appropriate planning doc before the handoff is complete.
+Bugs or broken states only. Not design decisions or future work — those
+are deferrals. Long-lived issues belong in planning docs, not here.
 
-- (deferral and where it should be documented)
+- (issue and how it manifests)
 
 ## Known issues **[per-session]**
 
@@ -83,8 +92,11 @@ Current issues only. Long-lived issues belong in planning docs, not here.
 
 ## Test fixtures **[per-session]**
 
-Brief snapshot of what's available. See [module docs](../module/README.md)
-for full details.
+Brief snapshot of what's available.
+See [module docs](../module/README.md) for full details.
+Brief snapshot of what's available.
+Must reflect actual state after this session's changes —
+don't copy from previous handoff without verifying.
 
 Factories:
 
@@ -111,13 +123,22 @@ note where it's documented and keep the entry here as a reminder.
   docstrings, and test specs. Only generate full implementations when
   explicitly asked or when it's clearly busywork.
 - Always provide a commit message before moving on to the next task.
-- Don't use starlette imports when fastapi equivalents exist.
 - Route ordering matters in FastAPI. Specific routes register first,
   wildcards last.
 - PayloadTooLargeError inherits from ValueError. Catch it before ValueError
-  in except chains.
+  in except chains. **Does this still belong here?**
 - Hardcoded test assertions over dynamic ones to prevent false positives.
 - Test stubs must include module docstring, imports, and spec comments.
+- Be surgical with context requests.
+  - grep/sed over cat
+  - Don't ask for entire files when a few lines will do.
+- Don't re-ask for context already provided in conversation. Track what's been shared.
+- Every shell command must pipe through `cc`, no exceptions unless stated otherwise.
+- Commit messages go in code fences, never bare text.
+- When "stubs" are requested, give stubs.
+  - Don't give implementations unless explicitly asked or it's clearly busywork.
+- Code and non-code (commit messages, prose) go in separate code blocks. Never mix them.
+- Track documentation items as they arise. Don't rely on memory at the end.
 
 ## Conventions **[static]**
 
@@ -182,3 +203,14 @@ Implementation modules include class, function, and method signatures
 with docstrings but no implementation unless explicitly asked.
 
 When updating an existing module, only include the stubs being added.
+
+### Improving this document **[static]**
+
+This handoff is a living process document.
+At the end of each session,
+consider whether workflow friction could be reduced by
+updating the static sections.
+If a mistake keeps recurring,
+it belongs here as a convention or learning -
+not just a mental note.
+Future collaborators benefit from every improvement.

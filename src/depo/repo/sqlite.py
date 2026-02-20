@@ -296,12 +296,13 @@ class SqliteRepository:
                     height=plan.height,
                 )
             elif plan.kind == ItemKind.LINK:
-                assert plan.link_url is not None  # Bug in the ingest pipeline
+                assert plan.payload_bytes is not None  # Bug in ingest pipeline
+                url = plan.payload_bytes.decode("utf-8").strip()
                 self._conn.execute(
                     "INSERT INTO link_items (hash_full, url) VALUES (:hash_full, :url)",
-                    {"hash_full": plan.hash_full, "url": plan.link_url},
+                    {"hash_full": plan.hash_full, "url": url},
                 )
-                return LinkItem(**base_item, url=plan.link_url)
+                return LinkItem(**base_item, url=url)
             else:
                 raise AssertionError(f"Unknown ItemKind: {plan.kind}")
 
