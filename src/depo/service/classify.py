@@ -129,7 +129,7 @@ def _from_url_pattern(data: bytes) -> ContentClassification | None:
     if data.count(b"://") != 1:
         return None
     try:
-        text = data.decode("utf-8", errors="ignore").strip().lower()
+        text = data.decode("utf-8").strip().lower()
     except UnicodeDecodeError:
         return None
     scheme, rest = text.split("://", 1)

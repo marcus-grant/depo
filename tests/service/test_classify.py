@@ -149,6 +149,7 @@ class TestValidDomain:
         assert not _valid_domain("example.bad-.com")  # Label ends with hyphen
 
 
+# TODO: Refactor to split into valid & invalid paths in parametrize w/ messages
 class TestValidPathOrQuery:
     """Tests for _valid_path path/query validation."""
 
@@ -179,6 +180,7 @@ class TestValidPathOrQuery:
         assert not _valid_path_or_query("/path\x00null")  # Null byte
 
 
+# TODO: Refactor to split into valid & invalid paths in parametrize w/ messages
 class TestFromUrlPattern:
     """Tests for _from_url_pattern URL detection from bytes."""
 
@@ -244,6 +246,11 @@ class TestFromUrlPattern:
         assert _from_url_pattern(b"hello world") is None
         assert _from_url_pattern(b"just some notes") is None
         assert _from_url_pattern(b"") is None
+
+    def test_invalid_utf8_in_url(self):
+        """URL-like content with invalid UTF-8 bytes returns None."""
+        assert _from_url_pattern(b"https://example\xff.com") is None
+        assert _from_url_pattern(b"https://example.com/\xfe\xfd") is None
 
 
 class TestFromTextContent:
