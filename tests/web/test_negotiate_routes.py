@@ -9,16 +9,16 @@ License: Apache-2.0
 import pytest
 
 
-class TestShortcutRoute:
+class TestItemRouteRedirect:
     """GET /{code} redirects based on client type"""
 
     @pytest.mark.parametrize(
         "accept_head, expected",
         [
             ("text/html", "/f00bar/info"),
-            ("*/*", "/api/f00bar/raw"),
-            ("some/format", "/api/f00bar/raw"),
-            ("", "/api/f00bar/raw"),
+            ("*/*", "/f00bar/raw"),
+            ("some/format", "/f00bar/raw"),
+            ("", "/f00bar/raw"),
         ],
     )
     def test_different_client_redirects(self, t_client, accept_head, expected):
@@ -38,4 +38,4 @@ class TestShortcutRoute:
         kwargs = {"headers": {"Accept": "*/*"}, "follow_redirects": False}
         resp = t_client.get("/N0EX1ST", **kwargs)
         assert resp.status_code == 302
-        assert resp.headers["location"] == "/api/N0EX1ST/raw"
+        assert resp.headers["location"] == "/N0EX1ST/raw"
