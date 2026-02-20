@@ -153,12 +153,12 @@ class TestGetInfo:
 
 
 class TestGetRaw:
-    """Tests for GET /api/{code}/raw.
+    """Tests for GET /{code}/raw.
     Uses t_seeded for pre-populated items, t_client for 404."""
 
     def test_text_returns_raw_content(self, t_seeded):
         """Text item returns raw content with text/plain MIME."""
-        resp = t_seeded.client.get(f"/api/{t_seeded.txt.code}/raw")
+        resp = t_seeded.client.get(f"/{t_seeded.txt.code}/raw")
         assert resp.status_code == 200
         assert resp.headers["content-type"].startswith("text/plain")
         assert "charset=utf-8" in resp.headers["content-type"]
@@ -166,18 +166,34 @@ class TestGetRaw:
 
     def test_pic_returns_raw_bytes(self, t_seeded):
         """Pic item returns raw bytes with correct image MIME."""
-        resp = t_seeded.client.get(f"/api/{t_seeded.pic.code}/raw")
+        resp = t_seeded.client.get(f"/{t_seeded.pic.code}/raw")
         assert resp.status_code == 200
         assert resp.headers["content-type"].startswith("image/jpeg")
         assert len(resp.content) == t_seeded.pic.size_b
 
     def test_link_returns_redirect(self, t_seeded):
         """LinkItem returns redirect to URL."""
-        endpoint = f"/api/{t_seeded.link.code}/raw"
+        endpoint = f"/{t_seeded.link.code}/raw"
         resp = t_seeded.client.get(endpoint, follow_redirects=False)
         assert resp.status_code == 307
         assert resp.headers["location"] == "http://example.com"
 
     def test_unknown_code_returns_404(self, t_client):
         """Unknown code returns 404."""
-        assert t_client.get("/api/ZZZZZZZZ/raw").status_code == 404
+        assert t_client.get("/ZZZZZZZZ/raw").status_code == 404
+
+
+class TestItem:
+    """Tests for GET /{code} dispatcher."""
+
+    def test_api_client_redirects_to_raw(self, t_seeded):
+        """Non-HTML request redirects to /{code}/raw."""
+        resp = t_seeded.client.get(f"/{t_seeded.txt.code}", follow_redirects=False)
+        assert resp.status_code == 302
+        assert resp.headers["location"] == f"/{t_seeded.txt.code}/raw"
+
+    def test_browser_redirects_to_info(self, t_seeded):
+        """HTML request redirects to /{code}/info."""
+        resp = t_seeded.browser.get(f"/{t_seeded.txt.code}", follow_redirects=False)
+        assert resp.status_code == 302
+        assert resp.headers["location"] == f"/{t_seeded.txt.code}/info"

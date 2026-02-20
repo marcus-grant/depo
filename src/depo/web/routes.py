@@ -160,7 +160,7 @@ async def api_info(
     return PlainTextResponse(content=body)
 
 
-@router.get("/api/{code}/raw")
+@router.get("/{code}/raw")
 async def raw(
     code: str,
     repo: SqliteRepository = Depends(get_repo),
@@ -218,8 +218,8 @@ async def page_info(
 
 
 @router.get("/{code}")
-async def shortcut(req: Request, code: str) -> Response:
+async def item(req: Request, code: str) -> Response:
     """Redirect shortcut to canonical route based on client type."""
     if wants_html(req):
         return RedirectResponse(url=f"/{code}/info", status_code=302)
-    return RedirectResponse(url=f"/api/{code}/raw", status_code=302)
+    return RedirectResponse(url=f"/{code}/raw", status_code=302)
