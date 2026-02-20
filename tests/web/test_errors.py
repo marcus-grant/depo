@@ -16,9 +16,9 @@ from tests.factories import HEADER_HTMX
 class TestError404Page:
     """404 error page rendering. Makes use of t_client fixture."""
 
-    def test_response(self, t_client):
+    def test_response(self, t_browser):
         """404 page renders with code and base template."""
-        resp = t_client.get("/ZZZZZZZZ/info")
+        resp = t_browser.get("/ZZZZZZZZ/info")
         assert resp.status_code == 404
         assert "<!-- BEGIN: base.html" in resp.text
         assert "<!-- BEGIN: errors/404.html" in resp.text
