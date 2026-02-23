@@ -63,3 +63,25 @@ h3, h4, h5, h6 {
   font-size: var(--depo-size-meta);
   color: var(--depo-secondary);
 }
+
+/* Dither patterns — 1-bit bitmap fills */
+.dither-diag {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='4'><rect x='0' y='0' width='1' height='1' fill='rgb(200,200,200)'/><rect x='1' y='1' width='1' height='1' fill='rgb(200,200,200)'/><rect x='2' y='2' width='1' height='1' fill='rgb(200,200,200)'/><rect x='3' y='3' width='1' height='1' fill='rgb(200,200,200)'/></svg>");
+  background-repeat: repeat;
+  image-rendering: pixelated;
+  background-size: 8px 8px;
+}
+
+.dither-check {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='2' height='2'><rect x='0' y='0' width='1' height='1' fill='rgb(200,200,200)'/><rect x='1' y='1' width='1' height='1' fill='rgb(200,200,200)'/></svg>");
+  background-repeat: repeat;
+  image-rendering: pixelated;
+  background-size: 12px 12px;
+}
+
+.dither-cross {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='4'><rect x='0' y='0' width='1' height='1' fill='rgb(200,200,200)'/><rect x='2' y='2' width='1' height='1' fill='rgb(200,200,200)'/><rect x='3' y='1' width='1' height='1' fill='rgb(200,200,200)'/><rect x='1' y='3' width='1' height='1' fill='rgb(200,200,200)'/></svg>");
+  background-repeat: repeat;
+  image-rendering: pixelated;
+  background-size: 8px 8px;
+}
