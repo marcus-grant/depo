@@ -8,8 +8,10 @@ Item-first URL structure. The shortcode is the primary interface.
 
 These negotiate request context and delegate to a specific handler.
 
-- `GET /{code}` - `shortcut()`. Browser gets info page, API gets raw content.
-  LinkItem always redirects (302) regardless of context.
+- `GET /{code}`
+  - `item()`.
+  - Browser gets info page, API gets raw content.
+  - LinkItem always redirects (302) regardless of context.
 - `GET /{code}/info` - `info()`. Delegates to `page_info`, `hx_info`, or `api_info`.
 - `POST /upload` - `upload()`. Delegates to `hx_upload` or `api_upload`.
 
@@ -47,13 +49,23 @@ Each handler is explicitly named and does one thing.
 
 ## Router organization
 
-Routes split into per-concern routers (FastAPI `APIRouter`). Fixed-path
-routers register first. The wildcard router (`/{code}` and sub-paths)
-registers last to avoid shadowing.
+Routes package at `src/depo/web/routes/`.
+Each domain owns its router.
+`__init__.py` wires routers and holds fixed-path handlers
+(health, redirects, POST / alias).
+Fixed-path handlers register before domain routers.
+Wild-card router (shortcode) registers last to avoid shadowing.
+
+- `upload.py`
+  - `upload_router`
+  - upload dispatch and handlers
+- `shortcode.py`
+  - `shortcode_router`
+  - item/info/raw handlers
 
 ## Reserved namespaces
 
-These top-level prefixes are reserved and must not conflict with shortcodes:
+These top-level prefixes are reserved and must not conflict with short-codes:
 
 - `/upload`
 - `/health`
