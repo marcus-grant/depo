@@ -41,6 +41,17 @@ Targets the final route and handler structure.
 - Inline metadata panes
 - Apply visual system from [design language](../design/language.md)
 
+Notes (from prior attempt):
+
+- Pico v2 scopes properties under `:root:not([data-theme=dark])`,
+  not `:root`. Overrides must match that selector.
+- `base.html` requires `data-theme="light"` on `<html>`.
+- htmx.min.js is a redirect stub (same issue pico.min.css had),
+  needs replacing with actual bundle before HTMX features work.
+- Palette A (conservative) active. Palette B tuning, attention role
+  consolidation, dark mode, and System 7 purple exploration deferred
+  to post-MVP.
+
 ### Error handling
 
 Centralize error handling after routes and pipeline have stabilized.
