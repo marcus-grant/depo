@@ -69,11 +69,13 @@ class TestHtmxErrorPartial:
         assert "<!-- BEGIN: base.html" not in resp.text
 
 
+# TODO: Relocate when error helpers are extracted to shared module (error handling PR)
+#       Update imports and test organization to match centralized error module
 class TestError500Page:
     """500 internal server error rendering"""
 
     def _make_500_client(self) -> TestClient:
-        from depo.web.routes import _response_500
+        from depo.web.routes.shortcode import _response_500
 
         app = FastAPI()
 
