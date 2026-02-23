@@ -32,7 +32,7 @@ class TestError413Page:
     def test_api_oversized_returns_413(self, t_client):
         """API upload exceeding max size returns 413."""
         payload = b"x" * (2**20 + 1)
-        resp = t_client.post("/api/upload", files={"file": ("big.txt", payload)})
+        resp = t_client.post("/upload", files={"file": ("big.txt", payload)})
         assert resp.status_code == 413
 
     def test_htmx_oversized_returns_413(self, t_client):
