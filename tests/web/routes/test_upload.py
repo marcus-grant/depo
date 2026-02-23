@@ -1,11 +1,10 @@
-# tests/web/test_upload.py
+# tests/web/routes/test_upload.py
 """
-Tests for upload routes.
-
-Round-trip tests for POST /api/upload, /upload, and /.
-
+Tests for upload route handlers.
+Covers POST /upload dispatch, GET /upload page render,
+HTMX partial responses, API uploads, and request parsing.
 Author: Marcus Grant
-Created: 2026-02-09
+Created: 2026-02-23
 License: Apache-2.0
 """
 
@@ -13,13 +12,15 @@ from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from bs4 import BeautifulSoup
 from fastapi import UploadFile
 from starlette.datastructures import Headers
+from tests.factories import HEADER_HTMX, gen_image, make_persist_result
 
 from depo.model.enums import ContentFormat
+from depo.model.formats import ItemKind, kind_for_format
 from depo.util.shortcode import _CROCKFORD32
 from depo.web.routes.upload import _parse_form_upload, _parse_upload, _upload_response
-from tests.factories import HEADER_HTMX, gen_image, make_persist_result
 
 
 class TestUploadText:
@@ -253,3 +254,136 @@ class TestUploadResponse:
         assert resp.headers["X-Depo-Code"] == "01234567"
         assert resp.headers["X-Depo-Kind"] == "txt"
         assert resp.headers["X-Depo-Created"] == "false"
+
+
+class TestGetUploadPage:
+    """GET /upload serves the upload form"""
+
+    def test_returns_200_and_html_content(self, t_client):
+        resp = t_client.get(url="/upload")
+        assert resp.status_code == 200
+        assert resp.headers.get("content-type") == "text/html; charset=utf-8"
+
+    def test_returns_expected_html(self, t_client):
+        """Returns template markers, form elements & content-type overrides"""
+        resp = t_client.get(url="/upload")
+        assert "<!-- BEGIN: upload.html -->" in resp.text
+        assert "<!-- END: upload.html -->" in resp.text
+        soup = BeautifulSoup(resp.text, "html.parser")
+        assert soup.find("form", attrs={"method": "post", "action": "/upload"})
+        assert soup.find("textarea", attrs={"name": "content"})
+        assert soup.find("select", attrs={"name": "format"})
+        button = soup.find("button", attrs={"type": "submit"})
+        input_submit = soup.find("input", attrs={"type": "submit"})
+        assert button or input_submit
+        assert soup.find_all("optgroup")
+
+    def test_format_select_covers_all_formats(self, t_client):
+        """Every ContentFormat has an option, every ItemKind has an optgroup."""
+        soup = BeautifulSoup(t_client.get("/upload").text, "html.parser")
+        select = soup.find("select", attrs={"name": "format"})
+
+        # Auto-detect default exists with empty value
+        assert select is not None
+        auto = select.find("option", attrs={"value": ""})
+        assert auto is not None
+
+        # Map optgroup labels to ItemKind
+        label_to_kind = {
+            "text": ItemKind.TEXT,
+            "image": ItemKind.PICTURE,
+            "link": ItemKind.LINK,
+        }
+        groups = select.find_all("optgroup")
+        group_labels = {g["label"].lower() for g in groups}  # type: ignore
+
+        # Every ItemKind has an optgroup
+        for kind in ItemKind:
+            assert kind in label_to_kind.values(), f"No label mapping for {kind}"
+        for label, kind in label_to_kind.items():
+            assert label in group_labels, f"Missing optgroup for {kind}"
+        # Every option maps to the correct kind via kind_for_format
+        seen_formats = set()
+        for group in groups:
+            expected_kind = label_to_kind[str(group["label"]).lower()]
+            for option in group.find_all("option"):
+                fmt = ContentFormat(option["value"])
+                assert fmt not in seen_formats, f"Duplicate option: {fmt}"
+                seen_formats.add(fmt)
+                assert kind_for_format(fmt) == expected_kind, f"{fmt} in wrong group"
+        # Every ContentFormat is represented
+        assert seen_formats == set(ContentFormat), (
+            f"Missing: {set(ContentFormat) - seen_formats}"
+        )
+
+
+class TestRootRedirect:
+    """GET / redirects to /upload.
+
+    # Returns redirect status
+    # Redirects to /upload
+    """
+
+    def test_redirects_to_upload_302(self, t_client):
+        """GET / redirects with 302 to /upload"""
+        resp = t_client.get(url="/", follow_redirects=False)
+        assert resp.status_code == 302
+        assert resp.headers.get("location") == "/upload"
+
+
+class TestHtmxUploadSuccess:
+    """POST /upload with HX-Request returns success partial.
+    Makes use of t_client fixture and module constant _HEADER_HX.
+    """
+
+    def test_success_returns_shortcode(self, t_client):
+        """Success partial contains a non-empty shortcode element."""
+        data = {"content": "hello world", "format": ""}
+        resp = t_client.post("/upload", data=data, headers=HEADER_HTMX)
+        assert resp.status_code == 200
+        soup = BeautifulSoup(resp.text, "html.parser")
+        code_el = soup.find("code", class_="shortcode")
+        assert code_el is not None
+        assert len(code_el.text.strip()) > 0
+
+    def test_success_contains_info_link(self, t_client):
+        """Success partial links to the info page for the uploaded item."""
+        data = {"content": "hello world", "format": ""}
+        resp = t_client.post("/upload", data=data, headers=HEADER_HTMX)
+        soup = BeautifulSoup(resp.text, "html.parser")
+        code = soup.find("code", class_="shortcode").text.strip()  # type: ignore
+        link = soup.find("a", href=f"/{code}/info")
+        assert link is not None
+
+    def test_success_is_fragment(self, t_client):
+        """Success partial is not wrapped in base template."""
+        data = {"content": "hello world", "format": ""}
+        resp = t_client.post("/upload", data=data, headers=HEADER_HTMX)
+        assert "<!-- BEGIN: base.html -->" not in resp.text
+        assert "<!-- BEGIN: partials/success.html" in resp.text
+
+
+class TestHtmxUploadError:
+    """POST /upload with HX-Request returns error partial on failure."""
+
+    def test_empty_content_returns_error(self, t_client):
+        """Empty content submission renders an error div."""
+        data = {"content": "", "format": ""}
+        resp = t_client.post("/upload", data=data, headers=HEADER_HTMX)
+        assert resp.status_code == 200
+        soup = BeautifulSoup(resp.text, "html.parser")
+        error = soup.find("div", class_="upload-error")
+        assert error is not None
+
+    def test_error_contains_message(self, t_client):
+        """Error partial includes a descriptive error message."""
+        data = {"content": "", "format": ""}
+        resp = t_client.post("/upload", data=data, headers=HEADER_HTMX)
+        assert "No content provided" in resp.text
+
+    def test_error_is_fragment(self, t_client):
+        """Error partial is not wrapped in base template."""
+        data = {"content": "", "format": ""}
+        resp = t_client.post("/upload", data=data, headers=HEADER_HTMX)
+        assert "<!-- BEGIN: base.html -->" not in resp.text
+        assert "<!-- BEGIN: partials/error.html" in resp.text
