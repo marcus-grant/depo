@@ -32,7 +32,6 @@ async def page_upload(req: Request):
 
 
 @upload_router.post("/upload", status_code=201)
-@upload_router.post("/", status_code=201)  # Alias for convenience
 async def upload(
     req: Request,
     orch: IngestOrchestrator = Depends(get_orchestrator),

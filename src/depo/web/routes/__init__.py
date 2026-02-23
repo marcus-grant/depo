@@ -14,7 +14,7 @@ from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse, RedirectResponse
 
 from depo.web.routes.shortcode import shortcode_router
-from depo.web.routes.upload import upload_router
+from depo.web.routes.upload import upload, upload_router
 
 # Initialize the main router and merge domain routes AT END OF MODULE ONLY!!!
 router = APIRouter()
@@ -24,6 +24,9 @@ router = APIRouter()
 async def root_redirect():
     """Redirect root to canonical upload page."""
     return RedirectResponse(url="/upload", status_code=302)
+
+
+router.post("/", status_code=201)(upload)  # Alias for convenience
 
 
 @router.get("/health")
