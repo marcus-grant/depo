@@ -1,35 +1,34 @@
-# src/depo/web/routes.py
+# src/depo/web/routes/__init__.py
 """
-Route handlers for depo API.
-
-All routes registered on an APIRouter, included
-by the app factory.
+Route wiring for depo web layer.
+Includes domain routers and registers fixed-path
+handlers (health, redirects). Domain handlers live
+in their own modules under this package.
 
 Author: Marcus Grant
-Created: 2026-02-09
+Created: 2026-02-23
 License: Apache-2.0
 """
 
 import dataclasses
 
-from fastapi import APIRouter, Depends, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 
 import depo.service.selector as selector
-from depo.model.enums import ContentFormat
 from depo.model.formats import mime_for_format
 from depo.model.item import LinkItem, PicItem, TextItem
 from depo.repo.errors import NotFoundError
 from depo.repo.sqlite import SqliteRepository
-from depo.service.orchestrator import IngestOrchestrator
 from depo.storage.protocol import StorageBackend
-from depo.util.errors import PayloadTooLargeError
-from depo.web.deps import get_orchestrator, get_repo, get_storage
+from depo.web.deps import get_repo, get_storage
 from depo.web.negotiate import wants_html
-from depo.web.templates import get_templates, is_htmx
-from depo.web.upload import ingest_upload, parse_form_upload, upload_response
+from depo.web.routes.upload import upload_router
+from depo.web.templates import get_templates
 
+# Merge routers from domain-specific modules
 router = APIRouter()
+router.include_router(upload_router)  # Upload routes
 _templates = get_templates()  # Preload templates for route handlers
 
 
@@ -62,78 +61,6 @@ def _response_500(req: Request, detail: str) -> Response:
 async def root_redirect():
     """Redirect root to canonical upload page."""
     return RedirectResponse(url="/upload", status_code=302)
-
-
-@router.get("/upload")
-async def page_upload(req: Request):
-    """Serve the upload form as a full HTML page."""
-    return get_templates().TemplateResponse(request=req, name="upload.html")
-
-
-@router.post("/upload", status_code=201)
-@router.post("/", status_code=201)  # Alias for convenience
-async def upload(
-    req: Request,
-    orch: IngestOrchestrator = Depends(get_orchestrator),
-    url: str | None = None,
-    file: UploadFile | None = None,
-    fmt: str | None = Query(None, alias="format"),
-) -> Response:
-    """Dispatcher for uploads by content negotiation.
-    Delegates to hx_upload for HTMX requests, api_upload for API requests."""
-    if is_htmx(req):
-        return await hx_upload(req, orch)
-    return await api_upload(req, orch=orch, url=url, file=file, fmt=fmt)
-
-
-async def hx_upload(
-    req: Request,
-    orch: IngestOrchestrator = Depends(get_orchestrator),
-):
-    """Browser form upload: textarea content + format override."""
-    templates = get_templates()
-    try:
-        params = await parse_form_upload(req)
-        result = orch.ingest(**dict(params))  # type: ignore[arg-type]
-    except PayloadTooLargeError as e:
-        return _templates.TemplateResponse(
-            request=req,
-            name="partials/error.html",
-            context={"error": str(e)},
-            status_code=413,
-        )
-    except (ValueError, ImportError) as e:
-        return _templates.TemplateResponse(
-            request=req,
-            name="partials/error.html",
-            context={"error": str(e)},
-        )
-    return templates.TemplateResponse(
-        request=req,
-        name="partials/success.html",
-        context={"code": result.item.code, "created": result.created},
-    )
-
-
-async def api_upload(
-    req: Request,
-    orch: IngestOrchestrator = Depends(get_orchestrator),
-    url: str | None = None,
-    file: UploadFile | None = None,
-    fmt: str | None = Query(None, alias="format"),
-) -> PlainTextResponse:
-    """API upload: multipart, raw body, or URL param."""
-    req_fmt_str = fmt or req.headers.get("x-depo-format")
-    req_fmt = ContentFormat(req_fmt_str) if req_fmt_str else None
-    try:
-        result = await ingest_upload(file, url, req, orch, req_fmt=req_fmt)
-    except PayloadTooLargeError as e:
-        return PlainTextResponse(str(e), status_code=413)
-    except ValueError as e:
-        return PlainTextResponse(str(e), status_code=400)
-    except ImportError as e:
-        return PlainTextResponse(str(e), status_code=501)
-    return upload_response(result)
 
 
 @router.get("/health")
