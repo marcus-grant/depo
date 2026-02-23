@@ -14,6 +14,8 @@
   --pico-primary-hover-background: rgb(55, 95, 140);
   --pico-primary-hover-border: rgb(55, 95, 140);
   --pico-primary-focus: rgba(70, 110, 160, 0.25);
+
+  --pico-font-family-monospace: var(--depo-font-mono);
 }
 
 :root {
@@ -29,4 +31,35 @@
   --depo-bg: var(--pico-background-color);
   --depo-text: var(--pico-color);
   --depo-border: rgb(200, 200, 200);
+
+
+  /* Typography */
+  --depo-font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Code', 'Source Code Pro', monospace;
+  --depo-size-heading: 1.5rem;
+  --depo-size-body: 1rem;
+  --depo-size-meta: 0.8125rem;
+}
+
+/* Typography — headings */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--depo-font-mono);
+  font-weight: bold;
+}
+h1, h2 {
+  font-size: var(--depo-size-heading);
+}
+h3, h4, h5, h6 {
+  font-size: var(--depo-size-body);
+}
+
+/* Typography — shortcodes and references */
+.shortcode {
+  font-family: var(--depo-font-mono);
+  font-weight: bold;
+}
+
+/* Typography — metadata */
+.meta {
+  font-size: var(--depo-size-meta);
+  color: var(--depo-secondary);
 }
