@@ -118,6 +118,18 @@ def t_browser(tmp_path) -> TestClient:
     return TestClient(client.app, headers={"Accept": "text/html"})
 
 
+@pytest.fixture
+def t_htmx(tmp_path) -> TestClient:
+    """Bare TestClient with HX-Request header and empty database and storage.
+    App is fully wired (DB initialized, store directory created)
+    but contains no items. Use for HTMX partial response tests
+    where the test creates its own content.
+    Depends on pytest builtin fixture: tmp_path for isolated filesystem.
+    """
+    client = make_client(tmp_path)
+    return TestClient(client.app, headers={"HX-Request": "true"})
+
+
 @dataclass(frozen=True)
 class SeededApp:
     """TestClient bundled with pre-populated items.
