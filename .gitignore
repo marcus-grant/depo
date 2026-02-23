@@ -25,6 +25,7 @@ venv/
 # Runtime data (never commit)
 data/
 /storage/
+store/
 uploads/
 
 # Logs

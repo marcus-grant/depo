@@ -13,7 +13,7 @@ License: Apache-2.0
 from typing import TypedDict
 
 from fastapi import APIRouter, Depends, Query, Request, Response, UploadFile
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 
 from depo.model.enums import ContentFormat
 from depo.model.item import LinkItem
@@ -44,6 +44,14 @@ async def upload(
     Delegates to hx_upload for HTMX requests, api_upload for API requests."""
     if is_htmx(req):
         return await hx_upload(req, orch)
+    # TODO: bare form fallback — no error handling, no template response.
+    # Proper non-HTMX form POST handling deferred to error handling PR.
+    if req.headers.get("content-type", "").startswith(
+        "application/x-www-form-urlencoded"
+    ):
+        params = await _parse_form_upload(req)
+        result = orch.ingest(**dict(params))  # type: ignore
+        return RedirectResponse(f"/{result.item.code}/info", status_code=303)
     return await api_upload(req, orch=orch, url=url, file=file, fmt=fmt)
 
 
