@@ -26,7 +26,7 @@ from depo.storage.protocol import StorageBackend
 from depo.util.errors import PayloadTooLargeError
 from depo.web.deps import get_orchestrator, get_repo, get_storage
 from depo.web.negotiate import wants_html
-from depo.web.templates import get_templates
+from depo.web.templates import get_templates, is_htmx
 from depo.web.upload import ingest_upload, parse_form_upload, upload_response
 
 router = APIRouter()
@@ -70,7 +70,22 @@ async def page_upload(req: Request):
     return get_templates().TemplateResponse(request=req, name="upload.html")
 
 
-@router.post("/upload")
+@router.post("/upload", status_code=201)
+@router.post("/", status_code=201)  # Alias for convenience
+async def upload(
+    req: Request,
+    orch: IngestOrchestrator = Depends(get_orchestrator),
+    url: str | None = None,
+    file: UploadFile | None = None,
+    fmt: str | None = Query(None, alias="format"),
+) -> Response:
+    """Dispatcher for uploads by content negotiation.
+    Delegates to hx_upload for HTMX requests, api_upload for API requests."""
+    if is_htmx(req):
+        return await hx_upload(req, orch)
+    return await api_upload(req, orch=orch, url=url, file=file, fmt=fmt)
+
+
 async def hx_upload(
     req: Request,
     orch: IngestOrchestrator = Depends(get_orchestrator),
@@ -100,8 +115,6 @@ async def hx_upload(
     )
 
 
-@router.post("/api/upload", status_code=201)
-@router.post("/", status_code=201)
 async def api_upload(
     req: Request,
     orch: IngestOrchestrator = Depends(get_orchestrator),
