@@ -18,143 +18,85 @@ Includes route handlers via `APIRouter`.
 Mounts static files from `src/depo/static/`.
 SQLite uses `check_same_thread=False` for async handler compatibility.
 
-## routes.py
+## routes/
 
-Route definitions for API and browser layers.
-TODO: Split into per-concern routers (near post-MVP).
+Route package. Domain routers in sub-modules, wiring in `__init__.py`.
 
-### Routes
+### __init__.py
+
+Wires domain routers and registers fixed-path handlers.
+Fixed-path decorators before `include_router` calls.
+Wildcard shortcode router included last.
 
 | Method | Path | Handler | Description |
 |--------|------|---------|-------------|
 | GET | `/` | `root_redirect()` | 302 redirect to `/upload` |
-| GET | `/upload` | `upload_page()` | Serves upload form (HTML) |
-| POST | `/upload` | `upload_form()` | Browser form upload (HTMX) |
-| POST | `/api/upload` | `upload()` | API upload (multipart/raw/URL) |
-| POST | `/` | `upload()` | API upload shortcut |
 | GET | `/health` | `health()` | Liveness probe |
-| GET | `/api/{code}/info` | `get_info()` | Key=value metadata (plain text) |
-| GET | `/api/{code}/raw` | `get_raw()` | Raw content with correct MIME |
-| GET | `/{code}/info` | `info_page()` | HTML info view (per-type template) |
-| GET | `/{code}` | `shortcut()` | Negotiate → redirect to canonical |
+| POST | `/` | `upload()` | Alias, forwards to upload dispatcher |
 
-Route ordering matters: specific paths before wildcards.
-`/{code}` and `/{code}/info` must be last to avoid shadowing:
-/health`,`/upload`, etc.
+### shortcode.py
 
-### Shortcut routing
+Shortcode router. Wildcard routes, must register last.
 
-`GET /{code}` uses `wants_html()` to detect client type:
+| Method | Path | Handler | Description |
+|--------|------|---------|-------------|
+| GET | `/{code}` | `item()` | Dispatcher, browser to info, API to raw |
+| GET | `/{code}/info` | `info()` | Dispatcher, delegates to page_info or api_info |
+| GET | `/{code}/raw` | `raw()` | Raw content with correct MIME, no negotiation |
 
-- Browser (`Accept: text/html`) → 302 to `/{code}/info`
-- API client (`Accept: */*` or absent) → 302 to `/api/{code}/raw`
+Item dispatch (`item()`):
 
-No DB lookup on shortcut — canonical routes handle validation/404.
+- Browser (`Accept: text/html`) -> 302 to `/{code}/info`
+- API client -> 302 to `/{code}/raw`
+- No DB lookup, canonical routes handle validation/404.
 
-### Upload handlers
+Info dispatch (`info()`):
 
-Two separate handlers for different input shapes:
+- `wants_html` -> `page_info` (per-type template)
+- Otherwise -> `api_info` (key=value plaintext)
 
-**`upload()` — API path:**
-Handles multipart file, raw body, URL param.
-Delegates to `ingest_upload()`, returns `PlainTextResponse`.
+Page info dispatches to per-type templates:
 
-**`upload_form()` — Browser path:**
-Handles textarea content + format override from HTML form.
-Delegates to `parse_form_upload()`, returns HTMX partials.
+- `TextItem` -> `info/text.html` (inline content + metadata)
+- `PicItem` -> `info/pic.html` (image display + metadata)
+- `LinkItem` -> `info/link.html` (clickable URL + metadata)
+- Unknown kind -> 500
+- `NotFoundError` -> 404
 
-### Info page dispatch
+Error helpers (local, pending extraction):
 
-`info_page()` dispatches to per-type templates based on item kind:
+- `_response_404(req, code, e)` -> styled 404 page
+- `_response_500(req, detail)` -> 500 with debug context
 
-- `TextItem` → `info/text.html` (inline content + metadata)
-- `PicItem` → `info/pic.html` (image display + metadata)
-- `LinkItem` → `info/link.html` (clickable URL + metadata)
-- Unknown kind → 500 (unexpected state)
-- `NotFoundError` → 404
+### upload.py
 
-### Error helpers
+Upload router, handlers, and request helpers.
 
-```python
-_response_404(req, code, e) -> Response   # Styled 404 page
-_response_500(req, detail) -> Response     # 500 with debug context
-```
+| Method | Path | Handler | Description |
+|--------|------|---------|-------------|
+| GET | `/upload` | `page_upload()` | Upload form, full page |
+| POST | `/upload` | `upload()` | Dispatcher, HX-Request to hx_upload, else api_upload |
 
-## upload.py
+#### Types
 
-Upload request parsing and response building.
+Algebraic union, each variant corresponds to an upload path.
 
-### Types
+- `UploadMultipartParams` — payload_bytes, filename, declared_mime
+- `UploadRawBodyParams` — payload_bytes, declared_mime
+- `UploadFormParams` — payload_bytes, declared_mime, requested_format
 
-```python
-class UploadMultipartParams(TypedDict):
-    payload_bytes: bytes
-    filename: str
-    declared_mime: str
+#### Functions
 
-class UploadUrlParams(TypedDict):
-    link_url: str
-
-class UploadRawBodyParams(TypedDict):
-    payload_bytes: bytes
-    declared_mime: str
-
-class UploadFormParams(TypedDict):
-    payload_bytes: bytes
-    declared_mime: str
-    requested_format: ContentFormat | None
-
-UploadParams = UploadMultipartParams | UploadUrlParams | UploadRawBodyParams | UploadFormParams
-```
-
-Algebraic union — each variant corresponds to an upload path.
-`UploadFormParams` added in PR 9 for browser form submissions.
-
-### Functions
-
-```python
-async def parse_upload(file, url, request) -> UploadParams
-```
-
-Extracts orchestrator kwargs from API HTTP request. Branches:
-
-- `file` present → `UploadMultipartParams`
-- `url` present → `UploadUrlParams`
-- Raw body detected as URL → `UploadUrlParams`
-- Raw body otherwise → `UploadRawBodyParams`
-
-```python
-async def parse_form_upload(request) -> UploadFormParams
-```
-
-Extracts orchestrator kwargs from browser form submission.
-Reads `content` (textarea) and `format` (select) from form data.
-Empty/whitespace content raises `ValueError`.
-Non-empty format string converted to `ContentFormat` enum.
-
-```python
-def upload_response(result: PersistResult) -> PlainTextResponse
-```
-
-Builds response with short code body and
-`X-Depo-Code`, `X-Depo-Kind`, `X-Depo-Created` headers.
-201 for new, 200 for dedupe.
-
-```python
-async def ingest_upload(file, url, request, orchestrator) -> PersistResult
-```
-
-Parse API request and ingest. Returns `PersistResult`.
-Raises `ValueError`, `ImportError`, or `PayloadTooLargeError` on failure.
-Replaces former `execute_upload()` — response formatting moved to route handlers.
-
-### Helper
-
-```python
-_looks_like_url(data: bytes) -> bool
-```
-
-Naive URL detection via regex. TODO: Move to ingestion pipeline.
+- `_parse_upload(file, url, request)`:
+  - extract orchestrator kwargs from API request
+- `_parse_form_upload(request)`
+  - extract kwargs from browser form submission
+- `_upload_response(result)`
+  - build PlainTextResponse with:
+  - X-Depo-Code, X-Depo-Kind, X-Depo-Format, X-Depo-Created headers.
+  - 201 new, 200 dedupe.
+- `_ingest_upload(file, url, request, orchestrator)`
+  - parse and ingest, returns PersistResult
 
 ## negotiate.py
 
@@ -219,7 +161,7 @@ templates/
 
 ### Conventions
 
-**Template markers** — every template has boundary comments for debugging and testing:
+__Template markers__ — every template has boundary comments for debugging and testing:
 
 ```html
 <!-- BEGIN: template-name.html -->
@@ -251,7 +193,7 @@ Markers must be inside the block
 Standalone — no extends, no base layout.
 Returned directly for HTMX requests (`HX-Request` header present).
 
-**Shortcode display** uses `<code class="shortcode">` as a project-wide convention.
+__Shortcode display__ uses `<code class="shortcode">` as a project-wide convention.
 The `shortcode` class is functional (tested against), not purely visual.
 
 ## HTMX Patterns

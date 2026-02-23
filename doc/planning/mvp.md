@@ -30,41 +30,6 @@ service, repo, and storage. Dedupe by content hash.
 
 Ordered by dependency. Each heading is roughly one PR.
 
-### Route refactoring
-
-New route surface based on item-first URL structure. `/{code}` is the primary
-interface, sub-paths describe intent.
-
-Routes:
-
-- `GET /{code}` - dispatcher delegates to:
-  - page/api handler based on request context.
-  - LinkItem always redirects.
-- `GET /{code}/info` - dispatcher, delegates to `page_info`, `hx_info`, or `api_info`
-- `GET /{code}/raw` - no negotiation, always raw bytes + headers
-- `POST /upload` - dispatcher, delegates to `hx_upload` or `api_upload`
-- `GET /upload` - `page_upload`, full page render
-- `GET /health` - liveness probe
-
-Handler naming:
-
-- No prefix - dispatchers that negotiate context (`upload`, `shortcut`, `info`)
-- `page_` - full page renders (`page_upload`, `page_info`)
-- `hx_` - HTMX partial responses (`hx_upload`, `hx_info`)
-- `api_` - API/plain text responses (`api_upload`, `api_info`)
-
-Test files with endpoints that will need updating:
-
-- tests/web/test_routes.py:
-  - TestGetInfo, TestGetRaw:
-    - use /api/{code}/info and /api/{code}/raw paths
-- tests/web/test_info_page.py: all classes use /{code}/info paths
-
-Split `routes.py` into per-concern routers. Fixed-path routers register first,
-wildcard router last.
-
-Reserved for post-MVP: `/a/{alias}`, `/tag/{tag}`.
-
 ### Browser UI and styling
 
 Targets the final route and handler structure.
@@ -89,6 +54,11 @@ Centralize error handling after routes and pipeline have stabilized.
 - Extract validation logic from `build_plan` into a validation module.
   - Validators raise typed exceptions, `build_plan` lets them bubble up.
   - Pairs naturally with the typed exception refactor above.
+- Extract error response helpers (_response_404, _response_500) from
+  shortcode.py into shared error response module
+- Centralize standard error response builders alongside typed exceptions
+- Investigate LinkItem format field gap (isinstance workaround in
+  _upload_response), consider adding format to base Item or LinkItem
 
 ### Config and limits
 
