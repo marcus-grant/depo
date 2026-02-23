@@ -1,12 +1,32 @@
 /* src/depo/static/css/depo.css */
-/* Override Pico CSS custom properties with Palette B (Rotated Legacy) */
-/* Background light: rgb(242, 242, 240) */
-/* Background dark:  rgb(26, 28, 30) */
-/* Text primary:     rgb(36, 38, 40) */
-/* Text secondary:   rgb(120, 125, 130) */
-/* Focus/Primary:    rgb(120, 130, 160) */
-/* Success/Recorded: rgb(85, 145, 135) */
-/* Attention info:   rgb(195, 185, 105) */
-/* Attention pause:  rgb(205, 135, 70) */
-/* Error/Invalid:    rgb(160, 70, 65) */
-/* Monospace for references and system identifiers */
+
+:root:not([data-theme=dark]), [data-theme=light] {
+  /* Pico overrides — Palette A (Classic Retro) */
+  --pico-background-color: rgb(245, 245, 245);
+  --pico-color: rgb(32, 32, 32);
+  --pico-muted-color: rgb(110, 110, 110);
+  --pico-border-radius: 0;
+
+  --pico-primary: rgb(70, 110, 160);
+  --pico-primary-background: rgb(70, 110, 160);
+  --pico-primary-border: rgb(70, 110, 160);
+  --pico-primary-hover: rgb(55, 95, 140);
+  --pico-primary-hover-background: rgb(55, 95, 140);
+  --pico-primary-hover-border: rgb(55, 95, 140);
+  --pico-primary-focus: rgba(70, 110, 160, 0.25);
+}
+
+:root {
+  /* Depo semantic roles — Palette A (more traditional) */
+  --depo-success: rgb(90, 145, 95);
+  --depo-attention: rgb(200, 185, 90);
+  --depo-attention-pause: rgb(200, 140, 60);
+  --depo-error: rgb(165, 60, 55);
+  --depo-secondary: var(--pico-muted-color);
+  --depo-focus: var(--pico-primary);
+
+  /* Depo structure */
+  --depo-bg: var(--pico-background-color);
+  --depo-text: var(--pico-color);
+  --depo-border: rgb(200, 200, 200);
+}
