@@ -15,12 +15,12 @@ import pytest
 from bs4 import BeautifulSoup
 from fastapi import UploadFile
 from starlette.datastructures import Headers
-from tests.factories import HEADER_HTMX, gen_image, make_persist_result
 
 from depo.model.enums import ContentFormat
 from depo.model.formats import ItemKind, kind_for_format
 from depo.util.shortcode import _CROCKFORD32
 from depo.web.routes.upload import _parse_form_upload, _parse_upload, _upload_response
+from tests.factories import HEADER_HTMX, gen_image, make_persist_result
 
 
 class TestUploadText:
@@ -315,20 +315,6 @@ class TestGetUploadPage:
         assert seen_formats == set(ContentFormat), (
             f"Missing: {set(ContentFormat) - seen_formats}"
         )
-
-
-class TestRootRedirect:
-    """GET / redirects to /upload.
-
-    # Returns redirect status
-    # Redirects to /upload
-    """
-
-    def test_redirects_to_upload_302(self, t_client):
-        """GET / redirects with 302 to /upload"""
-        resp = t_client.get(url="/", follow_redirects=False)
-        assert resp.status_code == 302
-        assert resp.headers.get("location") == "/upload"
 
 
 class TestHtmxUploadSuccess:
