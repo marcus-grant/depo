@@ -17,7 +17,7 @@ from fastapi import UploadFile
 from starlette.datastructures import Headers
 
 from depo.model.enums import ContentFormat
-from depo.model.formats import ItemKind, kind_for_format
+from depo.model.formats import ItemKind
 from depo.util.shortcode import _CROCKFORD32
 from depo.web.routes.upload import _parse_form_upload, _parse_upload, _upload_response
 from tests.factories import HEADER_HTMX, gen_image, make_persist_result
@@ -118,7 +118,6 @@ class TestUploadLink:
 class TestUploadFormat:
     """Format override precedence: query param > header > auto."""
 
-    @pytest.mark.skip(reason="Needs X-Depo-Format response header")
     @pytest.mark.parametrize(
         "query,headers,expected_fmt",
         [
@@ -137,7 +136,6 @@ class TestUploadFormat:
         assert resp.status_code == 201
         assert resp.headers["X-Depo-Format"] == expected_fmt
 
-    @pytest.mark.skip(reason="No format visibility in success partial yet")
     def test_user_format_overrides_classification(self, t_htmx):
         """HTMX User selects markdown for plaintext content.
         Form format field overrides classifier's auto-detect."""

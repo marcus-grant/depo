@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from depo.model.enums import ContentFormat
+from depo.model.item import LinkItem
 from depo.service.orchestrator import IngestOrchestrator, PersistResult
 from depo.util.errors import PayloadTooLargeError
 from depo.web.deps import get_orchestrator
@@ -168,6 +169,9 @@ async def _parse_form_upload(
 
 def _upload_response(result: PersistResult) -> PlainTextResponse:
     """Build HTTP response from a PersistResult."""
+    # TODO: LinkItem lacks format field, special-cased here
+    #       Investigate adding format to base Item or LinkItem (error handling PR)
+    fmt = "url" if isinstance(result.item, LinkItem) else result.item.format.value
     return PlainTextResponse(
         content=result.item.code,
         status_code=201 if result.created else 200,
@@ -175,6 +179,7 @@ def _upload_response(result: PersistResult) -> PlainTextResponse:
             "content-type": "text/plain",
             "X-Depo-Code": result.item.code,
             "X-Depo-Kind": str(result.item.kind),
+            "X-Depo-Format": fmt,
             "X-Depo-Created": "true" if result.created else "false",
         },
     )
