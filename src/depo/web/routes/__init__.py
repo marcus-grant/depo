@@ -39,7 +39,7 @@ def health() -> PlainTextResponse:
 @router.get("/theme")
 def theme(request: Request) -> Response:
     """Style reference page for visual primitives."""
-    return get_templates().TemplateResponse("theme.html", {"request": request})
+    return get_templates().TemplateResponse(request, "theme.html")
 
 
 # Merge routers from domain-specific modules

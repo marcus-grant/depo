@@ -8,7 +8,8 @@ License: Apache-2.0
 
 import jinja2
 import pytest
-from bs4 import BeautifulSoup, Comment
+from bs4 import BeautifulSoup as BSoup
+from bs4 import Comment
 
 from depo.web.templates import get_templates, is_htmx
 from tests.factories import make_probe_client
@@ -47,13 +48,13 @@ class TestGetTemplates:
             templates.get_template("nope.html")
 
 
-class TestBaseTemplate:
-    """Base layout template renders correctly.
+def _assert_a_in(el, href, txt, msg=None):
+    msg = f"{msg + ':' if msg else ''} expected <a href='{href}'>{txt}</a>"
+    assert el.find("a", href=href, string=lambda s: s and txt in s.lower()), msg
 
-    # Content block renders outside HTML comments
-    # Template markers (BEGIN/END) present
-    # Static asset references present (pico, htmx, depo.css)
-    """
+
+class TestBaseTemplate:
+    """Base layout template renders correctly."""
 
     def _render(self, block_content: str = "") -> str:
         """Render base.html with a test string in the content block."""
@@ -67,13 +68,12 @@ class TestBaseTemplate:
 
     def test_content_not_inside_comment(self):
         """Content block renders as real HTML, not inside a comment."""
-        marker = "TESTBLOCK123"
-        html = self._render(marker)
-        soup = BeautifulSoup(html, "html.parser")
+        html = self._render("TESTBLOCK123")
+        soup = BSoup(html, "html.parser")
         # Marker should appear outside any HTML comment
-        assert marker in html
+        assert "TESTBLOCK123" in html
         for comment in soup.find_all(string=lambda s: isinstance(s, Comment)):
-            assert marker not in comment
+            assert "TESTBLOCK123" not in comment
 
     def test_template_markers_present(self):
         """BEGIN and END markers present."""
@@ -87,3 +87,25 @@ class TestBaseTemplate:
         assert "pico.min.css" in html
         assert "depo.css" in html
         assert "htmx.min.js" in html
+
+    def test_navbar(self):
+        """Nav partial renders with markers and contains wordmark."""
+        html = self._render()
+        nav = BSoup(html, "html.parser").find("nav")
+        assert nav is not None, "No <nav> block found"
+        assert "<!-- BEGIN: partials/nav.html -->" in html
+        assert "<!-- END: partials/nav.html -->" in html
+        assert nav.find("a", href="/", string=lambda s: s and "depo" in s.lower())  # type: ignore
+        _assert_a_in(nav, "/", "depo", "No 'depo' link to '/")
+
+    def test_footer(self):
+        html = self._render()
+        foot = BSoup(html, "html.parser").find("footer")
+        assert foot is not None, "No <footer> block found"
+        assert "<!-- BEGIN: partials/foot.html -->" in html
+        assert "<!-- END: partials/foot.html -->" in html
+        author = "https://github.com/marcus-grant"
+        depo = f"{author}/depo"
+        _assert_a_in(foot, author, "marcus grant", "No link to author")
+        _assert_a_in(foot, depo, "depo", "No link to repo")
+        _assert_a_in(foot, f"{depo}/issues", "issues", "No link to issues")
