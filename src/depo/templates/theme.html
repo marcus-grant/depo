@@ -4,7 +4,7 @@
 {% block content %}
 
 <h1>Theme reference</h1>
-<p>Living showroom for depo visual primitives. Extends as each commit lands.</p>
+<p>Living showroom for depo visual primitives.</p>
 
 <section>
   <h2>Typography</h2>
@@ -67,12 +67,20 @@
 
 <section>
   <h2>TUI borders</h2>
-  <p class="meta">Not yet implemented — commit 3</p>
+  <h3>Standard</h3>
+  <div class="tui-border" style="padding: 1rem;">Content with standard TUI border</div>
+  <h3>Heavy</h3>
+  <div class="tui-border-heavy" style="padding: 1rem;">Content with heavy TUI border</div>
 </section>
 
 <section>
   <h2>Shadows</h2>
-  <p class="meta">Not yet implemented — commit 3</p>
+  <h3>Small</h3>
+  <div class="tui-border shadow-sm" style="padding: 1rem; margin-bottom: 2rem; background: var(--depo-bg);">Bordered element with small dither shadow</div>
+  <h3>Medium</h3>
+  <div class="tui-border shadow-md" style="padding: 1rem; margin-bottom: 2rem; background: var(--depo-bg);">Bordered element with medium dither shadow</div>
+  <h3>Combined with dither fill</h3>
+  <div class="tui-border shadow-sm dither-diag" style="padding: 1rem; margin-bottom: 2rem;">Border, diagonal fill, and shadow composed together</div>
 </section>
 
 <section>
