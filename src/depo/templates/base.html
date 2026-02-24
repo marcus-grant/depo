@@ -10,10 +10,12 @@
     <script defer src="/static/js/htmx.min.js"></script>
   </head>
   <body>
+    {% include 'partials/nav.html' %}
     <main>
       {% block content %}
       {% endblock %}
     </main>
+    {% include 'partials/foot.html' %}
   </body>
 </html>
 <!-- END: base.html -->

@@ -16,6 +16,7 @@
   --pico-primary-focus: rgba(70, 110, 160, 0.25);
 
   --pico-font-family-monospace: var(--depo-font-mono);
+  --pico-font-weight: 500;
 }
 
 :root {
@@ -38,6 +39,8 @@
   --depo-size-heading: 1.5rem;
   --depo-size-body: 1rem;
   --depo-size-meta: 0.8125rem;
+  --depo-weight-heading: bold;
+  --depo-weight-meta: 600;
 
  /* Dither pattern utility classes
  *
@@ -50,6 +53,11 @@
   --depo-dither-diag: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='4'><rect width='4' height='4' fill='rgb(230,230,230)'/><rect x='0' y='0' width='1' height='1' fill='rgb(200,200,200)'/><rect x='1' y='1' width='1' height='1' fill='rgb(200,200,200)'/><rect x='2' y='2' width='1' height='1' fill='rgb(200,200,200)'/><rect x='3' y='3' width='1' height='1' fill='rgb(200,200,200)'/></svg>");
   --depo-dither-check: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='2' height='2'><rect width='2' height='2' fill='rgb(230,230,230)'/><rect x='0' y='0' width='1' height='1' fill='rgb(200,200,200)'/><rect x='1' y='1' width='1' height='1' fill='rgb(200,200,200)'/></svg>");
   --depo-dither-cross: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='4'><rect width='4' height='4' fill='rgb(230,230,230)'/><rect x='0' y='0' width='1' height='1' fill='rgb(200,200,200)'/><rect x='2' y='2' width='1' height='1' fill='rgb(200,200,200)'/><rect x='3' y='1' width='1' height='1' fill='rgb(200,200,200)'/><rect x='1' y='3' width='1' height='1' fill='rgb(200,200,200)'/></svg>");
+  --depo-dither-hstripe: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='2' height='2'><rect width='2' height='2' fill='rgb(230,230,230)'/><rect width='2' height='1' fill='rgb(200,200,200)'/></svg>");
+
+  /* Titelbar custom properties */
+  --depo-titlebar-height: 3rem;
+  --depo-titlebar-inset: 0.15;
 }
 
 /* Dither pattern utility classes */
@@ -72,10 +80,24 @@
   image-rendering: pixelated;
 }
 
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+main {
+  flex: 1;
+  position: relative;
+  z-index: 0;
+  background: rgb(230, 230, 230);
+  padding: 2rem 1rem;
+}
+
+
 /* Typography — headings */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--depo-font-mono);
-  font-weight: bold;
+  font-weight: var(--depo-weight-heading);
 }
 h1, h2 {
   font-size: var(--depo-size-heading);
@@ -93,7 +115,14 @@ h3, h4, h5, h6 {
 /* Typography — metadata */
 .meta {
   font-size: var(--depo-size-meta);
+  font-weight: var(--depo-weight-meta);
+  font-family: var(--depo-font-mono);
   color: var(--depo-secondary);
+}
+
+/* Typography - input elements monospace */
+input, select, textarea {
+  font-family: var(--depo-font-mono);
 }
 
 
@@ -147,4 +176,51 @@ h3, h4, h5, h6 {
 .shadow-md::after {
   top: 20px;
   left: 20px;
+}
+
+/* Custom element classes */
+.titlebar {
+  display: flex;
+  justify-content: flex-start;  /* wordmark left, future nav items follow */
+  align-items: stretch;         /* children fill full bar height */
+  height: 4rem;                 /* fixed bar height; label stretches to fill */
+  padding: 0.44rem 1rem 0.20rem;  /* top right bottom gaps between label and backing nav*/
+  overflow: hidden;             /* clip label if it overflows bar bounds */
+  background: var(--depo-dither-hstripe) repeat;
+  background-size: 4px 4px;    /* stripe thickness; larger = chunkier lines */
+  image-rendering: pixelated;  /* crisp 1-bit stripes at all DPI */
+}
+.titlebar-label {
+  display: flex;
+  align-items: center;          /* vertically center text within stretched label */
+  background: rgb(230,230,230); /* matches stripe ground color for seamless punchout */
+  padding: 0 0.5rem;            /* horizontal breathing room around text */
+  text-decoration: none;           /* remove default link underline */
+}
+
+footer.site-footer {
+  background: rgb(200, 200, 200);
+  padding: 1rem 0;
+  text-align: center;
+  background-size: 8px 8px;
+  image-rendering: pixelated;
+}
+.footer .meta {
+  display: inline-block;
+  background: rgb(230,230,230);
+  padding: 0.25rem 0.75rem;
+}
+
+.window {
+  position: relative;
+  border: 2px solid var(--depo-border);
+  padding: 1rem;
+  margin: 1.5rem;
+  background: var(--depo-bg);
+}
+.window-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.5rem;
 }
