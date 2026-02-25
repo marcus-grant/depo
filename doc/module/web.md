@@ -141,60 +141,8 @@ Thin getters pulling from `request.app.state`.
 
 ## Templates
 
-### Structure
-
-```txt
-templates/
-├── base.html                # Full page layout wrapper
-├── upload.html              # Upload form (extends base.html)
-├── info/
-│   ├── text.html            # TextItem info view
-│   ├── pic.html             # PicItem info view
-│   └── link.html            # LinkItem info view
-├── partials/
-│   ├── success.html         # Upload success (HTMX fragment)
-│   └── error.html           # Validation error (HTMX fragment)
-└── errors/
-    ├── 404.html             # Not found page
-    └── 500.html             # Internal error with debug context
-```
-
-### Conventions
-
-__Template markers__ — every template has boundary comments for debugging and testing:
-
-```html
-<!-- BEGIN: template-name.html -->
-...
-<!-- END: template-name.html -->
-```
-
-Child templates note their relationship:
-
-```html
-<!-- BEGIN: upload.html -->
-<!-- EXTENDS: base.html -->
-```
-
-Fragments note their role:
-
-```html
-<!-- BEGIN: partials/success.html (fragment) -->
-```
-
-#### Full pages
-
-Extend `base.html` and fill `{% block content %}`.
-Markers must be inside the block
-(Jinja2 discards content outside blocks in child templates).
-
-#### Partials/fragments
-
-Standalone — no extends, no base layout.
-Returned directly for HTMX requests (`HX-Request` header present).
-
-__Shortcode display__ uses `<code class="shortcode">` as a project-wide convention.
-The `shortcode` class is functional (tested against), not purely visual.
+See [templates.md](./templates.md) for
+template structure, inheritance, conventions, and testing patterns.
 
 ## HTMX Patterns
 

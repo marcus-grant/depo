@@ -32,23 +32,25 @@ Ordered by dependency. Each heading is roughly one PR.
 
 ### Browser UI and styling
 
-- Apply visual system to info, error templates
-  - Window containers for all info and error pages
-  - Error color token, error border treatment (left rule)
-  - Reading order: shortcode, action row, payload, metadata
-  - Action row: copy shortcode, copy content URL, facts jump anchor
-  - Metadata dl styling: dt secondary/normal, dd monospace/primary
-  - Content styling: pre/code inset border, image 1px border
-  - 500 details below divider, smaller type
-  - Fix 404 broken p tag
 - Raw/rendered toggle (separate PR)
   - Toggle control in action row
   - Document HTMX interaction patterns in doc/design/interactions.md
   - HX-Request detection, fragment vs full page response
   - _payload_info.html and _payload_raw.html partials
   - hx-get, hx-target=#payload, hx-swap, hx-push-url
-- Visual refinement pass: element spacing, hierarchy, container
+  - Content copy button:
+    - clipboard API for payload data,
+      - needs endpoint decision for binary content (base64 encoding).
+    - Disabled placeholder already in action row.
+- Support /{code}/raw.{ext} route for external consumers (own PR)
+  - Forums, chat, unfurlers sniff extension for inline rendering
+  - Server routes on code, ignores extension
+  - Update pic template img src
+  - Update test_img_tag_in_payload in test_info_templates.py
+- Visual refinement pass (own PR): element spacing, hierarchy, container
     proportions, nav/footer tuning, large-surface background treatment
+  - Implement CSS rules for classes in markup: window--error,
+      action-row, payload, payload--link/text/pic, divider
 
 ### Error handling
 
