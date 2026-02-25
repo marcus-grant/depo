@@ -16,6 +16,7 @@ from tests.factories.payloads import gen_image
 
 def _info_page_soup(template: str, item: Item, **ctx) -> BSoup:
     """Helper to render info page template and return soup."""
+    ctx.setdefault("request", type("Req", (), {"base_url": "http://test/"})())
     return render_template(template, {"item": item, **ctx})
 
 
@@ -92,6 +93,10 @@ class TestInfoStructure:
     def test_action_facts_jump(self):
         """Facts anchor links to metadata section."""
         assert self.select(".action-row a[href='#metadata']") is not None
+
+    def test_clipboard_script(self):
+        """Clipboard handler script is present."""
+        assert self.select("script") is not None
 
 
 class TestInfoLink:

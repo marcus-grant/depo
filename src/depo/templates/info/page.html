@@ -6,7 +6,10 @@
   <h2 class="shortcode">{{ item.code | upper }}</h2>
   <div class="action-row" role="toolbar">
     <button disabled data-copy="">Copy Content</button>
-    <button class="secondary" data-copy="/{{ item.code }}/raw">Copy URL</button>
+    <button
+      class="secondary"
+      data-copy="{{ request.base_url }}{{ item.code }}/raw"
+    >Copy URL</button>
     <button class="outline" data-copy="{{ item.code | upper }}">Copy Code</button>
     <a href="#metadata">Facts</a>
   </div>
@@ -21,4 +24,11 @@
   </dl>
 </article>
 <!-- END: info/page.html -->
+<!-- TODO: Does base.html need a scripts block? -->
+<script>
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-copy]');
+    if (btn) navigator.clipboard.writeText(btn.dataset.copy);
+  })
+</script>
 {% endblock %}
