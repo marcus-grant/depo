@@ -111,6 +111,11 @@ class TestInfoPage:
         resp = t_seeded.browser.get(f"/{t_seeded.link.code}/info")
         self._assert_info_page(resp, "link.html", t_seeded.link.code)
 
+    def test_copy_url_absolute(self, t_seeded):
+        """Copy URL button has absolute URL."""
+        resp = t_seeded.browser.get(f"/{t_seeded.txt.code}/info")
+        assert 'data-copy="http' in resp.text
+
 
 class TestInfoPageNotFound:
     """GET /{code}/info for unknown code"""
