@@ -71,6 +71,10 @@ IngestOrchestrator coordinates Repository and StorageBackend as siblings.
   - Visual system, color philosophy, structural primitives
   - Palette candidates, template conventions, self-check criteria
 
+- [Styles](./styles.md)
+  - CSS class and token reference, shadow and titlebar mechanics
+  - Pico override notes, known issues
+
 - [Architecture](./architecture.md)
   - System layering, module boundaries, key design rules
 
