@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- BEGIN: info/page.html -->
+<!-- EXTENDS: base.html -->
+<article class="window shadow-md">
+  <h2 class="shortcode">{{ item.code | upper }}</h2>
+  <div class="action-row" role="toolbar">
+    <button disabled data-copy="">Copy Content</button>
+    <button class="secondary" data-copy="/{{ item.code }}/raw">Copy URL</button>
+    <button class="outline" data-copy="{{ item.code | upper }}">Copy Code</button>
+    <a href="#metadata">Facts</a>
+  </div>
+  <div class="payload" id="payload">
+    {% block payload %}
+    {% endblock %}
+  </div>
+  <hr class="divider">
+  <dl class="meta" id="metadata">
+    {% block metadata %}
+    {% endblock %}
+  </dl>
+</article>
+<!-- END: info/page.html -->
+{% endblock %}
