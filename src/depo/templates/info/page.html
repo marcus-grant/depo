@@ -10,7 +10,7 @@
     <button class="outline" data-copy="{{ item.code | upper }}">Copy Code</button>
     <a href="#metadata">Facts</a>
   </div>
-  <div class="payload" id="payload">
+  <div class="payload {% block payload_class %}{% endblock %}" id="payload">
     {% block payload %}
     {% endblock %}
   </div>

@@ -94,6 +94,7 @@ class TestGetInfo:
 class TestInfoPageText:
     """GET /{code}/info for TextItem"""
 
+    @pytest.mark.skip(reason="Refactor bc test_info_page handles the rendering tests")
     def test_response(self, t_seeded):
         """Text info page returns correct template, shortcode, content, and metadata."""
         resp = t_seeded.browser.get(f"/{t_seeded.txt.code}/info")
@@ -118,6 +119,7 @@ class TestInfoPageText:
 class TestInfoPagePic:
     """GET /{code}/info for PicItem"""
 
+    @pytest.mark.skip(reason="Refactor bc test_info_page handles the rendering tests")
     def test_response(self, t_seeded):
         """Text info page returns correct template, shortcode, content, and metadata."""
         resp = t_seeded.browser.get(f"/{t_seeded.pic.code}/info")
@@ -143,6 +145,7 @@ class TestInfoPagePic:
 class TestInfoPageLink:
     """GET /{code}/info for LinkItem"""
 
+    @pytest.mark.skip(reason="Refactor bc test_info_page handles the rendering tests")
     def test_response(self, t_seeded):
         """Link info page returns correct template, shortcode, and clickable URL."""
         resp = t_seeded.browser.get(f"/{t_seeded.link.code}/info")
