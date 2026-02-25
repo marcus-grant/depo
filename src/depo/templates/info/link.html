@@ -1,11 +1,15 @@
 {% extends "info/page.html" %}
-<!-- BEGIN: info/link.html -->
-<!-- EXTENDS: info/page.html -->
+{% block payload_class %}payload--link{% endblock %}
 {% block payload %}
-    <a href="{{ item.url }}">{{ item.url }}</a>
+  <!-- BEGIN: info/link.html#payload -->
+  <!-- EXTENDS: info/page.html -->
+  <a href="{{ item.url }}">{{ item.url }}</a>
+  <!-- END: info/link.html#payload -->
 {% endblock %}
 {% block metadata %}
-    <dt>URL</dt><dd>{{ item.url }}</dd>
-    <dt>Uploaded</dt><dd>{{ item.upload_at }}</dd>
+  <!-- BEGIN: info/link.html#metadata -->
+  <!-- EXTENDS: info/page.html -->
+  <dt>URL</dt><dd>{{ item.url }}</dd>
+  <dt>Uploaded</dt><dd>{{ item.upload_at }}</dd>
+  <!-- END: info/link.html#metadata -->
 {% endblock %}
-<!-- END: info/link.html -->
