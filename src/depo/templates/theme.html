@@ -1,0 +1,92 @@
+<!-- BEGIN: theme.html -->
+{% extends "base.html" %}
+{% block title %}depo — theme{% endblock %}
+{% block content %}
+
+<h1>Theme reference</h1>
+<p>Living showroom for depo visual primitives.</p>
+
+<section>
+  <h2>Typography</h2>
+
+  <h3>Headings (monospace, bold)</h3>
+  <h1>h1 — Page title</h1>
+  <h2>h2 — Section heading</h2>
+  <h3>h3 — Subsection</h3>
+  <h4>h4 — Minor heading</h4>
+  <h5>h5 — Fine heading</h5>
+  <h6>h6 — Finest heading</h6>
+
+  <h3>Body text (sans, regular)</h3>
+  <p>Default prose at the base size step. Labels, descriptions, and general content use this weight and size. A second sentence to show line spacing and paragraph rhythm.</p>
+  <p>A second paragraph to demonstrate vertical spacing between blocks of text.</p>
+
+  <h3>Metadata (small, muted)</h3>
+  <p><span class="meta">Uploaded 2025-01-15 14:32 UTC — 3.2 KiB — text/plain</span></p>
+  <p><span class="meta">Last accessed 12 minutes ago — 47 views</span></p>
+
+  <h3>Shortcodes and references (mono, bold)</h3>
+  <p>Paste lives at <code class="shortcode">a1b2c3d4</code></p>
+  <p>See also <code class="shortcode">zz9plural</code> and <code class="shortcode">k7mfx</code></p>
+
+  <h3>Inline mix</h3>
+  <p>The item <code class="shortcode">a1b2c3d4</code> was created <span class="meta">3 hours ago</span> and contains markdown content.</p>
+</section>
+
+<section>
+  <h2>Semantic colors</h2>
+  <p style="color: var(--depo-success);">Success — operation completed</p>
+  <p style="color: var(--depo-attention);">Attention — something to notice</p>
+  <p style="color: var(--depo-attention-pause);">Attention-pause — caution warranted</p>
+  <p style="color: var(--depo-error);">Error — something went wrong</p>
+  <p style="color: var(--depo-secondary);">Secondary — muted, supporting info</p>
+  <p style="color: var(--depo-focus);">Focus — interactive element highlight</p>
+</section>
+
+<section>
+  <h2>Form elements (Pico)</h2>
+  <p><label>Text input <input type="text" placeholder="paste or type here"></label></p>
+  <p><label>File input <input type="file"></label></p>
+  <p><label><textarea placeholder="Multi-line content"></textarea></label></p>
+  <p>
+    <button>Primary action</button>
+    <button class="secondary">Secondary action</button>
+    <button class="outline">Outline action</button>
+  </p>
+</section>
+
+<section>
+  <h2>Dither patterns</h2>
+  <h3>Diagonal (lightest)</h3>
+  <div class="dither-diag" style="height: 4rem; border: 1px solid var(--depo-border);"></div>
+  <h3>Checkerboard (medium)</h3>
+  <div class="dither-check" style="height: 4rem; border: 1px solid var(--depo-border);"></div>
+  <h3>Crosshatch (densest)</h3>
+  <div class="dither-cross" style="height: 4rem; border: 1px solid var(--depo-border);"></div>
+</section>
+
+<section>
+  <h2>TUI borders</h2>
+  <h3>Standard</h3>
+  <div class="tui-border" style="padding: 1rem;">Content with standard TUI border</div>
+  <h3>Heavy</h3>
+  <div class="tui-border-heavy" style="padding: 1rem;">Content with heavy TUI border</div>
+</section>
+
+<section>
+  <h2>Shadows</h2>
+  <h3>Small</h3>
+  <div class="tui-border shadow-sm" style="padding: 1rem; margin-bottom: 2rem; background: var(--depo-bg);">Bordered element with small dither shadow</div>
+  <h3>Medium</h3>
+  <div class="tui-border shadow-md" style="padding: 1rem; margin-bottom: 2rem; background: var(--depo-bg);">Bordered element with medium dither shadow</div>
+  <h3>Combined with dither fill</h3>
+  <div class="tui-border shadow-sm dither-diag" style="padding: 1rem; margin-bottom: 2rem;">Border, diagonal fill, and shadow composed together</div>
+</section>
+
+<section>
+  <h2>Metadata panes</h2>
+  <p class="meta">Not yet implemented — commit 6</p>
+</section>
+
+{% endblock %}
+<!-- END: theme.html -->

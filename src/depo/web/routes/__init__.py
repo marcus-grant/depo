@@ -10,11 +10,12 @@ Created: 2026-02-23
 License: Apache-2.0
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import PlainTextResponse, RedirectResponse
 
 from depo.web.routes.shortcode import shortcode_router
 from depo.web.routes.upload import upload, upload_router
+from depo.web.templates import get_templates
 
 # Initialize the main router and merge domain routes AT END OF MODULE ONLY!!!
 router = APIRouter()
@@ -33,6 +34,12 @@ router.post("/", status_code=201)(upload)  # Alias for convenience
 def health() -> PlainTextResponse:
     """Return plain text health check for liveness probes."""
     return PlainTextResponse(content="ok", status_code=200)
+
+
+@router.get("/theme")
+def theme(request: Request) -> Response:
+    """Style reference page for visual primitives."""
+    return get_templates().TemplateResponse(request, "theme.html")
 
 
 # Merge routers from domain-specific modules
