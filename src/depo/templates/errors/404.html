@@ -1,9 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
-<!-- BEGIN: errors/404.html -->
-<h2>Not found!</h2>
-</p>The shortcode </p>
-<code class="shortcode">{{ code | upper }}</code>
-<p> does not exist or was deleted.</p>
-<!-- END: errors/404.html -->
+<!-- BEGIN: errors/404.html#content -->
+<!-- EXTENDS: base.html -->
+<section class="window window--error">
+  <h2>Not found!</h2>
+  <p>
+    The shortcode
+    <code class="shortcode">{{ code | upper }}</code>
+    does not exist or was deleted.
+  </p>
+</section>
+<!-- END: errors/404.html#content -->
 {% endblock %}

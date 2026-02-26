@@ -157,9 +157,14 @@ These roles are stable even if hues change.
 
 ## Candidate Palettes
 
-Starting with Palette B.
-Palette A is the fallback if B doesn't hold up
-under real usage and fatigue testing.
+Palette A is how we're starting as it's more traditional and
+easier to work with to create a coherent design.
+Its color signals are well understood so it's a good base to start with.
+
+Palette B, or a shifted hue wheel of Palette B,
+is more ideal because its colors make it clear this isn't just an 'app'.
+A task, to play with it as a separate theme with real usage is forthcoming.
+
 Final decision deferred to lived experience.
 
 ### Palette A — Classic Retro (orthodox, conservative)
@@ -273,7 +278,7 @@ Currently mapped to Pico CSS custom properties in static/css/depo.css.
 ### HTMX
 
 Bundled locally, no CDN.
-Scripts loaded at bottom of body.
+Loaded by defer keyword to ensure quick first paint.
 
 Everything served comes from the deployed host.
 
@@ -288,6 +293,7 @@ All templates have boundary markers for debugging and testing:
 
 Full pages extend `base.html`.
 Partials/fragments are standalone (no layout wrapper).
+Those partials are stored in depo/templates/partials/ to clarify their role.
 HTMX requests receive fragments;
 full page loads receive wrapped templates.
 

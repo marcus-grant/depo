@@ -26,27 +26,24 @@ During the session:
 
 - Stubs, snippets, and instructions over full implementations
 - One task at a time, one question at a time
-- Suggest shell commands for the user to run, don't assume
-  filesystem access
-- Present commit messages as plain text, not in code blocks
-- Don't present code and non-code (like commit messages) in
-  the same block
+- Provide `cc`-piped commands to gather context, don't ask
+  the user to paste. Combine into single commands where possible.
+  grep/sed over cat — never cat whole files unless small and
+  fully needed
+- Track tasks, deferrals, and doc items as they arise
+- Commit messages in code fences, never mixed with other content
 
 Before ending a session:
 
-- Fill out all per-session sections to reflect current state
-- Document any deferrals in the appropriate planning doc
-- Move completed work from planning docs to reference docs
+- Write per-session sections fresh from current session context.
+  Don't carry forward stale content from previous handoffs
+- Copy static sections verbatim, with any updates made during
+  the session
+- Trim completed items from planning docs, move to reference docs
+- Document deferrals in the appropriate planning doc with
+  cross-references
 - Add new session learnings
-- Trim anything that's been resolved
 - Present the completed handoff for the user to copy and persist
-- Trim completed sections from planning docs
-- Use completed planning items to identify which reference
-  docs (design/, module/, others or new ones) need updating
-- Verify per-session sections reflect current state, don't carry
-  forward stale content from previous handoffs
-- Every deferral must have a cross-reference to a planning doc
-- Layer status should only list what changed or has caveats
 
 ## Orientation **[per-session]**
 
@@ -83,12 +80,6 @@ Bugs or broken states only. Not design decisions or future work — those
 are deferrals. Long-lived issues belong in planning docs, not here.
 
 - (issue and how it manifests)
-
-## Known issues **[per-session]**
-
-Current issues only. Long-lived issues belong in planning docs, not here.
-
-- (issue)
 
 ## Test fixtures **[per-session]**
 
@@ -129,16 +120,17 @@ note where it's documented and keep the entry here as a reminder.
   in except chains. **Does this still belong here?**
 - Hardcoded test assertions over dynamic ones to prevent false positives.
 - Test stubs must include module docstring, imports, and spec comments.
-- Be surgical with context requests.
-  - grep/sed over cat
-  - Don't ask for entire files when a few lines will do.
 - Don't re-ask for context already provided in conversation. Track what's been shared.
-- Every shell command must pipe through `cc`, no exceptions unless stated otherwise.
-- Commit messages go in code fences, never bare text.
-- When "stubs" are requested, give stubs.
-  - Don't give implementations unless explicitly asked or it's clearly busywork.
-- Code and non-code (commit messages, prose) go in separate code blocks. Never mix them.
-- Track documentation items as they arise. Don't rely on memory at the end.
+- Pico styles `footer` element directly. Use compound selector
+  (e.g. `footer.site-footer`) to beat its specificity.
+- SVG data URI dither patterns need `background-size` scaling
+  for high-DPI. 1px bits are sub-pixel on retina screens.
+- Shadow `z-index: -1` pseudo-elements fall behind page background
+  unless an ancestor (not the parent) establishes a stacking context.
+- System mono font stacks are sufficient for retro aesthetic —
+  visual identity comes from structural choices, not typeface.
+- Replacing static asset stubs may require users to clear browser
+  cache. Note in release docs.
 
 ## Conventions **[static]**
 
@@ -203,6 +195,14 @@ Implementation modules include class, function, and method signatures
 with docstrings but no implementation unless explicitly asked.
 
 When updating an existing module, only include the stubs being added.
+
+### Non-Python work (CSS, templates, HTML)
+
+Same stub-first principle. Describe what to add, which selectors or
+elements, and where in the file — don't provide full code blocks
+unless explicitly asked or it's clearly busywork. For CSS, name the
+properties and values. For templates, describe the structure and
+classes. The user writes the actual code.
 
 ### Improving this document **[static]**
 
