@@ -1,10 +1,15 @@
-{% extends "base.html" %}
-{% block content %}
-<!-- BEGIN: info/link.html -->
-<code class="shortcode">{{ item.code | upper }}</code>
-<dl>
-  <dt>URL</dt><dd><a href="{{ item.url }}">{{ item.url }}</a></dd>
+{% extends "info/page.html" %}
+{% block payload_class %}payload--link{% endblock %}
+{% block payload %}
+  <!-- BEGIN: info/link.html#payload -->
+  <!-- EXTENDS: info/page.html -->
+  <a href="{{ item.url }}">{{ item.url }}</a>
+  <!-- END: info/link.html#payload -->
+{% endblock %}
+{% block metadata %}
+  <!-- BEGIN: info/link.html#metadata -->
+  <!-- EXTENDS: info/page.html -->
+  <dt>URL</dt><dd>{{ item.url }}</dd>
   <dt>Uploaded</dt><dd>{{ item.upload_at }}</dd>
-</dl>
-<!-- END: info/link.html -->
+  <!-- END: info/link.html#metadata -->
 {% endblock %}

@@ -32,25 +32,25 @@ Ordered by dependency. Each heading is roughly one PR.
 
 ### Browser UI and styling
 
-Targets the final route and handler structure.
-
-- Styling primitives from the design language: dither patterns (1-bit bitmap
-  fills), TUI borders (box-drawing characters), hard-edge dither shadows,
-  typography hierarchy
-- Toggle raw/rendered views (markdown, data formats)
-- Inline metadata panes
-- Apply visual system from [design language](../design/language.md)
-
-Notes (from prior attempt):
-
-- Pico v2 scopes properties under `:root:not([data-theme=dark])`,
-  not `:root`. Overrides must match that selector.
-- `base.html` requires `data-theme="light"` on `<html>`.
-- htmx.min.js is a redirect stub (same issue pico.min.css had),
-  needs replacing with actual bundle before HTMX features work.
-- Palette A (conservative) active. Palette B tuning, attention role
-  consolidation, dark mode, and System 7 purple exploration deferred
-  to post-MVP.
+- Raw/rendered toggle (separate PR)
+  - Toggle control in action row
+  - Document HTMX interaction patterns in doc/design/interactions.md
+  - HX-Request detection, fragment vs full page response
+  - _payload_info.html and _payload_raw.html partials
+  - hx-get, hx-target=#payload, hx-swap, hx-push-url
+  - Content copy button:
+    - clipboard API for payload data,
+      - needs endpoint decision for binary content (base64 encoding).
+    - Disabled placeholder already in action row.
+- Support /{code}/raw.{ext} route for external consumers (own PR)
+  - Forums, chat, unfurlers sniff extension for inline rendering
+  - Server routes on code, ignores extension
+  - Update pic template img src
+  - Update test_img_tag_in_payload in test_info_templates.py
+- Visual refinement pass (own PR): element spacing, hierarchy, container
+    proportions, nav/footer tuning, large-surface background treatment
+  - Implement CSS rules for classes in markup: window--error,
+      action-row, payload, payload--link/text/pic, divider
 
 ### Error handling
 
@@ -93,6 +93,74 @@ Minimal auth to prevent open uploads on the public internet.
 - Item has owner (`uid`) + visibility (`perm`)
 - `/upload` requires auth
 - `uid=0` superuser convention continues until user table exists
+
+### Global Chrome & Layout Realignment (nav / main / footer / base.html)
+
+**Goal:** Make the overall page shell feel like a single calm system surface.
+Prefer structural honesty (borders, spacing, rhythm) over “window/dialog” cosplay.
+Ensure all hierarchy works in pure grayscale; color remains semantic only.
+
+#### 1) Remove false layering
+
+- Avoid “floating dialog” framing for the primary page surface.
+- Use **one primary containment surface** per page (typically `main`),
+  not nested card/window stacks.
+- Keep `.shadow-*` only where it communicates real stacking
+  - otherwise rely on border + spacing.
+
+#### 2) Establish a stable page frame in `base.html`
+
+- Define one consistent layout grid: `header` (nav), `main`, `footer`.
+- Set a single max-width + horizontal padding rule for `main`
+  - so pages don’t invent their own.
+- Standardize vertical rhythm tokens (one spacing scale); remove ad-hoc micro-gaps.
+
+#### 3) Navbar: structural, not expressive
+
+- Navbar exists to orient, not to brand.
+- Prefer hard bottom border (or separator rule) over decorative fills/texture.
+- Keep height minimal; align content to the same width/padding as `main`.
+- Avoid accent surfaces; no gradients; no ornamental “chrome”.
+
+#### 4) Main backdrop: grayscale-first
+
+- Large surfaces remain grayscale; avoid tinted slabs.
+- Ensure main content boundary reads without color: spacing + borders first.
+- Dark mode parity: invert luminance, keep meaning; do not change hue roles.
+
+#### 5) Footer: quiet + factual
+
+- Footer content in secondary tone; low visual weight.
+- Hard separator above footer if needed; no competing blocks.
+- Align footer width/padding with `main` and navbar.
+
+#### 6) Interaction semantics stay semantic
+
+- Keep warm/cool meaning invariant across the shell:
+  - cool = focus/state
+  - warm = attention/interruption
+  - red = failure only
+- Do not use accent color to “decorate” global chrome.
+
+#### 7) Primitive audit (enforce allowed tools)
+
+- Allowed:
+  - spacing,
+  - typography (mono for identifiers),
+  - weight,
+  - sizing steps,
+  - hard borders,
+  - optional dither separators.
+- Disallowed by default:
+  - blur shadows, gradients, large colored surfaces, decorative textures.
+- If a new visual device is introduced
+  - it must justify itself as structure (not vibe).
+
+#### 8) HTMX compatibility (no layout surprises)
+
+- Shell (`header/main/footer`) should remain stable across HTMX swaps.
+- Swaps should target interior regions only;
+  - avoid global reflow by keeping consistent container widths/padding in `base.html`.
 
 ### Manual Testing
 

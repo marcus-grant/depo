@@ -104,17 +104,28 @@ See [cli.md](./cli.md) for interface specifications.
 ### web/
 
 HTTP boundary of the application.
-
 This includes:
 
 - FastAPI app setup
 - routes and handlers
 - request and response schemas
 - dependency wiring
+- Jinja2 templates and static assets
 
 This is the only place FastAPI should appear.
-
 See [web.md](./web.md) for interface specifications.
+
+### templates/
+
+Jinja2 templates served by the web layer.
+This includes:
+
+- page layouts and inheritance hierarchy
+- info page system with shared shell and type partials
+- error pages
+- partials and HTMX fragments
+
+See [templates.md](./templates.md) for structure and conventions.
 
 ### util/
 
@@ -149,6 +160,14 @@ Tests mirror the application structure by responsibility:
 - `tests/repo/`     -> tests for repository behavior
 - `tests/storage/`  -> tests for storage backends
 - `tests/web/`      -> tests for HTTP behavior
+  - `routes/`       -> route selection, status codes, content types
+  - `test_templates.py`       -> base template infrastructure
+  - `test_info_templates.py`  -> info page template structure and content
+  - `test_error_templates.py` -> error page template structure
+
+`tests/factories/` provides shared test helpers:
+model factories (make_link_item, make_text_item, make_pic_item),
+client factories, and render_template for direct Jinja2 template rendering.
 
 Test code should prefer black-box behavior over internal details.
 

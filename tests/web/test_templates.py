@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup as BSoup
 from bs4 import Comment
 
 from depo.web.templates import get_templates, is_htmx
-from tests.factories import make_probe_client
+from tests.factories import make_probe_client, render_template
 
 
 class TestIsHtmx:
@@ -56,42 +56,35 @@ def _assert_a_in(el, href, txt, msg=None):
 class TestBaseTemplate:
     """Base layout template renders correctly."""
 
-    def _render(self, block_content: str = "") -> str:
-        """Render base.html with a test string in the content block."""
-        env = get_templates().env
-        template = env.from_string(
-            '{% extends "base.html" %}{% block content %}'
-            + block_content
-            + "{% endblock %}"
-        )
-        return template.render()
-
     def test_content_not_inside_comment(self):
         """Content block renders as real HTML, not inside a comment."""
-        html = self._render("TESTBLOCK123")
+        env = get_templates().env
+        html = env.from_string(
+            '{% extends "base.html" %}{% block content %}TESTBLOCK123{% endblock %}'
+        ).render()
         soup = BSoup(html, "html.parser")
-        # Marker should appear outside any HTML comment
         assert "TESTBLOCK123" in html
         for comment in soup.find_all(string=lambda s: isinstance(s, Comment)):
             assert "TESTBLOCK123" not in comment
 
     def test_template_markers_present(self):
         """BEGIN and END markers present."""
-        html = self._render()
-        assert "<!-- BEGIN: base.html -->" in html
-        assert "<!-- END: base.html -->" in html
+        soup = render_template("base.html")
+        assert "<!-- BEGIN: base.html -->" in str(soup)
+        assert "<!-- END: base.html -->" in str(soup)
 
     def test_static_asset_references(self):
         """References to bundled CSS and JS present."""
-        html = self._render()
+        html = str(render_template("base.html"))
         assert "pico.min.css" in html
         assert "depo.css" in html
         assert "htmx.min.js" in html
 
     def test_navbar(self):
         """Nav partial renders with markers and contains wordmark."""
-        html = self._render()
-        nav = BSoup(html, "html.parser").find("nav")
+        soup = render_template("base.html")
+        html = str(soup)
+        nav = soup.find("nav")
         assert nav is not None, "No <nav> block found"
         assert "<!-- BEGIN: partials/nav.html -->" in html
         assert "<!-- END: partials/nav.html -->" in html
@@ -99,8 +92,9 @@ class TestBaseTemplate:
         _assert_a_in(nav, "/", "depo", "No 'depo' link to '/")
 
     def test_footer(self):
-        html = self._render()
-        foot = BSoup(html, "html.parser").find("footer")
+        soup = render_template("base.html")
+        html = str(soup)
+        foot = soup.find("footer")
         assert foot is not None, "No <footer> block found"
         assert "<!-- BEGIN: partials/foot.html -->" in html
         assert "<!-- END: partials/foot.html -->" in html

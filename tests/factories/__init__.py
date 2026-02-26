@@ -15,6 +15,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from bs4 import BeautifulSoup as BSoup
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
@@ -23,6 +24,7 @@ from depo.model.enums import ContentFormat, ItemKind, Visibility
 from depo.model.item import LinkItem, PicItem, TextItem
 from depo.service.orchestrator import PersistResult
 from depo.web.app import app_factory
+from depo.web.templates import get_templates
 
 from .models import (
     make_item,
@@ -126,3 +128,10 @@ def make_persist_result(
             format=ContentFormat.PLAINTEXT,
         )
     return PersistResult(item=item, created=created)
+
+
+def render_template(name: str, ctx: dict | None = None) -> "BSoup":
+    """Render a Jinja2 template by name with context, return parsed soup."""
+
+    html = get_templates().env.get_template(name).render(**(ctx or {}))
+    return BSoup(html, "html.parser")

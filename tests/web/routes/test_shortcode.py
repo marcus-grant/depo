@@ -10,7 +10,6 @@ License: Apache-2.0
 """
 
 import pytest
-from bs4 import BeautifulSoup
 
 
 class TestItem:
@@ -91,75 +90,31 @@ class TestGetInfo:
         assert t_client.get("/ZZZZZZZZ/info").status_code == 404
 
 
-class TestInfoPageText:
-    """GET /{code}/info for TextItem"""
+class TestInfoPage:
+    """GET /{code}/info serves correct template per item type."""
 
-    def test_response(self, t_seeded):
-        """Text info page returns correct template, shortcode, content, and metadata."""
+    def _assert_info_page(self, resp, template: str, code: str):
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/html")
+        assert f"<!-- BEGIN: info/{template}" in resp.text
+        assert code in resp.text
+
+    def test_text(self, t_seeded):
         resp = t_seeded.browser.get(f"/{t_seeded.txt.code}/info")
-        msg = "Response is not HTML"
-        assert resp.headers.get("content-type", "").startswith("text/html"), msg
-        assert resp.status_code == 200
-        assert "<!-- BEGIN: info/text.html" in resp.text
-        assert "<!-- END: info/text.html -->" in resp.text
-        assert "<!-- BEGIN: base.html" in resp.text, "Page not wrapped in base template"
-        soup = BeautifulSoup(resp.content, "html.parser")
-        code_el = soup.find(class_="shortcode")
-        dts = {dt.text: dt.find_next_sibling("dd").text for dt in soup.find_all("dt")}  # type: ignore
-        assert code_el is not None
-        assert t_seeded.txt.code in code_el.text
-        assert "Hello, World!" in resp.text
-        assert "Format" in dts
-        assert dts["Format"] == t_seeded.txt.format
-        assert dts["Size"] == f"{t_seeded.txt.size_b} bytes"
-        assert "Uploaded" in dts
+        self._assert_info_page(resp, "text.html", t_seeded.txt.code)
 
-
-class TestInfoPagePic:
-    """GET /{code}/info for PicItem"""
-
-    def test_response(self, t_seeded):
-        """Text info page returns correct template, shortcode, content, and metadata."""
+    def test_pic(self, t_seeded):
         resp = t_seeded.browser.get(f"/{t_seeded.pic.code}/info")
-        assert resp.status_code == 200
-        assert "<!-- BEGIN: info/pic.html" in resp.text
-        assert "<!-- END: info/pic.html -->" in resp.text
-        assert "<!-- BEGIN: base.html" in resp.text, "Page not wrapped in base template"
-        soup = BeautifulSoup(resp.content, "html.parser")
-        code_el = soup.find(class_="shortcode")
-        dts = {dt.text: dt.find_next_sibling("dd").text for dt in soup.find_all("dt")}  # type: ignore
-        img_el = soup.find("img")
-        assert code_el is not None
-        assert t_seeded.pic.code in code_el.text
-        assert img_el is not None
-        assert f"/api/{t_seeded.pic.code}/raw" in img_el["src"]
-        assert "Format" in dts
-        assert dts["Format"] == "jpg"
-        assert dts["Size"] == f"{t_seeded.pic.size_b} bytes"
-        assert "Uploaded" in dts
-        assert dts["Dimensions"] == f"{t_seeded.pic.width}x{t_seeded.pic.height}"
+        self._assert_info_page(resp, "pic.html", t_seeded.pic.code)
 
-
-class TestInfoPageLink:
-    """GET /{code}/info for LinkItem"""
-
-    def test_response(self, t_seeded):
-        """Link info page returns correct template, shortcode, and clickable URL."""
+    def test_link(self, t_seeded):
         resp = t_seeded.browser.get(f"/{t_seeded.link.code}/info")
-        assert resp.status_code == 200
-        assert "<!-- BEGIN: info/link.html" in resp.text
-        assert "<!-- END: info/link.html -->" in resp.text
-        assert "<!-- BEGIN: base.html" in resp.text
-        soup = BeautifulSoup(resp.content, "html.parser")
-        code_el = soup.find(class_="shortcode")
-        assert code_el is not None
-        assert t_seeded.link.code in code_el.text
-        link_el = soup.find("a", href=t_seeded.link.url)
-        assert link_el is not None
-        assert t_seeded.link.url in link_el.text
-        dts = {dt.text: dt.find_next_sibling("dd").text for dt in soup.find_all("dt")}  # type: ignore
-        assert "URL" in dts
-        assert "Uploaded" in dts
+        self._assert_info_page(resp, "link.html", t_seeded.link.code)
+
+    def test_copy_url_absolute(self, t_seeded):
+        """Copy URL button has absolute URL."""
+        resp = t_seeded.browser.get(f"/{t_seeded.txt.code}/info")
+        assert 'data-copy="http' in resp.text
 
 
 class TestInfoPageNotFound:
