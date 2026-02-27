@@ -18,7 +18,6 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from depo.model.enums import ContentFormat
 from depo.model.item import LinkItem, PicItem, TextItem
 from depo.repo.sqlite import SqliteRepository, init_db
 from depo.service.ingest import IngestService
@@ -167,31 +166,11 @@ def t_seeded(tmp_path) -> SeededApp:
 
     txt_data = b"# Hello, World!\n**This** is a test `TextItem`."
     pic_data = gen_image("jpeg", 320, 240)
-    link_url = "http://example.com"
+    link_url = "https://example.com"
 
-    hash_sfx = "0123456789ABCDEFGHJKMNP"
-    item_txt = insert_text_item(
-        conn,
-        hash_full="T" + hash_sfx,
-        code="T" + hash_sfx[:7],
-        size_b=len(txt_data),
-        format=ContentFormat.MARKDOWN,
-    )
-    item_pic = insert_pic_item(
-        conn,
-        hash_full="P" + hash_sfx,
-        code="P" + hash_sfx[:7],
-        size_b=len(pic_data),
-        width=320,
-        height=240,
-    )
-    item_link = insert_link_item(
-        conn,
-        hash_full="L" + hash_sfx,
-        code="L" + hash_sfx[:7],
-        size_b=len(link_url.encode()),
-        url=link_url,
-    )
+    item_txt = insert_text_item(conn, size_b=len(txt_data))
+    item_pic = insert_pic_item(conn, size_b=len(pic_data))
+    item_link = insert_link_item(conn, size_b=len(link_url.encode()))
 
     store.put(code=item_txt.code, format=item_txt.format, source_bytes=txt_data)
     store.put(code=item_pic.code, format=item_pic.format, source_bytes=pic_data)

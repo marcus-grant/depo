@@ -10,13 +10,7 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from depo.model.enums import ItemKind, Visibility
-from tests.factories import make_item
-from tests.helpers.assertions import (
-    assert_column,
-    assert_field,
-    assert_item_base_fields,
-)
+from tests.helpers.assertions import assert_column, assert_field
 
 
 class TestAssertColumn:
@@ -71,66 +65,6 @@ class TestAssertColumn:
         t_conn.execute("CREATE TABLE t (id INTEGER)")
         with pytest.raises(AssertionError, match="pk mismatch"):
             assert_column(t_conn, "t", "id", "INTEGER", pk=True)
-
-
-class TestAssertItemBaseFields:
-    """Tests for assert_item_base_fields()."""
-
-    def test_pass_for_matching_fields(self):
-        """passes when all base fields match."""
-        item = make_item(
-            code="ABC12345",
-            hash_full="ABC1234506789DEFGHKMNPQR",
-            kind=ItemKind.TEXT,
-            size_b=100,
-            uid=1,
-            perm=Visibility.PUBLIC,
-            upload_at=1234567890,
-            origin_at=None,
-        )
-        assert_item_base_fields(
-            item,
-            code="ABC12345",
-            hash_full="ABC1234506789DEFGHKMNPQR",
-            kind=ItemKind.TEXT,
-            size_b=100,
-            uid=1,
-            perm=Visibility.PUBLIC,
-            upload_at=1234567890,
-            origin_at=None,
-        )
-
-    def test_fail_for_wrong_code(self):
-        """fails when code doesn't match."""
-        item = make_item(code="ABC12345")
-        with pytest.raises(AssertionError, match="code"):
-            assert_item_base_fields(
-                item,
-                code="WRONG",
-                hash_full=item.hash_full,
-                kind=item.kind,
-                size_b=item.size_b,
-                uid=item.uid,
-                perm=item.perm,
-                upload_at=item.upload_at,
-                origin_at=item.origin_at,
-            )
-
-    def test_fail_for_wrong_kind(self):
-        """fails when kind doesn't match."""
-        item = make_item(kind=ItemKind.TEXT)
-        with pytest.raises(AssertionError, match="kind"):
-            assert_item_base_fields(
-                item,
-                code=item.code,
-                hash_full=item.hash_full,
-                kind=ItemKind.PICTURE,
-                size_b=item.size_b,
-                uid=item.uid,
-                perm=item.perm,
-                upload_at=item.upload_at,
-                origin_at=item.origin_at,
-            )
 
 
 @dataclass

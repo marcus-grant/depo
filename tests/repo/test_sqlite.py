@@ -11,7 +11,7 @@ import sqlite3
 import pytest
 from tests.factories.db import insert_link_item, insert_pic_item, insert_text_item
 from tests.factories.models import make_write_plan
-from tests.helpers import assert_column, assert_item_base_fields
+from tests.helpers import assert_column
 
 from depo.model.enums import ContentFormat, ItemKind, Visibility
 from depo.model.item import LinkItem, PicItem, TextItem
@@ -115,83 +115,39 @@ class TestRowMappers:
 
     def test_row_to_text_item(self, t_db):
         """Maps all fields from joined row to TextItem."""
-        # Assemble row factory & test row in items and text_items
-        insert_text_item(t_db)
+        expected = insert_text_item(t_db)
         t_db.row_factory = sqlite3.Row
         row = t_db.execute(
             "SELECT i.*, t.format FROM items i"
             " JOIN text_items t ON i.hash_full = t.hash_full"
-            " WHERE i.code = 'ABCD1234'"
+            f" WHERE i.code = '{expected.code}'"
         ).fetchone()
-
-        # Act on row mapper
         result = _row_to_text_item(row)
-
-        # Assert Item fields
-        assert_item_base_fields(
-            result,
-            code="ABCD1234",
-            hash_full="ABC1234506789DEFGHKMNPQR",
-            kind=ItemKind.TEXT,
-            size_b=99,
-            uid=0,
-            perm=Visibility.PUBLIC,
-            upload_at=123456789,
-            origin_at=None,
-        )  # Assert TextItem specific fields
-        assert result.format == ContentFormat.PLAINTEXT
+        assert result == expected
 
     def test_row_to_pic_item(self, t_db):
         """Maps all fields from joined row to PicItem."""
-        insert_pic_item(t_db)  # Assemble
+        expected = insert_pic_item(t_db)
         t_db.row_factory = sqlite3.Row
         row = t_db.execute(
             "SELECT i.*, p.format, p.width, p.height FROM items i"
             " JOIN pic_items p ON i.hash_full = p.hash_full"
-            " WHERE i.code = 'ABCD1234'"
+            f" WHERE i.code = '{expected.code}'"
         ).fetchone()
-
-        result = _row_to_pic_item(row)  # Act
-
-        assert_item_base_fields(  # Assert
-            result,
-            code="ABCD1234",
-            hash_full="ABC1234506789DEFGHKMNPQR",
-            kind=ItemKind.PICTURE,
-            size_b=99,
-            uid=0,
-            perm=Visibility.PUBLIC,
-            upload_at=123456789,
-            origin_at=None,
-        )
-        assert result.format == ContentFormat.JPEG
-        assert result.width == 320
-        assert result.height == 240
+        result = _row_to_pic_item(row)
+        assert result == expected
 
     def test_row_to_link_item(self, t_db):
         """Maps all fields from joined row to LinkItem."""
-        insert_link_item(t_db)
+        expected = insert_link_item(t_db)
         t_db.row_factory = sqlite3.Row
         row = t_db.execute(
             "SELECT i.*, l.url FROM items i"
             " JOIN link_items l ON i.hash_full = l.hash_full"
-            " WHERE i.code = 'ABCD1234'"
-        ).fetchone()  # Assemble
-
-        result = _row_to_link_item(row)  # Act
-
-        assert_item_base_fields(  # Assert
-            result,
-            code="ABCD1234",
-            hash_full="ABC1234506789DEFGHKMNPQR",
-            kind=ItemKind.LINK,
-            size_b=99,
-            uid=0,
-            perm=Visibility.PUBLIC,
-            upload_at=123456789,
-            origin_at=None,
-        )
-        assert result.url == "https://example.com"
+            f" WHERE i.code = '{expected.code}'"
+        ).fetchone()
+        result = _row_to_link_item(row)
+        assert result == expected
 
 
 class TestGetByCode:
@@ -204,23 +160,23 @@ class TestGetByCode:
     def test_text_item_for_text_item_code(self, t_repo):
         """Returns correct TextItem for its 'code' column"""
         insert_text_item(t_repo._conn)  # Assemble text_item record
-        result = t_repo.get_by_code("ABCD1234")  # Act with get
+        result = t_repo.get_by_code("T0123456")  # Act with get
         assert isinstance(result, TextItem)  # Assert it's a TextItem
-        assert result.code == "ABCD1234"  # Assert it's the same code
+        assert result.code == "T0123456"  # Assert it's the same code
 
     def test_pic_item_for_pic_item_code(self, t_repo):
         """Returns correct PicItem for its 'code' column"""
         insert_pic_item(t_repo._conn)  # Assemble
-        result = t_repo.get_by_code("ABCD1234")  # Act
+        result = t_repo.get_by_code("P0123456")  # Act
         assert isinstance(result, PicItem)  # Assert
-        assert result.code == "ABCD1234"
+        assert result.code == "P0123456"
 
     def test_link_item_for_link_item_code(self, t_repo):
         """Returns correct LinkItem for its 'code' column"""
         insert_link_item(t_repo._conn)  # Assemble
-        result = t_repo.get_by_code("ABCD1234")  # Act
+        result = t_repo.get_by_code("L0123456")  # Act
         assert isinstance(result, LinkItem)  # Assert
-        assert result.code == "ABCD1234"
+        assert result.code == "L0123456"
 
 
 class TestGetByFullHash:
@@ -234,23 +190,23 @@ class TestGetByFullHash:
     def test_text_item_for_item_hash(self, t_repo):
         """Returns correct TextItem for its 'hash_full' PK"""
         insert_text_item(t_repo._conn)
-        result = t_repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
+        result = t_repo.get_by_full_hash("T0123456789ABCDEFGHJKMNP")
         assert isinstance(result, TextItem)
-        assert result.hash_full == "ABC1234506789DEFGHKMNPQR"
+        assert result.hash_full == "T0123456789ABCDEFGHJKMNP"
 
     def test_pic_item_for_item_hash(self, t_repo):
         """Returns correct PicItem for its 'hash_full' PK"""
         insert_pic_item(t_repo._conn)
-        result = t_repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
+        result = t_repo.get_by_full_hash("P0123456789ABCDEFGHJKMNP")
         assert isinstance(result, PicItem)
-        assert result.hash_full == "ABC1234506789DEFGHKMNPQR"
+        assert result.hash_full == "P0123456789ABCDEFGHJKMNP"
 
     def test_link_item_for_item_hash(self, t_repo):
         """Returns correct LinkItem for its 'hash_full' PK"""
         insert_link_item(t_repo._conn)
-        result = t_repo.get_by_full_hash("ABC1234506789DEFGHKMNPQR")
+        result = t_repo.get_by_full_hash("L0123456789ABCDEFGHJKMNP")
         assert isinstance(result, LinkItem)
-        assert result.hash_full == "ABC1234506789DEFGHKMNPQR"
+        assert result.hash_full == "L0123456789ABCDEFGHJKMNP"
 
 
 class TestResolveCode:

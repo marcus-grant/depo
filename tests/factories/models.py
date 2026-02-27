@@ -10,9 +10,9 @@ from depo.model.enums import ContentFormat, ItemKind, PayloadKind, Visibility
 from depo.model.item import Item, LinkItem, PicItem, TextItem
 from depo.model.write_plan import WritePlan
 
+_HASH_SFX = "0123456789ABCDEFGHJKMNP"
+
 _ITEM_DEFAULTS = dict(
-    code="ABC12345",
-    hash_full="ABC1234506789DEFGHKMNPQR",
     kind=ItemKind.TEXT,
     size_b=100,
     uid=1,
@@ -23,30 +23,42 @@ _ITEM_DEFAULTS = dict(
 
 
 def make_item(**overrides) -> Item:
-    return Item(**(_ITEM_DEFAULTS | overrides))  # pyright: ignore[reportArgumentType]
+    defaults = _ITEM_DEFAULTS | dict(
+        hash_full="X" + _HASH_SFX,
+        code="X" + _HASH_SFX[:7],
+    )
+    return Item(**(defaults | overrides))  # type: ignore
 
 
 def make_text_item(**overrides) -> TextItem:
-    defaults = _ITEM_DEFAULTS | dict(format=ContentFormat.PLAINTEXT)
-    return TextItem(**(defaults | overrides))  # pyright: ignore[reportArgumentType]
+    defaults = _ITEM_DEFAULTS | dict(
+        hash_full="T" + _HASH_SFX,
+        code="T" + _HASH_SFX[:7],
+        format=ContentFormat.PLAINTEXT,
+    )
+    return TextItem(**(defaults | overrides))  # type: ignore
 
 
 def make_link_item(**overrides) -> LinkItem:
     defaults = _ITEM_DEFAULTS | dict(
+        hash_full="L" + _HASH_SFX,
+        code="L" + _HASH_SFX[:7],
         kind=ItemKind.LINK,
         url="https://example.com",
     )
-    return LinkItem(**(defaults | overrides))  # pyright: ignore[reportArgumentType]
+    return LinkItem(**(defaults | overrides))  # type: ignore
 
 
 def make_pic_item(**overrides) -> PicItem:
     defaults = _ITEM_DEFAULTS | dict(
+        hash_full="P" + _HASH_SFX,
+        code="P" + _HASH_SFX[:7],
         kind=ItemKind.PICTURE,
-        format=ContentFormat.PNG,
+        format=ContentFormat.JPEG,
         width=320,
         height=240,
     )
-    return PicItem(**(defaults | overrides))  # pyright: ignore[reportArgumentType]
+    return PicItem(**(defaults | overrides))  # type: ignore
 
 
 def make_write_plan(**overrides) -> WritePlan:
@@ -64,4 +76,4 @@ def make_write_plan(**overrides) -> WritePlan:
         width=None,
         height=None,
     )
-    return WritePlan(**(defaults | overrides))  # pyright: ignore[reportArgumentType]
+    return WritePlan(**(defaults | overrides))  # type: ignore
