@@ -142,6 +142,7 @@ class SeededApp:
 
     client: TestClient
     browser: TestClient
+    htmx: TestClient
     txt: TextItem
     pic: PicItem
     link: LinkItem
@@ -156,8 +157,10 @@ def t_seeded(tmp_path) -> SeededApp:
     and store.write. No upload round-trip. Use for
     GET/info/raw tests where content is a precondition.
     """
+    head_html, head_htmx = {"Accept": "text/html"}, {"HX-Request": "true"}
     client = make_client(tmp_path)
-    browser = TestClient(client.app, headers={"Accept": "text/html"})
+    browser = TestClient(client.app, headers=head_html)
+    htmx = TestClient(client.app, headers={**head_html, **head_htmx})
     app = cast(FastAPI, client.app)
     conn = app.state.repo._conn
     store: FilesystemStorage = app.state.store
@@ -192,10 +195,7 @@ def t_seeded(tmp_path) -> SeededApp:
 
     store.put(code=item_txt.code, format=item_txt.format, source_bytes=txt_data)
     store.put(code=item_pic.code, format=item_pic.format, source_bytes=pic_data)
-
-    return SeededApp(
-        client=client, browser=browser, txt=item_txt, pic=item_pic, link=item_link
-    )
+    return SeededApp(client, browser, htmx, item_txt, item_pic, item_link)
 
 
 __all__ = [
