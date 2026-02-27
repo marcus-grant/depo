@@ -78,7 +78,7 @@ class TestTextItem:
     def test_instantiate(self):
         """Can instantiate with all requried fields"""
         textitem = make_text_item()
-        assert textitem.code == "ABC12345"
+        assert textitem.code == "T0123456"
         assert textitem.format == ContentFormat.PLAINTEXT
 
 
@@ -106,7 +106,7 @@ class TestLinkItem:
     def test_instantiate(self):
         """Can instantiate with all requried fields"""
         linkitem = make_link_item()
-        assert linkitem.code == "ABC12345"
+        assert linkitem.code == "L0123456"
         assert linkitem.url == "https://example.com"
 
     def test_frozen(self):
@@ -147,7 +147,7 @@ class TestPicItem:
     def test_instantiate(self):
         """Can instantiate with all requried fields"""
         picitem = make_pic_item(format=ContentFormat.JPEG)
-        assert picitem.code == "ABC12345"
+        assert picitem.code == "P0123456"
         assert picitem.format == ContentFormat.JPEG
 
     def test_frozen(self):

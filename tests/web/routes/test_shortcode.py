@@ -67,7 +67,7 @@ class TestGetInfo:
         assert resp.headers["content-type"].startswith("text/plain")
         assert f"code={t_seeded.txt.code}" in resp.text
         assert "kind=txt" in resp.text
-        assert "format=md" in resp.text
+        assert "format=txt" in resp.text
         assert "size_b=" in resp.text
 
     def test_pic_item_info(self, t_seeded):
@@ -83,7 +83,7 @@ class TestGetInfo:
         resp = t_seeded.client.get(f"/{t_seeded.link.code}/info")
         assert resp.status_code == 200
         assert "kind=url" in resp.text
-        assert "url=http://example.com" in resp.text
+        assert "url=https://example.com" in resp.text
 
     def test_unknown_code_404(self, t_client):
         """Unknown code returns 404."""
@@ -149,7 +149,7 @@ class TestGetRaw:
         endpoint = f"/{t_seeded.link.code}/raw"
         resp = t_seeded.client.get(endpoint, follow_redirects=False)
         assert resp.status_code == 307
-        assert resp.headers["location"] == "http://example.com"
+        assert resp.headers["location"] == "https://example.com"
 
     def test_unknown_code_returns_404(self, t_client):
         """Unknown code returns 404."""
