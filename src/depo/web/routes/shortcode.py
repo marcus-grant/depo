@@ -105,29 +105,20 @@ async def page_info(
         item = selector.get_item(repo, code)
     except NotFoundError as e:
         return _response_404(req, code, e)
+
+    ctx: dict = {"request": req, "item": item}
+
     if isinstance(item, LinkItem):
-        return _templates.TemplateResponse(
-            request=req,
-            status_code=200,
-            name="info/link.html",
-            context={"request": req, "item": item},
-        )
-    if isinstance(item, TextItem):
-        content = selector.get_raw(store, item).read()
-        return _templates.TemplateResponse(
-            request=req,
-            status_code=200,
-            name="info/text.html",
-            context={"request": req, "item": item, "content": content},
-        )
-    if isinstance(item, PicItem):
-        return _templates.TemplateResponse(
-            request=req,
-            status_code=200,
-            name="info/pic.html",
-            context={"request": req, "item": item},
-        )
-    return _response_500(req, f"Unexpected item type for code {code}")
+        name = "info/link.html"
+    elif isinstance(item, TextItem):
+        name = "info/text.html"
+        ctx["content"] = selector.get_raw(store, item).read()
+    elif isinstance(item, PicItem):
+        name = "info/pic.html"
+    else:
+        return _response_500(req, f"Unexpected item type for code {code}")
+    kwargs = {"request": req, "name": name, "status_code": 200, "context": ctx}
+    return _templates.TemplateResponse(**kwargs)
 
 
 @shortcode_router.get("/{code}/raw")
