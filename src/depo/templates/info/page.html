@@ -11,6 +11,7 @@
       data-copy="{{ request.base_url }}{{ item.code }}/raw"
     >Copy URL</button>
     <button class="outline" data-copy="{{ item.code | upper }}">Copy Code</button>
+    <a href="/{{ item.code }}/raw">View Raw</a>
     <a href="#metadata">Facts</a>
   </div>
   <div class="payload {% block payload_class %}{% endblock %}" id="payload">

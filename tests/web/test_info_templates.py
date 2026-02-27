@@ -98,6 +98,11 @@ class TestInfoStructure:
         """Clipboard handler script is present."""
         assert self.select("script") is not None
 
+    def test_view_raw_link(self):
+        """Action row contains link to raw view."""
+        link = self.select(".action-row a[href*='/raw']")
+        assert link is not None
+
 
 class TestInfoLink:
     """Link-specific info template content."""
