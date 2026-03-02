@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 
 import depo.service.selector as selector
-from depo.model.formats import mime_for_format
+from depo.model.formats import extension_for_format, mime_for_format
 from depo.model.item import LinkItem, PicItem, TextItem
 from depo.repo.errors import NotFoundError
 from depo.repo.sqlite import SqliteRepository
@@ -53,6 +53,52 @@ def _response_500(req: Request, detail: str) -> Response:
             "issues_url": "https://github.com/marcus-grant/depo/issues",
         },
     )
+
+
+def _get_item_or_404(
+    code: str, repo: SqliteRepository
+) -> LinkItem | TextItem | PicItem | Response:
+    """Item lookup helper that returns a 404 response on NotFoundError.
+    Otherwise it returns the found item (LinkItem, TextItem, or PicItem)."""
+    try:
+        item = selector.get_item(repo, code)
+    except NotFoundError as e:
+        return PlainTextResponse(content=str(e), status_code=404)
+    return item
+
+
+def _serve_item_content(item: TextItem | PicItem, store: StorageBackend) -> Response:
+    """Builds a raw content response for a TextItem or PicItem.
+    Args:
+        item: The item (TextItem or PicItem) to build the response for.
+        store: The storage backend to fetch the raw data from.
+    Returns: Response object with raw content & appropriate MIME type"""
+    data = selector.get_raw(store, item)
+    if isinstance(item, TextItem):
+        return Response(content=data.read(), media_type="text/plain; charset=utf-8")
+    if isinstance(item, PicItem):
+        mime = mime_for_format(item.format)
+        return Response(content=data.read(), media_type=mime)
+    return PlainTextResponse("Unexpected item type", status_code=500)  # pyright: ignore
+
+
+@shortcode_router.get("/{code}.{ext}")
+async def raw_ext(
+    code: str,
+    ext: str,
+    repo: SqliteRepository = Depends(get_repo),
+    store: StorageBackend = Depends(get_storage),
+) -> Response:
+    """Return raw content for the given code. Extension must match item format."""
+    result = _get_item_or_404(code, repo)
+    if isinstance(result, Response):
+        return result
+    if isinstance(result, LinkItem):
+        return PlainTextResponse("Links do not support raw content.", status_code=404)
+    if (expect := extension_for_format(result.format)) != ext:
+        msg = f"Extension mismatch: expected .{expect}"
+        return PlainTextResponse(msg, status_code=404)
+    return _serve_item_content(result, store)
 
 
 @shortcode_router.get("/{code}")
@@ -128,15 +174,9 @@ async def raw(
     store: StorageBackend = Depends(get_storage),
 ) -> Response:
     """Return raw content for the given code."""
-    try:
-        item = selector.get_item(repo, code)
-    except NotFoundError as e:
-        return PlainTextResponse(content=str(e), status_code=404)
-    if isinstance(item, LinkItem):
-        return RedirectResponse(item.url, status_code=307)
-    data = selector.get_raw(store, item)
-    if isinstance(item, TextItem):
-        return Response(content=data.read(), media_type="text/plain; charset=utf-8")
-    if isinstance(item, PicItem):
-        return Response(content=data.read(), media_type=mime_for_format(item.format))
-    return PlainTextResponse("Unexpected item type", status_code=500)
+    result = _get_item_or_404(code, repo)
+    if isinstance(result, Response):
+        return result
+    if isinstance(result, LinkItem):
+        return RedirectResponse(result.url, status_code=307)
+    return _serve_item_content(result, store)

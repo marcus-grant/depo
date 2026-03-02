@@ -32,16 +32,6 @@ Ordered by dependency. Each heading is roughly one PR.
 
 ### Browser UI and styling
 
-- Raw/rendered toggle (separate PR)
-  - Toggle control in action row
-  - Document HTMX interaction patterns in doc/design/interactions.md
-  - HX-Request detection, fragment vs full page response
-  - _payload_info.html and _payload_raw.html partials
-  - hx-get, hx-target=#payload, hx-swap, hx-push-url
-  - Content copy button:
-    - clipboard API for payload data,
-      - needs endpoint decision for binary content (base64 encoding).
-    - Disabled placeholder already in action row.
 - Support /{code}/raw.{ext} route for external consumers (own PR)
   - Forums, chat, unfurlers sniff extension for inline rendering
   - Server routes on code, ignores extension
@@ -70,6 +60,11 @@ Centralize error handling after routes and pipeline have stabilized.
 - Centralize standard error response builders alongside typed exceptions
 - Investigate LinkItem format field gap (isinstance workaround in
   _upload_response), consider adding format to base Item or LinkItem
+- Consider initial logging functionality and how to tie it into:
+  - Centralized error handling
+  - The web server in use (e.g. middleware for request IDs)
+  - Rich output formatting
+- How to use MIME for responses
 
 ### Config and limits
 
