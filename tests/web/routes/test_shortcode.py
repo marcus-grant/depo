@@ -11,6 +11,8 @@ License: Apache-2.0
 
 import pytest
 
+from depo.model.formats import extension_for_format
+
 
 class TestItem:
     """Tests for GET /{code} dispatcher."""
@@ -154,3 +156,38 @@ class TestGetRaw:
     def test_unknown_code_returns_404(self, t_client):
         """Unknown code returns 404."""
         assert t_client.get("/ZZZZZZZZ/raw").status_code == 404
+
+
+class TestGetRawExtension:
+    """Tests for GET /{code}.{ext}.
+    Extension must match item format. Links always 404."""
+
+    def raw_ext_url(self, item):
+        return f"/{item.code}.{extension_for_format(item.format)}"
+
+    def test_text_for_match(self, t_seeded):
+        """Returns text content when ext matches format."""
+        resp = t_seeded.client.get(self.raw_ext_url(t_seeded.txt))
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/plain")
+        assert resp.text == "# Hello, World!\n**This** is a test `TextItem`."
+
+    def test_pic_for_match(self, t_seeded):
+        """Returns pic content when ext matches format."""
+        resp = t_seeded.client.get(self.raw_ext_url(t_seeded.pic))
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("image/jpeg")
+        assert len(resp.content) == t_seeded.pic.size_b
+
+    def test_404_cases(self, t_seeded):
+        """Returns 404 for: ext mismatch, link items and nonexistent code."""
+        resp_ext = t_seeded.client.get(f"/{t_seeded.txt.code}.jpg")
+        resp_link = t_seeded.client.get(f"/{t_seeded.link.code}.txt")
+        resp_noexist = t_seeded.client.get("/N0EX1ST.txt")
+        assert resp_ext.status_code == 404, "Mismatched extension should return 404"
+        assert resp_link.status_code == 404, "Links should return 404 for raw content"
+        assert resp_noexist.status_code == 404, "Nonexistent code should return 404"
+        msg = "404 message should indicate mismatch"
+        assert "mismatch" in resp_ext.text.lower(), msg
+        msg = "404 message should indicate link items have no raw content"
+        assert all(s in resp_link.text.lower() for s in ["link", "raw", "no"]), msg
