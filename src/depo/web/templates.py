@@ -12,6 +12,8 @@ from pathlib import Path
 from starlette.requests import Request
 from starlette.templating import Jinja2Templates
 
+from depo.model.formats import extension_for_format
+
 
 def is_htmx(request: Request) -> bool:
     """Check if request originated from HTMX (HX-Request header)."""
@@ -20,5 +22,6 @@ def is_htmx(request: Request) -> bool:
 
 def get_templates() -> Jinja2Templates:
     """Build Jinja2Templates instance pointing at the templates directory."""
-    path = Path(__file__).parent.parent / "templates"
-    return Jinja2Templates(directory=path)
+    templates = Jinja2Templates(directory=Path(__file__).parent.parent / "templates")
+    templates.env.filters["ext"] = extension_for_format
+    return templates

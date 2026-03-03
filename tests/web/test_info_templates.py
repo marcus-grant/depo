@@ -166,7 +166,7 @@ class TestInfoPic:
         img = self.select("#payload img")
         assert img is not None
         assert img.get("src", "") != ""
-        assert "/raw" in img.get("src", "")  # type: ignore
+        assert img["src"].endswith(".jpg")  # type: ignore
 
     def test_metadata_fields_present(self):
         """Renders format, size, dimensions, upload timestamp in metadata."""

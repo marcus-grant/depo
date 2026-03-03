@@ -3,7 +3,7 @@
 {% block payload %}
     <!-- BEGIN: info/pic.html#payload -->
     <!-- EXTENDS: info/page.html -->
-    <img src="/{{ item.code }}/raw">
+    <img src="/{{ item.code }}.{{ item.format | ext }}">
     <!-- END: info/pic.html#payload -->
 {% endblock %}
 {% block metadata %}
