@@ -74,16 +74,6 @@ class TestInfoStructure:
         """Has #metadata dl after divider."""
         assert self.select("hr.divider + dl#metadata") is not None
 
-    def test_action_copy_content_disabled(self):
-        """Copy content button exists but is disabled."""
-        assert self.select(".action-row button[disabled]") is not None
-
-    def test_action_copy_url(self):
-        """Copy URL button carries raw URL for clipboard."""
-        btn = self.select(".action-row button.secondary[data-copy]")
-        assert btn is not None
-        assert "/raw" in btn.get("data-copy", "")  # type: ignore
-
     def test_action_copy_shortcode(self):
         """Copy shortcode button carries code value for clipboard."""
         btn = self.select(".action-row button.outline[data-copy]")
@@ -126,6 +116,18 @@ class TestInfoLink:
         """Payload has type-specific class."""
         assert self.select("#payload.payload--link") is not None
 
+    def test_copy_content_button(self):
+        """Copy content button carries origin URL for clipboard."""
+        btn = self.select(".action-row button[data-copy]:not(.secondary):not(.outline)")
+        assert btn is not None
+        assert btn["data-copy"] == "https://example.com"
+
+    def test_copy_link_button(self):
+        """Copy link button carries raw redirect URL for clipboard."""
+        btn = self.select(".action-row button.secondary[data-copy]")
+        assert btn is not None
+        assert "/raw" in btn["data-copy"]
+
 
 class TestInfoText:
     """Text-specific info template content."""
@@ -152,6 +154,18 @@ class TestInfoText:
     def test_payload_modifier(self):
         """Payload has type-specific class."""
         assert self.select("#payload.payload--text") is not None
+
+    def test_copy_content_button(self):
+        """Copy content button carries extensioned fetch URL."""
+        btn = self.select(".action-row button[data-copy-url]")
+        assert btn is not None
+        assert btn["data-copy-url"].endswith(".txt")  # type: ignore
+
+    def test_copy_link_button(self):
+        """Copy link button carries extensioned URL for clipboard."""
+        btn = self.select(".action-row button.secondary[data-copy]")
+        assert btn is not None
+        assert btn["data-copy"].endswith(".txt")  # type: ignore
 
 
 class TestInfoPic:
@@ -181,3 +195,15 @@ class TestInfoPic:
     def test_payload_modifier(self):
         """Payload has type-specific class."""
         assert self.select("#payload.payload--pic") is not None
+
+    def test_copy_content_button(self):
+        """Copy content button carries extensioned fetch URL."""
+        btn = self.select(".action-row button[data-copy-url]")
+        assert btn is not None
+        assert btn["data-copy-url"].endswith(".jpg")  # type: ignore
+
+    def test_copy_link_button(self):
+        """Copy link button carries extensioned URL for clipboard."""
+        btn = self.select(".action-row button.secondary[data-copy]")
+        assert btn is not None
+        assert btn["data-copy"].endswith(".jpg")  # type: ignore
