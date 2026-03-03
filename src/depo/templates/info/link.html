@@ -1,4 +1,16 @@
 {% extends "info/page.html" %}
+{% block copy_content %}
+  <!-- BEGIN: info/link.html#copy_content -->
+  <!-- EXTENDS: info/page.html -->
+  <button data-copy="{{ item.url }}">Copy Source</button>
+  <!-- END: info/link.html#copy_content -->
+{% endblock %}
+{% block copy_link %}
+  <!-- BEGIN: info/link.html#copy_link -->
+  <!-- EXTENDS: info/page.html -->
+  <button class="secondary" data-copy="{{ request.base_url }}{{ item.code }}/raw">Copy Link</button>
+  <!-- END: info/link.html#copy_link -->
+{% endblock %}
 {% block payload_class %}payload--link{% endblock %}
 {% block payload %}
   <!-- BEGIN: info/link.html#payload -->

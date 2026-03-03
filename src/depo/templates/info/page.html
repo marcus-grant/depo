@@ -5,11 +5,8 @@
 <article class="window shadow-md">
   <h2 class="shortcode">{{ item.code | upper }}</h2>
   <div class="action-row" role="toolbar">
-    <button disabled data-copy="">Copy Content</button>
-    <button
-      class="secondary"
-      data-copy="{{ request.base_url }}{{ item.code }}/raw"
-    >Copy URL</button>
+    {% block copy_content %}<button disabled>Copy Content</button>{% endblock %}
+    {% block copy_link %}<button class="secondary" disabled>Copy Link</button>{% endblock %}
     <button class="outline" data-copy="{{ item.code | upper }}">Copy Code</button>
     <a href="/{{ item.code }}/raw">View Raw</a>
     <a href="#metadata">Facts</a>
@@ -24,12 +21,24 @@
     {% endblock %}
   </dl>
 </article>
-<!-- END: info/page.html -->
 <!-- TODO: Does base.html need a scripts block? -->
 <script>
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-copy]');
-    if (btn) navigator.clipboard.writeText(btn.dataset.copy);
-  })
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-copy], button[data-copy-url]');
+    if (!btn) return;
+    if (btn.dataset.copy !== undefined) {
+      navigator.clipboard.writeText(btn.dataset.copy);
+      return;
+    }
+    const resp = await fetch(btn.dataset.copyUrl);
+    const ct = resp.headers.get('content-type') || '';
+    if (ct.startsWith('text/')) {
+      navigator.clipboard.writeText(await resp.text());
+    } else {
+      const blob = await resp.blob();
+      navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+    }
+  });
 </script>
+<!-- END: info/page.html -->
 {% endblock %}
