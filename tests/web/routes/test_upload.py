@@ -206,6 +206,15 @@ class TestHtmxUploadSuccess:
         assert "<!-- BEGIN: base.html -->" not in resp.text
         assert "<!-- BEGIN: partials/success.html" in resp.text
 
+    def test_file_upload_returns_shortcode(self, t_htmx):
+        """File upload via form returns success partial with shortcode."""
+        img, data = gen_image("jpeg", 16, 16), {"content": "", "format": ""}
+        files = {"file": ("photo.jpg", img, "image/jpeg")}
+        resp = t_htmx.post("/upload", data=data, files=files)
+        assert resp.status_code == 200
+        code = BeautifulSoup(resp.text, "html.parser").find("code", class_="shortcode")
+        assert code is not None
+
 
 class TestHtmxUploadError:
     """POST /upload with HX-Request returns error partial on failure."""
@@ -276,6 +285,24 @@ class TestParseFormUpload:
         req.form = AsyncMock(return_value={"content": content, "format": fmt})
         return dict(await _parse_form_upload(req))
 
+    async def _file_fn(
+        self,
+        data: bytes = b"\xff\xd8\xff\xe0",
+        ctype: str = "image/jpeg",
+        filename: str = "photo.jpg",
+        content: str = "",
+        fmt: str = "",
+    ) -> dict:
+        file = MagicMock(spec=UploadFile)
+        file.read = AsyncMock(return_value=data)
+        file.content_type = ctype
+        file.filename = filename
+        file.size = len(data)
+        form = {"content": content, "format": fmt, "file": file}
+        req = MagicMock()
+        req.form = AsyncMock(return_value=form)
+        return dict(await _parse_form_upload(req))
+
     async def test_textarea_content_extracts_payload(self):
         """Textarea content is extracted as payload_bytes."""
         result = await self._test_fn("hello", "")
@@ -298,6 +325,23 @@ class TestParseFormUpload:
         """Empty or whitespace-only textarea raises ValueError."""
         with pytest.raises(ValueError, match="No content provided"):
             await self._test_fn(content, "")
+
+    async def test_file_extracts_fields(self):
+        """File bytes, content_type, and filename are extracted."""
+        result = await self._file_fn()
+        assert result["payload_bytes"] == b"\xff\xd8\xff\xe0"
+        assert result["declared_mime"] == "image/jpeg"
+        assert result["filename"] == "photo.jpg"
+
+    async def test_file_preferred_over_textarea(self):
+        """File takes precedence when both content and file present."""
+        result = await self._file_fn(content="leftover text")
+        assert result["payload_bytes"] == b"\xff\xd8\xff\xe0"
+
+    async def test_empty_file_raises(self):
+        """Empty file raises ValueError."""
+        with pytest.raises(ValueError, match="No content provided"):
+            await self._file_fn(data=b"")
 
 
 class TestUploadResponse:
