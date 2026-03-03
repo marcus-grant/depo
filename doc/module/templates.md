@@ -67,13 +67,19 @@ Blocks provided to child templates:
 
 Action row contains:
 
-- Copy content button (disabled, deferred)
-- Copy URL button (secondary, data-copy with absolute URL)
+- Copy content button (per-type block):
+  - text/pic: data-copy-url with extensioned raw URL, fetch-based clipboard
+  - link: data-copy with origin URL, direct clipboard
+- Copy link button (per-type block):
+  - text/pic: data-copy with extensioned absolute URL
+  - link: data-copy with /{code}/raw absolute URL
 - Copy shortcode button (outline, data-copy with code)
+- View Raw link (href to /{code}/raw)
 - Facts anchor (href="#metadata")
 
 Clipboard handling is a script block at the end of info/page.html.
-Delegates via click listener on any element with data-copy attribute.
+Delegates via click listener on data-copy (direct writeText) and
+data-copy-url (fetch, sniff Content-Type, writeText or ClipboardItem).
 
 ## Error pages
 
