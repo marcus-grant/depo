@@ -32,15 +32,28 @@ Ordered by dependency. Each heading is roughly one PR.
 
 ### Browser UI and styling
 
-- Support /{code}/raw.{ext} route for external consumers (own PR)
-  - Forums, chat, unfurlers sniff extension for inline rendering
-  - Server routes on code, ignores extension
-  - Update pic template img src
-  - Update test_img_tag_in_payload in test_info_templates.py
-- Visual refinement pass (own PR): element spacing, hierarchy, container
-    proportions, nav/footer tuning, large-surface background treatment
-  - Implement CSS rules for classes in markup: window--error,
-      action-row, payload, payload--link/text/pic, divider
+- Image upload path (own PR)
+  - NOTE: Some of these need to be considered if they will make it in
+    - We can't clutter the interface too much
+    - We also can't be implementing complicated UIs yet either
+    - Follow the principle of progressive complexity from the user perspective
+  - Hidden file input triggered by label icon in textarea corner
+  - Drag-and-drop handler on textarea for file drops
+  - Paste handler on textarea for clipboard images
+  - Switch form to multipart/form-data when file detected
+  - Upload route accepts UploadFile for binary payloads
+  - Preview card above textarea when image attached
+  - Auto-detect format from file metadata
+- Visual refinement pass (own PR):
+  - Specific visual refinmenets:
+    - element spacing
+    - hierarchy
+    - container proportions
+    - nav/footer tuning
+    - large-surface background treatment
+  - Implement CSS rules for classes in markup:
+    - window--error, action-row,
+    - payload, payload--link/text/pic, divider
 
 ### Error handling
 

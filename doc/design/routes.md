@@ -20,6 +20,10 @@ These negotiate request context and delegate to a specific handler.
 - `GET /{code}/raw` - `raw()`
   - Always raw bytes + metadata headers.
   - No negotiation.
+- `GET /{code}.{ext}` - `raw_ext()`
+  - Same as raw but extension must match item format.
+  - Mismatch returns 404. Links always 404.
+  - Register before `/{code}` to prevent wildcard swallowing.
 - `GET /upload` - `page_upload()`.
   - Upload form, full page render.
 - `GET /health` - `health()`.
