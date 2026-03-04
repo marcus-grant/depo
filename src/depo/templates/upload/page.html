@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- BEGIN: upload/page.html#content -->
+<!-- EXTENDS: base.html -->
+<div class="window shadow-md">
+  <form method="post" action="/upload" hx-post="/upload" hx-target="#result" hx-swap="innerHTML">
+    <input type="file" name="file" id="file-input" hidden>
+    <label for="file-input" class="file-input-label">Add File</label>
+    <div class="attachment-card" hidden>
+      <img class="attachment-preview" hidden>
+      <span class="attachment-name"></span>
+      <span class="attachment-size"></span>
+      <button type="button" class="attachment-clear">✕</button>
+    </div>
+    <textarea name="content"></textarea>
+    {% include 'upload/format-select.html' %}
+  </form>
+</div>
+<div id="result"></div>
+<!-- END: upload/page.html#content -->
+{% endblock %}
+{% block scripts %}
+<!-- BEGIN: upload/page.html#scripts -->
+<!-- EXTENDS: base.html -->
+{% include 'upload/script.html' %}
+<!-- BEGIN: upload/page.html#scripts -->
+{% endblock %}

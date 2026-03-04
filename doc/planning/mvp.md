@@ -32,18 +32,6 @@ Ordered by dependency. Each heading is roughly one PR.
 
 ### Browser UI and styling
 
-- Image upload path (own PR)
-  - NOTE: Some of these need to be considered if they will make it in
-    - We can't clutter the interface too much
-    - We also can't be implementing complicated UIs yet either
-    - Follow the principle of progressive complexity from the user perspective
-  - Hidden file input triggered by label icon in textarea corner
-  - Drag-and-drop handler on textarea for file drops
-  - Paste handler on textarea for clipboard images
-  - Switch form to multipart/form-data when file detected
-  - Upload route accepts UploadFile for binary payloads
-  - Preview card above textarea when image attached
-  - Auto-detect format from file metadata
 - Visual refinement pass (own PR):
   - Specific visual refinmenets:
     - element spacing
