@@ -42,8 +42,12 @@ Ordered by dependency. Each heading is roughly one PR.
   - Implement CSS rules for classes in markup:
     - window--error, action-row,
     - payload, payload--link/text/pic, divider
-- House cleaning to include:
-  - Split template tests from test_upload.py into test_upload_templates.py
+- These next 2 might be better in final preMVP manual test/visual refinement tsk
+  - House cleaning to include:
+    - Split template tests from test_upload.py into test_upload_templates.py
+  - Rename .titlebar-inner to .page-column (or similar): used as a
+    generic layout column wrapper in nav and footer but named after
+    a nav-specific concept; rename for clarity post-MVP
 
 ### Error handling
 
