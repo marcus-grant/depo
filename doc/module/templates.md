@@ -7,9 +7,12 @@ Rendered by `web.templates.get_templates()`.
 
 ```txt
 templates/
-├── base.html                # Full page layout wrapper
-├── upload.html              # Upload form (extends base.html)
+├── base.html                # Full page layout wrapper, defines scripts block
 ├── theme.html               # Living style reference (extends base.html)
+├── upload/
+│   ├── page.html            # Upload form (extends base.html)
+│   ├── formats.html         # Format select optgroups (included by page)
+│   └── script.html          # File upload JS (included via scripts block)
 ├── info/
 │   ├── page.html            # Shared info page shell (extends base.html)
 │   ├── link.html            # LinkItem view (extends page.html)
@@ -29,7 +32,10 @@ templates/
 
 ```txt
 base.html
-├── upload.html
+├── upload/
+│   ├── page.html
+│   ├── formats.html
+│   └── script.html
 ├── theme.html
 ├── info/page.html
 │   ├── info/link.html
@@ -48,6 +54,11 @@ window container, shortcode heading, action row,
 payload block, divider, metadata block.
 Child templates fill:
 `{% block payload %}`, `{% block metadata %}`, and `{% block payload_class %}`.
+
+Same pattern repeated for the upload page.
+The `templates/upload` directory contains everything for that page.
+Then the `page.html` defines the main template for that page.
+It includes partials included to split up the markup and scripts.
 
 ## Info page system
 

@@ -13,7 +13,9 @@ These negotiate request context and delegate to a specific handler.
   - Browser gets info page, API gets raw content.
   - LinkItem always redirects (302) regardless of context.
 - `GET /{code}/info` - `info()`. Delegates to `page_info`, `hx_info`, or `api_info`.
-- `POST /upload` - `upload()`. Delegates to `hx_upload` or `api_upload`.
+- `POST /upload` - `upload()`
+  - Delegates to `hx_upload` or `api_upload`.
+  - Also handles multipart form data & file uploads with file upload element.
 
 ### Single-context routes
 
@@ -26,6 +28,7 @@ These negotiate request context and delegate to a specific handler.
   - Register before `/{code}` to prevent wildcard swallowing.
 - `GET /upload` - `page_upload()`.
   - Upload form, full page render.
+  - File picker embedded into text area to drop files or click to pick.
 - `GET /health` - `health()`.
   - Liveness probe.
 
