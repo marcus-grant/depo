@@ -30,7 +30,7 @@ _templates = get_templates()  # Preload templates for route handlers
 @upload_router.get("/upload")
 async def page_upload(req: Request):
     """Serve the upload form as a full HTML page."""
-    return get_templates().TemplateResponse(request=req, name="upload.html")
+    return get_templates().TemplateResponse(request=req, name="upload/page.html")
 
 
 @upload_router.post("/upload", status_code=201)

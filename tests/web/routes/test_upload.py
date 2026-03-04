@@ -161,8 +161,8 @@ class TestGetUploadPage:
     def test_returns_expected_html(self, t_client):
         """Returns template markers, form elements & content-type overrides"""
         resp = t_client.get(url="/upload")
-        assert "<!-- BEGIN: upload.html -->" in resp.text
-        assert "<!-- END: upload.html -->" in resp.text
+        assert "<!-- BEGIN: upload/page.html" in resp.text
+        assert "<!-- END: upload/page.html" in resp.text
         soup = BeautifulSoup(resp.text, "html.parser")
         assert soup.find("form", attrs={"method": "post", "action": "/upload"})
         assert soup.find("textarea", attrs={"name": "content"})
