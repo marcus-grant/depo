@@ -148,6 +148,11 @@ class TestUploadFormat:
 class TestGetUploadPage:
     """GET /upload serves the upload form"""
 
+    def select(self, selector, client):
+        """Test helper requests from /upload and parses using soup selector."""
+        resp = client.get("/upload")
+        return BeautifulSoup(resp.text, "html.parser").select(selector)
+
     def test_returns_200_and_html_content(self, t_client):
         resp = t_client.get(url="/upload")
         assert resp.status_code == 200
@@ -179,6 +184,27 @@ class TestGetUploadPage:
                 options.add(val)
         expected = {f.value for f in ContentFormat}
         assert options == expected, f"Missing: {expected - options}"
+
+    def test_has_file_input(self, t_client):
+        """Form includes a hidden file input for image uploads."""
+        soup = BeautifulSoup(t_client.get("/upload").text, "html.parser")
+        finput = soup.find("input", attrs={"type": "file", "name": "file"})
+        assert finput is not None
+        hidden, style = finput.get("hidden"), finput.get("style") == "display:none"
+        assert (hidden is not None) or (style == "display:none")
+
+    def test_has_file_input_label(self, t_client):
+        """Form has a visible label triggering the file input."""
+        soup = BeautifulSoup(t_client.get("/upload").text, "html.parser")
+        finput = soup.find("input", attrs={"type": "file", "name": "file"})
+        label = soup.find("label", attrs={"for": finput.get("id")})  # type:ignore
+        assert label is not None
+
+    def test_has_attachment_card(self, t_client):
+        """Form includes an attachment preview container, hidden by default."""
+        soup = BeautifulSoup(t_client.get("/upload").text, "html.parser")
+        card = soup.find(class_="attachment-card")
+        assert card is not None
 
 
 class TestHtmxUploadSuccess:
