@@ -39,8 +39,9 @@
   --depo-size-heading: 1.5rem;
   --depo-size-body: 1rem;
   --depo-size-meta: 0.8125rem;
-  --depo-weight-heading: bold;
+  --depo-size-code: 1.1rem;
   --depo-weight-meta: 600;
+  --depo-weight-heading: bold;
 
   /* Spacing */
   --depo-measure: 48rem;
@@ -114,6 +115,8 @@ h3, h4, h5, h6 {
 /* Typography — shortcodes and references */
 .shortcode {
   font-family: var(--depo-font-mono);
+  font-size: var(--depo-size-code);
+  letter-spacing: 0.02em;
   font-weight: bold;
 }
 
@@ -217,4 +220,56 @@ footer.site-footer {
   gap: 0.5rem;
   align-items: center;
   margin-top: 0.5rem;
+}
+.window--error {
+  border-color: var(--depo-error);
+  border-left-width: 4px;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.5rem 0;
+}
+
+.payload {
+  padding: 1rem 0;
+}
+.payload--text {
+  font-family: var(--depo-font-mono);
+  white-space: pre-wrap;
+  font-size: var(--depo-size-body);
+}
+.payload--pic {
+  display: flex;
+  justify-content: center;
+}
+.payload--link {
+  font-family: var(--depo-font-mono);
+  font-size: var(--depo-size-heading);
+}
+
+.divider {
+  border: none;
+  border-top: 2px solid var(--depo-border);
+  margin: 1rem 0;
+}
+
+.attachment-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: 1px solid var(--depo-border);
+}
+
+.file-input-label {
+  display: inline-block;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--pico-primary);
+  font-family: var(--depo-font-mono);
+  color: var(--pico-primary);
 }
