@@ -1,45 +1,4 @@
-{% extends "base.html" %}
-{% block content %}
-<!-- BEGIN: upload.html#content -->
-<!-- EXTENDS: base.html -->
-<div class="window shadow-md">
-  <form method="post" action="/upload" hx-post="/upload" hx-target="#result" hx-swap="innerHTML">
-    <input type="file" name="file" id="file-input" hidden>
-    <label for="file-input" class="file-input-label">Add File</label>
-    <div class="attachment-card" hidden>
-      <img class="attachment-preview" hidden>
-      <span class="attachment-name"></span>
-      <span class="attachment-size"></span>
-      <button type="button" class="attachment-clear">✕</button>
-    </div>
-    <textarea name="content"></textarea>
-    <div class="window-controls">
-      <select name="format">
-    <option value="" selected>Auto-detect</option>
-    <optgroup label="Link">
-      <option value="url">URL</option>
-    </optgroup>
-    <optgroup label="Text">
-      <option value="txt">Plain Text</option>
-      <option value="md">Markdown</option>
-      <option value="json">JSON</option>
-      <option value="yaml">YAML</option>
-    </optgroup>
-    <optgroup label="Image">
-      <option value="jpg">JPEG</option>
-      <option value="png">PNG</option>
-      <option value="webp">WebP</option>
-      <option value="tiff">TIFF</option>
-    </optgroup>
-    </select>
-      <button type="submit">Record</button>
-    </div>
-  </form>
-</div>
-<div id="result"></div>
-<!-- END: upload.html#content -->
-{% endblock %}
-{% block scripts %}
+<!-- BEGIN: upload/script.html -->
 <script>
 (function () {
   const form = document.querySelector('form');
@@ -60,6 +19,7 @@
 
   function attachFile(file) {
     form.enctype = 'multipart/form-data';
+    form.setAttribute('hx-encoding', 'multipart/form-data');
     textarea.hidden = true;
     card.hidden = false;
     nameEl.textContent = file.name;
@@ -117,6 +77,7 @@
   clearBtn.addEventListener('click', () => {
     fileInput.value = '';
     form.enctype = 'application/x-www-form-urlencoded';
+    form.removeAttribute('hx-encoding');
     textarea.hidden = false;
     textarea.value = '';
     card.hidden = true;
@@ -125,4 +86,4 @@
   });
 })();
 </script>
-{% endblock %}
+<!-- END: upload/scripts.html -->
