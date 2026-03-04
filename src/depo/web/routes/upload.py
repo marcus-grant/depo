@@ -14,6 +14,7 @@ from typing import TypedDict
 
 from fastapi import APIRouter, Depends, Query, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from depo.model.enums import ContentFormat
 from depo.model.item import LinkItem
@@ -29,7 +30,7 @@ _templates = get_templates()  # Preload templates for route handlers
 @upload_router.get("/upload")
 async def page_upload(req: Request):
     """Serve the upload form as a full HTML page."""
-    return get_templates().TemplateResponse(request=req, name="upload.html")
+    return get_templates().TemplateResponse(request=req, name="upload/page.html")
 
 
 @upload_router.post("/upload", status_code=201)
@@ -125,6 +126,7 @@ class UploadFormParams(TypedDict):
 
     payload_bytes: bytes
     declared_mime: str
+    filename: str | None
     requested_format: ContentFormat | None
 
 
@@ -165,12 +167,21 @@ async def _parse_form_upload(
     """Extract orchestrator.ingest kwargs from browser form submission."""
     form = await req.form()
     content = str(form.get("content", "")).strip()
+    file = form.get("file")
     fmt = str(form.get("format", ""))
+    if isinstance(file, StarletteUploadFile) and (data := await file.read()):
+        return UploadFormParams(
+            payload_bytes=data,
+            declared_mime=file.content_type or "application/octet-stream",
+            filename=file.filename,
+            requested_format=ContentFormat(fmt) if fmt else None,
+        )
     if not content:
         raise ValueError("No content provided.")
     return UploadFormParams(
         payload_bytes=content.encode("utf-8"),
         declared_mime="text/plain",
+        filename=None,
         requested_format=ContentFormat(fmt) if fmt else None,
     )
 

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<!-- BEGIN: info/page.html -->
+<!-- BEGIN: info/page.html#content -->
 <!-- EXTENDS: base.html -->
 <article class="window shadow-md">
   <h2 class="shortcode">{{ item.code | upper }}</h2>
@@ -21,7 +21,12 @@
     {% endblock %}
   </dl>
 </article>
+<!-- END: info/page.html#content -->
+{% endblock %}
 <!-- TODO: Does base.html need a scripts block? -->
+{% block scripts %}
+<!-- BEGIN: info/page.html#scripts -->
+<!-- EXTENDS: base.html -->
 <script>
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-copy], button[data-copy-url]');
@@ -40,5 +45,5 @@
     }
   });
 </script>
-<!-- END: info/page.html -->
+<!-- END: info/page.html#scripts -->
 {% endblock %}

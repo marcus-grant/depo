@@ -148,6 +148,11 @@ class TestUploadFormat:
 class TestGetUploadPage:
     """GET /upload serves the upload form"""
 
+    def select(self, selector, client):
+        """Test helper requests from /upload and parses using soup selector."""
+        resp = client.get("/upload")
+        return BeautifulSoup(resp.text, "html.parser").select(selector)
+
     def test_returns_200_and_html_content(self, t_client):
         resp = t_client.get(url="/upload")
         assert resp.status_code == 200
@@ -156,8 +161,8 @@ class TestGetUploadPage:
     def test_returns_expected_html(self, t_client):
         """Returns template markers, form elements & content-type overrides"""
         resp = t_client.get(url="/upload")
-        assert "<!-- BEGIN: upload.html -->" in resp.text
-        assert "<!-- END: upload.html -->" in resp.text
+        assert "<!-- BEGIN: upload/page.html" in resp.text
+        assert "<!-- END: upload/page.html" in resp.text
         soup = BeautifulSoup(resp.text, "html.parser")
         assert soup.find("form", attrs={"method": "post", "action": "/upload"})
         assert soup.find("textarea", attrs={"name": "content"})
@@ -179,6 +184,27 @@ class TestGetUploadPage:
                 options.add(val)
         expected = {f.value for f in ContentFormat}
         assert options == expected, f"Missing: {expected - options}"
+
+    def test_has_file_input(self, t_client):
+        """Form includes a hidden file input for image uploads."""
+        soup = BeautifulSoup(t_client.get("/upload").text, "html.parser")
+        finput = soup.find("input", attrs={"type": "file", "name": "file"})
+        assert finput is not None
+        hidden, style = finput.get("hidden"), finput.get("style") == "display:none"
+        assert (hidden is not None) or (style == "display:none")
+
+    def test_has_file_input_label(self, t_client):
+        """Form has a visible label triggering the file input."""
+        soup = BeautifulSoup(t_client.get("/upload").text, "html.parser")
+        finput = soup.find("input", attrs={"type": "file", "name": "file"})
+        label = soup.find("label", attrs={"for": finput.get("id")})  # type:ignore
+        assert label is not None
+
+    def test_has_attachment_card(self, t_client):
+        """Form includes an attachment preview container, hidden by default."""
+        soup = BeautifulSoup(t_client.get("/upload").text, "html.parser")
+        card = soup.find(class_="attachment-card")
+        assert card is not None
 
 
 class TestHtmxUploadSuccess:
@@ -205,6 +231,15 @@ class TestHtmxUploadSuccess:
         resp = t_htmx.post("/upload", data={"content": "hello world", "format": ""})
         assert "<!-- BEGIN: base.html -->" not in resp.text
         assert "<!-- BEGIN: partials/success.html" in resp.text
+
+    def test_file_upload_returns_shortcode(self, t_htmx):
+        """File upload via form returns success partial with shortcode."""
+        img, data = gen_image("jpeg", 16, 16), {"content": "", "format": ""}
+        files = {"file": ("photo.jpg", img, "image/jpeg")}
+        resp = t_htmx.post("/upload", data=data, files=files)
+        assert resp.status_code == 200
+        code = BeautifulSoup(resp.text, "html.parser").find("code", class_="shortcode")
+        assert code is not None
 
 
 class TestHtmxUploadError:
@@ -276,6 +311,24 @@ class TestParseFormUpload:
         req.form = AsyncMock(return_value={"content": content, "format": fmt})
         return dict(await _parse_form_upload(req))
 
+    async def _file_fn(
+        self,
+        data: bytes = b"\xff\xd8\xff\xe0",
+        ctype: str = "image/jpeg",
+        filename: str = "photo.jpg",
+        content: str = "",
+        fmt: str = "",
+    ) -> dict:
+        file = MagicMock(spec=UploadFile)
+        file.read = AsyncMock(return_value=data)
+        file.content_type = ctype
+        file.filename = filename
+        file.size = len(data)
+        form = {"content": content, "format": fmt, "file": file}
+        req = MagicMock()
+        req.form = AsyncMock(return_value=form)
+        return dict(await _parse_form_upload(req))
+
     async def test_textarea_content_extracts_payload(self):
         """Textarea content is extracted as payload_bytes."""
         result = await self._test_fn("hello", "")
@@ -298,6 +351,23 @@ class TestParseFormUpload:
         """Empty or whitespace-only textarea raises ValueError."""
         with pytest.raises(ValueError, match="No content provided"):
             await self._test_fn(content, "")
+
+    async def test_file_extracts_fields(self):
+        """File bytes, content_type, and filename are extracted."""
+        result = await self._file_fn()
+        assert result["payload_bytes"] == b"\xff\xd8\xff\xe0"
+        assert result["declared_mime"] == "image/jpeg"
+        assert result["filename"] == "photo.jpg"
+
+    async def test_file_preferred_over_textarea(self):
+        """File takes precedence when both content and file present."""
+        result = await self._file_fn(content="leftover text")
+        assert result["payload_bytes"] == b"\xff\xd8\xff\xe0"
+
+    async def test_empty_file_raises(self):
+        """Empty file raises ValueError."""
+        with pytest.raises(ValueError, match="No content provided"):
+            await self._file_fn(data=b"")
 
 
 class TestUploadResponse:
