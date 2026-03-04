@@ -42,6 +42,8 @@ Ordered by dependency. Each heading is roughly one PR.
   - Implement CSS rules for classes in markup:
     - window--error, action-row,
     - payload, payload--link/text/pic, divider
+- House cleaning to include:
+  - Split template tests from test_upload.py into test_upload_templates.py
 
 ### Error handling
 
@@ -89,6 +91,23 @@ Minimal auth to prevent open uploads on the public internet.
 - Item has owner (`uid`) + visibility (`perm`)
 - `/upload` requires auth
 - `uid=0` superuser convention continues until user table exists
+
+### Styling Refinement Pass
+
+- Success state redesign: replace full-width banner with calm inline
+  state near the reference; small label with success hue on text/border
+  only; primary action is copy reference; no colored background fill
+- Focus indication primitive: consistent focus style (thick outline or
+  inset border) that works in grayscale; color is additive only, not
+  load-bearing; applies globally to all interactive elements
+- Spacing token cleanup: define a single vertical rhythm scale
+  (e.g. 0.5/1/1.5/2rem steps); replace ad-hoc micro-gaps throughout;
+  audit all padding/margin values for consistency
+
+>**NOTE:** Shortcode truncation: deferred;
+>references are primary objects so hiding characters is risky;
+>if overflow occurs in practice, prefer overflow-wrap:
+>anywhere over ellipsis; JS prefix+suffix logic is out of scope pre-MVP
 
 ### Global Chrome & Layout Realignment (nav / main / footer / base.html)
 

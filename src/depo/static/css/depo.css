@@ -42,6 +42,9 @@
   --depo-weight-heading: bold;
   --depo-weight-meta: 600;
 
+  /* Spacing */
+  --depo-measure: 48rem;
+
  /* Dither pattern utility classes
  *
  * Apply to any element for a tiled bitmap fill.
@@ -91,6 +94,8 @@ main {
   z-index: 0;
   background: rgb(230, 230, 230);
   padding: 2rem 1rem;
+  max-width: var(--depo-measure);
+  margin: 0 auto;
 }
 
 
@@ -150,12 +155,10 @@ input, select, textarea {
  *   z-index: -1          → sits behind parent content (works because
  *                          parent has z-index: 0 stacking context)
  */
-.shadow-sm,
-.shadow-md {
+.shadow-sm {
   position: relative;
 }
-.shadow-sm::after,
-.shadow-md::after {
+.shadow-sm::after {
   content: '';
   position: absolute;
   width: 100%;
@@ -168,27 +171,16 @@ input, select, textarea {
   image-rendering: pixelated;
   border: 2px solid var(--depo-border);
   z-index: -1;
-}
-.shadow-sm::after {
-  top:  12px;
-  left: 12px;
-}
-.shadow-md::after {
-  top: 20px;
-  left: 20px;
+  top:  4px;
+  left: 4px;
 }
 
 /* Custom element classes */
 .titlebar {
   display: flex;
-  justify-content: flex-start;  /* wordmark left, future nav items follow */
-  align-items: stretch;         /* children fill full bar height */
   height: 4rem;                 /* fixed bar height; label stretches to fill */
-  padding: 0.44rem 1rem 0.20rem;  /* top right bottom gaps between label and backing nav*/
   overflow: hidden;             /* clip label if it overflows bar bounds */
-  background: var(--depo-dither-hstripe) repeat;
-  background-size: 4px 4px;    /* stripe thickness; larger = chunkier lines */
-  image-rendering: pixelated;  /* crisp 1-bit stripes at all DPI */
+  border-bottom: 2px solid var(--depo-border);
 }
 .titlebar-label {
   display: flex;
@@ -197,25 +189,27 @@ input, select, textarea {
   padding: 0 0.5rem;            /* horizontal breathing room around text */
   text-decoration: none;           /* remove default link underline */
 }
+.titlebar-inner {
+  max-width: var(--depo-measure);
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
 
 footer.site-footer {
-  background: rgb(200, 200, 200);
+  border-top: 2px solid var(--depo-border);
   padding: 1rem 0;
   text-align: center;
-  background-size: 8px 8px;
-  image-rendering: pixelated;
-}
-.footer .meta {
-  display: inline-block;
-  background: rgb(230,230,230);
-  padding: 0.25rem 0.75rem;
 }
 
 .window {
   position: relative;
   border: 2px solid var(--depo-border);
   padding: 1rem;
-  margin: 1.5rem;
+  margin: 0;
   background: var(--depo-bg);
 }
 .window-controls {
