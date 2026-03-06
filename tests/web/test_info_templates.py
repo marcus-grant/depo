@@ -62,27 +62,17 @@ class TestInfoStructure:
         """Has .action-row after shortcode."""
         assert self.select("article.window > .shortcode + .action-row") is not None
 
-    def test_payload_after_action(self):
-        """Has #payload container after action row."""
-        assert self.select("article.window > .action-row + #payload") is not None
+    def test_metadata_after_action(self):
+        """Has dl.meta after action row."""
+        assert self.select(".action-row + dl.meta") is not None
 
-    def test_payload_meta_divider(self):
-        """Has divider between payload and metadata."""
-        assert self.select("#payload + hr.divider") is not None
+    def test_divider_after_metadata(self):
+        """Has divider after metadata."""
+        assert self.select("dl.meta + hr.divider") is not None
 
-    def test_metadata_after_divider(self):
-        """Has #metadata dl after divider."""
-        assert self.select("hr.divider + dl#metadata") is not None
-
-    def test_action_copy_shortcode(self):
-        """Copy shortcode button carries code value for clipboard."""
-        btn = self.select(".action-row button.outline[data-copy]")
-        assert btn is not None
-        assert btn.get("data-copy") != ""
-
-    def test_action_facts_jump(self):
-        """Facts anchor links to metadata section."""
-        assert self.select(".action-row a[href='#metadata']") is not None
+    def test_payload_after_divider(self):
+        """Has .payload-actions after divider."""
+        assert self.select("hr.divider + .payload-actions") is not None
 
     def test_clipboard_script(self):
         """Clipboard handler script is present."""
@@ -92,6 +82,10 @@ class TestInfoStructure:
         """Action row contains link to raw view."""
         link = self.select(".action-row a[href*='/raw']")
         assert link is not None
+
+    def test_payload_actions_before_payload(self):
+        """Has .payload-actions div directly before .payload."""
+        assert self.select(".payload-actions + .payload") is not None
 
 
 class TestInfoLink:
@@ -103,22 +97,23 @@ class TestInfoLink:
 
     def test_url_in_payload(self):
         """Renders URL in payload section."""
-        assert self.select("#payload a") is not None
-        assert self.select("#payload a").text == "https://example.com"  # type: ignore
+        assert self.select(".payload a") is not None
+        assert self.select(".payload a").text == "https://example.com"  # type: ignore
 
     def test_upload_at_in_metadata(self):
         """Renders upload timestamp in metadata."""
-        dl = self.select("dl#metadata")
+        dl = self.select("dl.meta")
         assert dl is not None
         assert any(w in dl.text.lower() for w in ("upload", "creat", "date", "time"))
 
     def test_payload_modifier(self):
         """Payload has type-specific class."""
-        assert self.select("#payload.payload--link") is not None
+        assert self.select(".payload.payload--link") is not None
 
     def test_copy_content_button(self):
         """Copy content button carries origin URL for clipboard."""
-        btn = self.select(".action-row button[data-copy]:not(.secondary):not(.outline)")
+        sel = ".payload-actions button[data-copy]:not(.secondary):not(.outline)"
+        btn = self.select(sel)
         assert btn is not None
         assert btn["data-copy"] == "https://example.com"
 
@@ -138,13 +133,13 @@ class TestInfoText:
 
     def test_content_in_pre_code_payload(self):
         """Renders text content inside <pre><code> in payload."""
-        el = self.select("#payload pre code")
+        el = self.select(".payload pre code")
         assert el is not None
         assert _TXT_DATA in el.text
 
     def test_metadata_fields_present(self):
         """Renders format, size, upload timestamp in metadata."""
-        dl = self.select("dl#metadata")
+        dl = self.select("dl.meta")
         assert dl is not None
         text = dl.text.lower()
         assert any(w in text for w in ("format", "type"))
@@ -153,11 +148,11 @@ class TestInfoText:
 
     def test_payload_modifier(self):
         """Payload has type-specific class."""
-        assert self.select("#payload.payload--text") is not None
+        assert self.select(".payload.payload--text") is not None
 
     def test_copy_content_button(self):
         """Copy content button carries extensioned fetch URL."""
-        btn = self.select(".action-row button[data-copy-url]")
+        btn = self.select(".payload-actions button[data-copy-url]")
         assert btn is not None
         assert btn["data-copy-url"].endswith(".txt")  # type: ignore
 
@@ -177,14 +172,14 @@ class TestInfoPic:
 
     def test_img_tag_in_payload(self):
         """Renders <img> tag in payload with correct src."""
-        img = self.select("#payload img")
+        img = self.select(".payload img")
         assert img is not None
         assert img.get("src", "") != ""
         assert img["src"].endswith(".jpg")  # type: ignore
 
     def test_metadata_fields_present(self):
         """Renders format, size, dimensions, upload timestamp in metadata."""
-        dl = self.select("dl#metadata")
+        dl = self.select("dl.meta")
         assert dl is not None
         text = dl.text.lower()
         assert any(w in text for w in ("format", "type"))
@@ -194,11 +189,11 @@ class TestInfoPic:
 
     def test_payload_modifier(self):
         """Payload has type-specific class."""
-        assert self.select("#payload.payload--pic") is not None
+        assert self.select(".payload.payload--pic") is not None
 
     def test_copy_content_button(self):
         """Copy content button carries extensioned fetch URL."""
-        btn = self.select(".action-row button[data-copy-url]")
+        btn = self.select(".payload-actions button[data-copy-url]")
         assert btn is not None
         assert btn["data-copy-url"].endswith(".jpg")  # type: ignore
 

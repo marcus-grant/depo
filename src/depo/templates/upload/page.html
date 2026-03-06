@@ -2,7 +2,7 @@
 {% block content %}
 <!-- BEGIN: upload/page.html#content -->
 <!-- EXTENDS: base.html -->
-<div class="window shadow-md">
+<div class="window">
   <form method="post" action="/upload" hx-post="/upload" hx-target="#result" hx-swap="innerHTML">
     <input type="file" name="file" id="file-input" hidden>
     <label for="file-input" class="file-input-label">Add File</label>

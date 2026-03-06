@@ -300,6 +300,38 @@ full page loads receive wrapped templates.
 Shortcodes displayed with `<code class="shortcode">`;
 functional class, tested against.
 
+### Info page structure
+
+The `/info` route is a record inspection view, not a content viewer.
+Canonical layout:
+
+```text
+    reference (shortcode)
+    record actions
+    metadata
+    — divider —
+    payload actions
+    payload
+```
+
+Record actions operate on the record as a whole (Copy Link, View Raw).
+Payload actions operate on the payload only (Copy Content).
+Actions live adjacent to the object they affect.
+`View Raw` is an anchor styled as a secondary button.
+
+### Structural classes
+
+`.action-row` — record-level action strip below the reference.
+`.payload-actions` — payload-level action strip directly above payload.
+These are intentionally separate; do not merge them into a single toolbar.
+
+### Deferred endpoints
+
+`/render` — clean presentation view for payload content; minimal UI;
+optimized for reading. Resolves tension between record inspection
+(`/info`) and content viewing. `/raw` remains literal stored payload.
+Not required pre-MVP.
+
 ## How to evolve this document
 
 Design decisions are categorized as:
