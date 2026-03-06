@@ -14,6 +14,10 @@ Fully opaque SVG data URIs, ground `rgb(230,230,230)`, fill `rgb(200,200,200)`.
 
 Structure: `--depo-titlebar-height`, `--depo-bg`, `--depo-border`.
 
+Surfaces: `--depo-surface` (rgb 230, desktop/shell background),
+`--depo-bg` (rgb 245, window surface). `--depo-measure` (48rem, column width).
+Semantic: `--depo-size-code` (1.1rem, reference display size).
+
 ## Class reference
 
 Dither fills: `.dither-diag`, `.dither-check`, `.dither-cross`.
@@ -23,26 +27,29 @@ Form grouping: `.window-controls` (flex row).
 
 ## Shadows
 
-`.shadow-sm` (11px offset), `.shadow-md` (19px offset).
+`.shadow-sm` (4px offset). `.shadow-md` removed.
 Checkerboard `::after` pseudo-element, bordered, `z-index: -1`.
-Stacking context lives on `main`, not the shadow parent.
-`background-position: top left` for bottom-edge tile alignment.
-
-Offsets are manually tuned — border width shifts background origin
-so clean tile multiples don't land. Deeper fix deferred to v0.2.
+Reserved for overlays and inset components only.
+Do not apply to primary page surface.
 
 ## Titlebar
 
-`.titlebar` — flex container with horizontal stripe dither.
-`.titlebar-label` — child `<a>`, stretches to fill bar height,
-solid background punchout matching stripe ground color.
-
-Uses `overflow: hidden` to clip. Height via `--depo-titlebar-height`.
+`.titlebar` — full-width structural band, `border-bottom` only.
+No dither fill. Background matches `--depo-surface`.
+`.titlebar-inner` — constrained to `--depo-measure`, flex row,
+centers content vertically. Used in nav and footer for column alignment.
+Note: `.titlebar-inner` is misnamed as a general layout wrapper;
+rename to `.page-column` post-MVP.
+`.titlebar-label` — plain anchor, no background or punchout styling.
 
 ## Window
 
-`.window` — bordered container, solid `--depo-bg` background.
-Sits on gray `main` surface. Combine with shadow classes for depth.
+`.window` — bordered container, solid `--depo-bg` background, no margin.
+One window per page. Either `main` contains one `.window`, or a component
+is the window — never both.
+`.window--error` — border-color override to `--depo-error`, 4px left accent.
+Used for fatal error pages only. Inline errors use notices, not window variants.
+No shadow on primary page surface. `shadow-sm` reserved for overlays only.
 
 ## Pico override notes
 
@@ -63,3 +70,9 @@ Form element fonts set directly — no Pico property for these.
 High-DPI: 1px SVG bits invisible, `background-size` scaling mandatory.
 Zoom: fractional levels cause sub-pixel artifacts. Clean at 100% and 2x/3x.
 Large-surface dither looked busy — flat grays used instead, dither deferred to v0.2.
+
+`.titlebar-inner` reused as layout column in footer — semantic mismatch,
+rename deferred post-MVP.
+Pico styles `article` element directly (card background, box-shadow,
+padding). Use `article.window` override or avoid `article` for window
+containers.
