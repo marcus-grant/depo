@@ -276,3 +276,36 @@ footer.site-footer .titlebar-inner {
   font-family: var(--depo-font-mono);
   color: var(--pico-primary);
 }
+
+dl.meta {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0.5rem 0;
+}
+dl.meta dt {
+  color: var(--depo-secondary);
+  font-family: var(--depo-font-mono);
+  font-size: var(--depo-size-meta);
+  font-weight: var(--depo-weight-meta);
+}
+dl.meta dd {
+  margin: 0;
+  font-family: var(--depo-font-mono);
+  font-size: var(--depo-size-meta);
+}
+.action-row a {
+  font-family: var(--depo-font-mono);
+  font-size: var(--depo-size-body);
+  color: var(--depo-secondary);
+  text-decoration: none;
+  border: 6px solid var(--depo-border);
+  padding: 0.5rem 1rem;
+  display: inline-block;
+}
+.payload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
