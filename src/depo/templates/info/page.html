@@ -2,24 +2,24 @@
 {% block content %}
 <!-- BEGIN: info/page.html#content -->
 <!-- EXTENDS: base.html -->
-<article class="window shadow-md">
+<article class="window">
   <h2 class="shortcode">{{ item.code | upper }}</h2>
   <div class="action-row" role="toolbar">
-    {% block copy_content %}<button disabled>Copy Content</button>{% endblock %}
     {% block copy_link %}<button class="secondary" disabled>Copy Link</button>{% endblock %}
-    <button class="outline" data-copy="{{ item.code | upper }}">Copy Code</button>
     <a href="/{{ item.code }}/raw">View Raw</a>
-    <a href="#metadata">Facts</a>
   </div>
-  <div class="payload {% block payload_class %}{% endblock %}" id="payload">
-    {% block payload %}
-    {% endblock %}
-  </div>
-  <hr class="divider">
-  <dl class="meta" id="metadata">
+  <dl class="meta">
     {% block metadata %}
     {% endblock %}
   </dl>
+  <hr class="divider">
+  <div class="payload-actions">
+    {% block copy_content %}<button disabled>Copy Content</button>{% endblock %}
+  </div>
+  <div class="payload {% block payload_class %}{% endblock %}">
+    {% block payload %}
+    {% endblock %}
+  </div>
 </article>
 <!-- END: info/page.html#content -->
 {% endblock %}

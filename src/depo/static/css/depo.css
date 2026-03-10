@@ -27,11 +27,12 @@
   --depo-error: rgb(165, 60, 55);
   --depo-secondary: var(--pico-muted-color);
   --depo-focus: var(--pico-primary);
+  --depo-surface: rgb(230, 230, 230);
 
   /* Depo structure */
   --depo-bg: var(--pico-background-color);
   --depo-text: var(--pico-color);
-  --depo-border: rgb(200, 200, 200);
+  --depo-border: rgb(175, 175, 175);
 
 
   /* Typography */
@@ -39,8 +40,12 @@
   --depo-size-heading: 1.5rem;
   --depo-size-body: 1rem;
   --depo-size-meta: 0.8125rem;
-  --depo-weight-heading: bold;
+  --depo-size-code: 1.1rem;
   --depo-weight-meta: 600;
+  --depo-weight-heading: bold;
+
+  /* Spacing */
+  --depo-measure: 48rem;
 
  /* Dither pattern utility classes
  *
@@ -83,14 +88,16 @@
 body {
   display: flex;
   flex-direction: column;
+  background: var(--depo-surface);
   min-height: 100vh;
 }
 main {
   flex: 1;
   position: relative;
   z-index: 0;
-  background: rgb(230, 230, 230);
   padding: 2rem 1rem;
+  max-width: var(--depo-measure);
+  margin: 0 auto;
 }
 
 
@@ -109,6 +116,8 @@ h3, h4, h5, h6 {
 /* Typography — shortcodes and references */
 .shortcode {
   font-family: var(--depo-font-mono);
+  font-size: var(--depo-size-code);
+  letter-spacing: 0.02em;
   font-weight: bold;
 }
 
@@ -150,12 +159,10 @@ input, select, textarea {
  *   z-index: -1          → sits behind parent content (works because
  *                          parent has z-index: 0 stacking context)
  */
-.shadow-sm,
-.shadow-md {
+.shadow-sm {
   position: relative;
 }
-.shadow-sm::after,
-.shadow-md::after {
+.shadow-sm::after {
   content: '';
   position: absolute;
   width: 100%;
@@ -168,54 +175,47 @@ input, select, textarea {
   image-rendering: pixelated;
   border: 2px solid var(--depo-border);
   z-index: -1;
-}
-.shadow-sm::after {
-  top:  12px;
-  left: 12px;
-}
-.shadow-md::after {
-  top: 20px;
-  left: 20px;
+  top:  4px;
+  left: 4px;
 }
 
 /* Custom element classes */
 .titlebar {
   display: flex;
-  justify-content: flex-start;  /* wordmark left, future nav items follow */
-  align-items: stretch;         /* children fill full bar height */
+  background: var(--depo-surface);
   height: 4rem;                 /* fixed bar height; label stretches to fill */
-  padding: 0.44rem 1rem 0.20rem;  /* top right bottom gaps between label and backing nav*/
   overflow: hidden;             /* clip label if it overflows bar bounds */
-  background: var(--depo-dither-hstripe) repeat;
-  background-size: 4px 4px;    /* stripe thickness; larger = chunkier lines */
-  image-rendering: pixelated;  /* crisp 1-bit stripes at all DPI */
+  border-bottom: 2px solid var(--depo-border);
 }
 .titlebar-label {
   display: flex;
   align-items: center;          /* vertically center text within stretched label */
-  background: rgb(230,230,230); /* matches stripe ground color for seamless punchout */
-  padding: 0 0.5rem;            /* horizontal breathing room around text */
   text-decoration: none;           /* remove default link underline */
+}
+.titlebar-inner {
+  max-width: var(--depo-measure);
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: flex;
+  align-items: center;
+  height: 100%;
 }
 
 footer.site-footer {
-  background: rgb(200, 200, 200);
+  border-top: 2px solid var(--depo-border);
   padding: 1rem 0;
   text-align: center;
-  background-size: 8px 8px;
-  image-rendering: pixelated;
 }
-.footer .meta {
-  display: inline-block;
-  background: rgb(230,230,230);
-  padding: 0.25rem 0.75rem;
+footer.site-footer .titlebar-inner {
+  height: auto;
 }
 
 .window {
   position: relative;
   border: 2px solid var(--depo-border);
   padding: 1rem;
-  margin: 1.5rem;
+  margin: 0;
   background: var(--depo-bg);
 }
 .window-controls {
@@ -223,4 +223,89 @@ footer.site-footer {
   gap: 0.5rem;
   align-items: center;
   margin-top: 0.5rem;
+}
+.window--error {
+  border-color: var(--depo-error);
+  border-left-width: 4px;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.5rem 0;
+}
+
+.payload {
+  padding: 1rem 0;
+}
+.payload--text {
+  font-family: var(--depo-font-mono);
+  white-space: pre-wrap;
+  font-size: var(--depo-size-body);
+}
+.payload--pic {
+  display: flex;
+  justify-content: center;
+}
+.payload--link {
+  font-family: var(--depo-font-mono);
+  font-size: var(--depo-size-heading);
+}
+
+.divider {
+  border: none;
+  border-top: 2px solid var(--depo-border);
+  margin: 1rem 0;
+}
+
+.attachment-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: 1px solid var(--depo-border);
+}
+
+.file-input-label {
+  display: inline-block;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--pico-primary);
+  font-family: var(--depo-font-mono);
+  color: var(--pico-primary);
+}
+
+dl.meta {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0.5rem 0;
+}
+dl.meta dt {
+  color: var(--depo-secondary);
+  font-family: var(--depo-font-mono);
+  font-size: var(--depo-size-meta);
+  font-weight: var(--depo-weight-meta);
+}
+dl.meta dd {
+  margin: 0;
+  font-family: var(--depo-font-mono);
+  font-size: var(--depo-size-meta);
+}
+.action-row a {
+  font-family: var(--depo-font-mono);
+  font-size: var(--depo-size-body);
+  color: var(--depo-secondary);
+  text-decoration: none;
+  border: 6px solid var(--depo-border);
+  padding: 0.5rem 1rem;
+  display: inline-block;
+}
+.payload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
 }

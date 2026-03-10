@@ -78,6 +78,18 @@ repo/
 Factory function selects implementation based on config.
 Orchestrator depends on Protocol, concrete impl injected at startup.
 
+## Visual and presentation layer
+
+- /render endpoint: clean presentation view for payload content;
+  minimal UI; optimized for reading; resolves tension between
+  record inspection (/info) and content viewing (/raw stays literal)
+- Success state redesign: move from full-width banner to calm inline
+  state near reference; success hue on text/border only
+- Focus indication primitive: consistent grayscale-first focus style
+  globally across all interactive elements
+- Spacing token cleanup: single vertical rhythm scale; audit all
+  padding/margin values
+
 ## Future Considerations (Post–v1.0)
 
 The following features are not required for v1.0,
