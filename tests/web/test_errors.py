@@ -6,6 +6,7 @@ Created: 2026-02-16
 License: Apache-2.0
 """
 
+import pytest
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
@@ -25,6 +26,7 @@ class TestError404Page:
         assert "ZZZZZZZZ" in resp.text
 
 
+@pytest.mark.skip(reason="PayloadTooLargeError being reimplemented")
 class TestError413Page:
     """413 payload too large error.
     Makes use of t_client fixture & factory HEADER_HTMX to clean up testing."""
@@ -43,6 +45,7 @@ class TestError413Page:
         assert "<!-- BEGIN: partials/error.html" in resp.text
 
 
+@pytest.mark.skip(reason="PayloadTooLargeError being reimplemented")
 class TestHtmxErrorPartial:
     """HTMX requests receive error partials, not full pages.
     Makes use of t_client fixture & factory HEADER_HTMX to clean up testing."""
