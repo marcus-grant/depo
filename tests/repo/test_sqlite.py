@@ -9,13 +9,9 @@ License: Apache-2.0
 import sqlite3
 
 import pytest
-from tests.factories.db import insert_link_item, insert_pic_item, insert_text_item
-from tests.factories.models import make_write_plan
-from tests.helpers import assert_column
 
 from depo.model.enums import ContentFormat, ItemKind, Visibility
 from depo.model.item import LinkItem, PicItem, TextItem
-from depo.repo.errors import CodeCollisionError
 from depo.repo.sqlite import (
     SqliteRepository,
     _row_to_link_item,
@@ -23,6 +19,10 @@ from depo.repo.sqlite import (
     _row_to_text_item,
     init_db,
 )
+from depo.util.errors import CodeCollisionError
+from tests.factories.db import insert_link_item, insert_pic_item, insert_text_item
+from tests.factories.models import make_write_plan
+from tests.helpers import assert_column
 
 
 class TestInitDb:
@@ -292,8 +292,11 @@ class TestInsert:
         plan1 = make_write_plan(**kwargs)
         plan2 = make_write_plan(**kwargs)
         t_repo.insert(plan1)
-        with pytest.raises(CodeCollisionError):
+        with pytest.raises(CodeCollisionError) as exc_info:
             t_repo.insert(plan2)
+        e = exc_info.value
+        assert plan2.hash_full in str(e)
+        assert plan1.hash_full[: plan1.code_min_len] in str(e)
 
     def test_resolve_prevents_code_collision(self, t_repo):
         """resolve_code extends to avoid collision"""

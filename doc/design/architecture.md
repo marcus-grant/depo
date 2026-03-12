@@ -5,7 +5,7 @@
 Dependencies flow inward. Outer layers depend on inner layers, never the
 reverse.
 
-```
+```txt
 web -> service -> repo -> storage -> model -> util
  |
 cli
@@ -40,9 +40,14 @@ from above, not a chain.
 The selector handles the read path with module-level functions that take
 repo and storage as explicit parameters.
 
+Errors flow outward: domain exceptions raised in inner layers bubble up
+to the web layer where route handlers catch `DepoError` broadly and
+dispatch to `web/error.py` response builders.
+
 ## Related docs
 
 - [Shortcodes](./shortcodes.md) - content-addressed identity
 - [Routes](./routes.md) - URL surface and handler conventions
 - [Items](./items.md) - domain model
 - [Ingest](./ingest.md) - write pipeline
+- [Errors](./errors.md) - exception hierarchy and error response patterns

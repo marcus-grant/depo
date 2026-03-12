@@ -18,6 +18,7 @@ from starlette.datastructures import Headers
 
 from depo.model.enums import ContentFormat
 from depo.model.formats import ItemKind
+from depo.util.errors import PayloadEmptyError, PayloadSourceError
 from depo.util.shortcode import _CROCKFORD32
 from depo.web.routes.upload import _parse_form_upload, _parse_upload, _upload_response
 from tests.factories import HEADER_HTMX, gen_image, make_persist_result
@@ -76,10 +77,10 @@ class TestUploadText:
         file = {"file": ("0.txt", b"")}
         assert t_client.post("/upload", files=file).status_code == 400
 
-    def test_unclassifiable_returns_400(self, t_client):
+    def test_unclassifiable_returns_422(self, t_client):
         """Unclassifiable content returns 400 with message."""
         resp = t_client.post("/upload", files={"file": ("noext", b"\xff\xfe\xfd")})
-        assert resp.status_code == 400
+        assert resp.status_code == 422
         assert len(resp.text) > 0  # error message present
 
 
@@ -92,10 +93,10 @@ class TestUploadImage:
         resp = t_client.post("/upload", files=file)
         _assert_api_upload_created(resp, ItemKind.PICTURE)
 
-    def test_corrupt_jpeg_returns_400(self, t_client):
+    def test_corrupt_jpeg_returns_422(self, t_client):
         """JPEG magic bytes without valid image data returns 400."""
         resp = t_client.post("/upload", files={"file": b"\xff\xd8\xff\xe0"})
-        assert resp.status_code == 400
+        assert resp.status_code == 422
         assert len(resp.text) > 0
 
 
@@ -255,7 +256,7 @@ class TestHtmxUploadError:
     def test_error_contains_message(self, t_htmx):
         """Error partial includes a descriptive error message."""
         resp = t_htmx.post("/upload", data={"content": "", "format": ""})
-        assert "No content provided" in resp.text
+        assert all(s in resp.text.lower() for s in ["empty", "payload"])
 
     def test_error_is_fragment(self, t_htmx):
         """Error partial is not wrapped in base template."""
@@ -264,10 +265,10 @@ class TestHtmxUploadError:
         assert "<!-- BEGIN: partials/error.html" in resp.text
 
 
-@pytest.mark.asyncio
 class TestParseUpload:
     """Tests for parse_upload()."""
 
+    @pytest.mark.asyncio
     async def test_multipart_extracts_kwargs(self):
         """Multipart file extracts payload_bytes, filename, declared_mime."""
         file = UploadFile(
@@ -280,12 +281,14 @@ class TestParseUpload:
         assert result["filename"] == "hello.txt"
         assert result["declared_mime"] == "text/plain"
 
+    @pytest.mark.asyncio
     async def test_url_param_extracts_payload_bytes(self):
         """URL query param extracts links to payload_bytes."""
         result = dict(await _parse_upload(file=None, url="http://a.eu", request=None))
         assert result["payload_bytes"] == b"http://a.eu"
         assert result["declared_mime"] is None
 
+    @pytest.mark.asyncio
     async def test_raw_body_extracts_payload(self):
         """Raw body extracts payload_bytes and declared_mime."""
         mock_request = AsyncMock()
@@ -296,10 +299,21 @@ class TestParseUpload:
         assert result["declared_mime"] == "application/octet-stream"
         assert "link_url" not in result
 
+    @pytest.mark.asyncio
     async def test_no_input_raises(self):
         """No file, no url, no body raises ValueError."""
-        with pytest.raises(ValueError, match="routing bug"):
+        with pytest.raises(PayloadSourceError, match="file.*url.*request"):
             await _parse_upload(file=None, url=None, request=None)
+
+    def test_missing_dependency_returns_error(self, t_htmx, monkeypatch):
+        """Missing Pillow dependency returns error partial with message."""
+        monkeypatch.setattr("depo.service.media._HAS_PILLOW", False)
+        file = {"file": ("photo.jpg", gen_image("jpeg", 16, 16))}
+        resp = t_htmx.post("/upload", files=file)
+        assert resp.status_code == 200
+        soup = BeautifulSoup(resp.text, "html.parser")
+        assert soup.find("div", class_="upload-error") is not None
+        assert "pillow" in resp.text.lower() or "depend" in resp.text.lower()
 
 
 @pytest.mark.asyncio
@@ -349,7 +363,7 @@ class TestParseFormUpload:
     @pytest.mark.parametrize("content", ["", "   "], ids=["empty", "whitespace"])
     async def test_empty_content_raises(self, content):
         """Empty or whitespace-only textarea raises ValueError."""
-        with pytest.raises(ValueError, match="No content provided"):
+        with pytest.raises(PayloadEmptyError):
             await self._test_fn(content, "")
 
     async def test_file_extracts_fields(self):
@@ -366,7 +380,7 @@ class TestParseFormUpload:
 
     async def test_empty_file_raises(self):
         """Empty file raises ValueError."""
-        with pytest.raises(ValueError, match="No content provided"):
+        with pytest.raises(PayloadEmptyError):
             await self._file_fn(data=b"")
 
 
