@@ -10,9 +10,9 @@ License: Apache-2.0
 import pytest
 from tests.factories.db import insert_pic_item, insert_text_item, seed_all_types
 
-from depo.repo.errors import NotFoundError
 from depo.service.selector import get_item, get_raw
 from depo.storage.filesystem import FilesystemStorage as FsStore
+from depo.util.errors import NotFoundError
 
 
 class TestGetItem:

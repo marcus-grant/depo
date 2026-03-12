@@ -89,7 +89,7 @@ class NotFoundError(RepoError):
     def __init__(
         self,
         id: str,
-        resource: str | None,
+        resource: str | None = None,
         status: int | None = None,
         context: dict | None = None,
     ):
