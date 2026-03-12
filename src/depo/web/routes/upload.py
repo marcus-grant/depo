@@ -93,7 +93,7 @@ async def api_upload(
         result = await _ingest_upload(file, url, req, orch, req_fmt=req_fmt)
     except DepoError as e:
         return PlainTextResponse(str(e), status_code=e.status)
-    # TODO: Needs merging with other DepoError subclasses to pull out message, status and context
+    # TODO: Needs merging w/ DepoError subclasses to pull message, status & context
     except ImportError as e:
         return PlainTextResponse(str(e), status_code=501)
     return _upload_response(result)

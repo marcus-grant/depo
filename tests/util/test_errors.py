@@ -71,6 +71,9 @@ class TestCodeCollisionError:
         assert e.hash_full == "HASH6789"
 
 
+# == Validation Domain ==
+
+
 class TestValidationError:
     """Tests for ValidationError domain base (400)."""
 
@@ -128,3 +131,71 @@ class TestPayloadSourceError:
         assert "payload_bytes" in str(e)
         assert "payload_path" in str(e)
         assert "one of" in str(e).lower()
+
+
+# == Classification Domain ==
+
+
+class TestClassificationError:
+    """Tests for ClassificationError domain base (422)."""
+
+    def test_defaults(self):
+        err = errors.ClassificationError
+        assert issubclass(err, errors.DepoError)
+        assert err.status == 422
+        msg_substrs = ["class", "error", "no", "format", "support"]
+        for s in msg_substrs:
+            assert s in err.message.lower(), f"Expected '{s}' in message"
+
+
+class TestUnknownClassificationError:
+    """Tests for UnknownClassificationError (422)."""
+
+    def test_defaults(self):
+        err = errors.UnknownClassificationError
+        assert issubclass(err, errors.ClassificationError)
+        assert err.status == 500
+        for s in ["unknown", "classif", "bug"]:
+            assert s in err.message.lower(), f"Expected '{s}' in message"
+
+    def test_with_exception(self):
+        """Accepts exception arg, includes it in message, status 500."""
+        err = RuntimeError("pipeline exploded")
+        e = errors.UnknownClassificationError(err)
+        assert e.status == 500
+        assert e.exception is err
+        assert "pipeline exploded" in str(e)
+        for s in ["unknown", "class", "error", "bug"]:
+            assert s in str(e).lower(), f"expected {s} in error message: {str(e)}"
+
+
+class TestImageDecodeError:
+    """Tests for ImageDecodeError (422)."""
+
+    def test_defaults(self):
+        err = errors.ImageDecodeError
+        assert issubclass(err, errors.ClassificationError)
+        assert err.status == 422
+        for s in ["error", "decod", "image"]:
+            assert s in err.message.lower(), f"Expected '{s}' in message"
+
+
+class TestUnsupportedFormatError:
+    """Tests for UnsupportedFormatError (422)."""
+
+    err = errors.UnsupportedFormatError
+
+    def test_defaults(self):
+        """Tests class-level defaults:
+        inherits ClassificationError, status 422, message contains key info."""
+        assert issubclass(self.err, errors.ClassificationError)
+        assert self.err.status == 422
+        for s in ["unsupport", "format", "classif", "depo"]:
+            assert s in self.err.message.lower(), f"Expected '{s}' in message"
+
+    def test_with_format(self):
+        """Tests constructor accepts format and includes it in message."""
+        err = self.err(format="ICO")
+        assert err.status == 422
+        assert err.format == "ICO"
+        assert "ICO" in str(err) and "unsupport" in str(err).lower()

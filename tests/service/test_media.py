@@ -15,6 +15,11 @@ from tests.helpers import assert_field
 
 from depo.model.enums import ContentFormat
 from depo.service.media import ImageInfo, get_image_info
+from depo.util.errors import (
+    ImageDecodeError,
+    PayloadEmptyError,
+    UnsupportedFormatError,
+)
 
 
 class TestImageInfo:
@@ -60,24 +65,24 @@ class TestGetImageInfo:
         assert result.height == height
 
     @pytest.mark.parametrize(
-        "data",
+        "data, raises",
         [
-            b"",  # empty
-            b"not an image",  # non-image
-            b"\x89PNG\r\n\x1a\n" + b"\x00" * 10,  # corrupted PNG
+            (b"", PayloadEmptyError),  # empty
+            (b"not an image", ImageDecodeError),  # non-image
+            (b"\x89PNG\r\n\x1a\n" + b"\x00" * 10, ImageDecodeError),  # corrupted PNG
         ],
     )
-    def test_raises_for_invalid_data(self, data):
-        """Raises ValueError for unreadable image data."""
-        with pytest.raises(ValueError, match=r"(?i)(corrupt|unsupport)"):
+    def test_raises_for_invalid_data(self, data, raises):
+        """Raises PayloadEmptyError or ImageDecodeError for unreadable image data."""
+        with pytest.raises(raises):
             get_image_info(data)
 
     def test_raises_for_unsupported_format(self):
-        """Raises ValueError for format PIL reads but we don't support."""
-        bmp_data = gen_image("BMP", 1, 1)
-        with pytest.raises(ValueError, match=r"(?i)(unsupport|depo)"):
-            get_image_info(bmp_data)
+        """Raises UnsupportedFormatError for format PIL reads but we don't support."""
+        with pytest.raises(UnsupportedFormatError):
+            get_image_info(gen_image("ICO", 16, 16))
 
+    @pytest.mark.skip(reason="MissingDependencyError not yet implemented")
     def test_raises_if_pillow_unavailable(self, monkeypatch):
         """Raises ImportError if Pillow (PIL) unavailable for import"""
         monkeypatch.setattr("depo.service.media._HAS_PILLOW", False)

@@ -31,6 +31,7 @@ from depo.service.classify import (
     _valid_scheme,
     classify,
 )
+from depo.util.errors import UnknownClassificationError, UnsupportedFormatError
 
 
 # TODO: If test_ingest.py uses this, move to helpers module otherwise delete this line
@@ -490,7 +491,14 @@ class TestClassify:
         _assert_content_class(result, expected_fmt)
 
     def test_raises_when_nothing_matches(self):
-        """Raises ValueError when no classification strategy matches."""
-        with pytest.raises(ValueError, match=r"^Unable to classify.*"):
-            f = "no_extension"
-            classify(b"\xff\xfe\xfd", filename=f, declared_mime="fake/mime")
+        """Raises ClassificationError when no classification strategy matches."""
+        with pytest.raises(UnsupportedFormatError, match=r"fake/mime"):
+            classify(b"\xff\xfe\xfd", filename="no-ext", declared_mime="fake/mime")
+
+    def test_raises_unknown_when_pipeline_errors(self, monkeypatch):
+        """Raises UnknownClassificationError for unexpected error occurs in pipeline."""
+        err = RuntimeError("unexpected pipeline failure")
+        patch_s = "depo.service.classify._from_magic_bytes"
+        monkeypatch.setattr(patch_s, lambda *_, **__: (_ for _ in ()).throw(err))  # type: ignore
+        with pytest.raises(UnknownClassificationError):
+            classify(b"\xff\xfe\xfd")

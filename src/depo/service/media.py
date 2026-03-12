@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from io import BytesIO
 
 from depo.model.enums import ContentFormat
+from depo.util.errors import ImageDecodeError, PayloadEmptyError, UnsupportedFormatError
 
 # Dynamically import Pillow at module level with flags for testing or deployment
 # Shouldn't attempt to load pillow unless this module is used
@@ -55,17 +56,22 @@ def get_image_info(data: bytes) -> ImageInfo:
 
     Raises:
         ImportError: If Pillow is not installed.
-        ValueError: If data is not a valid supported image.
+        PayloadEmptyError: If data is empty.
+        ImageDecodeError: If data cannot be decoded as an image.
+        UnsupportedFormatError: If image format is not supported by depo.
     """
-    if not _HAS_PILLOW:
+    if len(data) <= 0:  # Check data length before attempting to decode/import
+        raise PayloadEmptyError
+    if not _HAS_PILLOW:  # TODO: Change to new depend error
         raise ImportError("Pillow is required for image support")
+
     from PIL import Image, UnidentifiedImageError
 
     try:
         with Image.open(BytesIO(data)) as img:
             fmt, w, h = img.format, img.width, img.height
     except UnidentifiedImageError:
-        raise ValueError("Invalid or corrupted image data") from None
+        raise ImageDecodeError from None
     if fmt not in _PILLOW_TO_FORMAT:
-        raise ValueError(f"Image format {fmt} unsupported by depo")
+        raise UnsupportedFormatError(fmt)
     return ImageInfo(format=_PILLOW_TO_FORMAT[fmt], width=w, height=h)
