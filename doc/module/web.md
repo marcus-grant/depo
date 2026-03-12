@@ -41,7 +41,7 @@ Shortcode router. Wildcard routes, must register last.
 | Method | Path | Handler | Description |
 |--------|------|---------|-------------|
 | GET | `/{code}` | `item()` | Dispatcher, browser to info, API to raw |
-| GET | `/{code}/info` | `info()` | Dispatcher, delegates to page_info or api_info |
+| GET | `/{code}/info` | `info()` | Dispatcher, delegate page_info or api_info |
 | GET | `/{code}/raw` | `raw()` | Raw content with correct MIME, no negotiation |
 
 Item dispatch (`item()`):
@@ -60,13 +60,6 @@ Page info dispatches to per-type templates:
 - `TextItem` -> `info/text.html` (inline content + metadata)
 - `PicItem` -> `info/pic.html` (image display + metadata)
 - `LinkItem` -> `info/link.html` (clickable URL + metadata)
-- Unknown kind -> 500
-- `NotFoundError` -> 404
-
-Error helpers (local, pending extraction):
-
-- `_response_404(req, code, e)` -> styled 404 page
-- `_response_500(req, detail)` -> 500 with debug context
 
 ### upload.py
 
@@ -75,7 +68,7 @@ Upload router, handlers, and request helpers.
 | Method | Path | Handler | Description |
 |--------|------|---------|-------------|
 | GET | `/upload` | `page_upload()` | Upload form, full page |
-| POST | `/upload` | `upload()` | Dispatcher, HX-Request to hx_upload, else api_upload |
+| POST | `/upload` | `upload()` | Dispatcher, HX to hx_upload else api_upload |
 
 #### Types
 
@@ -177,12 +170,15 @@ Everything served comes from the deployed host — no CDN dependencies.
 
 ## Error Handling
 
-| Error | API Response | Browser Response |
-|-------|-------------|------------------|
-| `ValueError` | 400 plain text | Error partial |
-| `PayloadTooLargeError` | 413 plain text | Error partial (413) |
-| `ImportError` | 501 plain text | Error partial |
-| `NotFoundError` | 404 plain text | Styled 404 page |
-| Unexpected state | — | 500 with debug context |
+Error handling is centralized in `depo.util.errors` with a typed exception
+hierarchy rooted at `DepoError`. All exceptions carry `status`, `message`,
+and `ctx` fields. Route handlers catch `DepoError` broadly using `e.status`
+for response codes.
 
-`PayloadTooLargeError` must be caught before `ValueError` (it inherits from it).
+Response builders live in `depo.web.error`:
+
+- `api_error(e)` — PlainTextResponse with e.status
+- `htmx_error(e)` — kwargs dict for TemplateResponse handlers
+- `browser_error(req, e)` — full-page TemplateResponse
+
+See [errors.md](../design/errors.md) for the full hierarchy and patterns.
