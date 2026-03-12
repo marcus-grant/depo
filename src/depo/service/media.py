@@ -3,7 +3,8 @@
 Heavy media data metadata extraction.
 
 Any heavy soft dependencies for media handling should go here.
-Soft dependency on Pillow — raises ImportError if unavailable.
+Soft dependency on Pillow —
+raises ImportError or MissingDependencyError if unavailable.
 
 Author: Marcus Grant
 Date: 2026-01-23
@@ -14,7 +15,12 @@ from dataclasses import dataclass
 from io import BytesIO
 
 from depo.model.enums import ContentFormat
-from depo.util.errors import ImageDecodeError, PayloadEmptyError, UnsupportedFormatError
+from depo.util.errors import (
+    ImageDecodeError,
+    MissingDependencyError,
+    PayloadEmptyError,
+    UnsupportedFormatError,
+)
 
 # Dynamically import Pillow at module level with flags for testing or deployment
 # Shouldn't attempt to load pillow unless this module is used
@@ -55,15 +61,15 @@ def get_image_info(data: bytes) -> ImageInfo:
         ImageInfo with format, width, height.
 
     Raises:
-        ImportError: If Pillow is not installed.
+        MissingDependencyError: If Pillow is not installed.
         PayloadEmptyError: If data is empty.
         ImageDecodeError: If data cannot be decoded as an image.
         UnsupportedFormatError: If image format is not supported by depo.
     """
     if len(data) <= 0:  # Check data length before attempting to decode/import
         raise PayloadEmptyError
-    if not _HAS_PILLOW:  # TODO: Change to new depend error
-        raise ImportError("Pillow is required for image support")
+    if not _HAS_PILLOW:
+        raise MissingDependencyError("pillow")
 
     from PIL import Image, UnidentifiedImageError
 

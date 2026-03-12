@@ -23,7 +23,7 @@ from depo.util.errors import (
     DepoError,
     PayloadEmptyError,
     PayloadSourceError,
-    ValidationError,
+    UnknownServerError,
 )
 from depo.web.deps import get_orchestrator
 from depo.web.templates import get_templates, is_htmx
@@ -72,10 +72,11 @@ async def hx_upload(
         params = await _parse_form_upload(request)
         result = orch.ingest(**dict(params))  # type: ignore[arg-type]
         kw["context"] = {"code": result.item.code, "created": result.created}
-    except ValidationError as e:
+    except DepoError as e:
         kw |= {"name": errname, "context": {"error": str(e)}}
-    # TODO: ImportError still needs reimplementation
-    # TODO: ClassificationError still needs reimplementation
+    except Exception as e:
+        err = UnknownServerError(e)
+        kw |= {"name": errname, "context": {"error": str(err)}}
     return get_templates().TemplateResponse(**kw)
 
 
@@ -93,9 +94,6 @@ async def api_upload(
         result = await _ingest_upload(file, url, req, orch, req_fmt=req_fmt)
     except DepoError as e:
         return PlainTextResponse(str(e), status_code=e.status)
-    # TODO: Needs merging w/ DepoError subclasses to pull message, status & context
-    except ImportError as e:
-        return PlainTextResponse(str(e), status_code=501)
     return _upload_response(result)
 
 
@@ -197,7 +195,7 @@ async def _ingest_upload(
     req_fmt: ContentFormat | None = None,
 ) -> PersistResult:
     """Parse request and ingest with IngestOrchestrator given.
-    Raises ValueError/ImportError on failure."""
+    Raises some subclass of DepoError on failure."""
     req = None if file is not None or url is not None else req
     params = await _parse_upload(file=file, url=url, request=req)
     return orch.ingest(**dict(params), requested_format=req_fmt)  # type: ignore[arg-type]

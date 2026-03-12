@@ -28,6 +28,49 @@ class DepoError(Exception):
         self.ctx = context
 
 
+# == Server Domain ==
+
+
+class ServerError(DepoError):
+    """Base for server-side errors."""
+
+    status = 500
+    message = "An internal server error occurred."
+
+    def __init__(
+        self,
+        message: str | None = None,
+        context: dict | None = None,
+        status: int | None = None,
+    ):
+        super().__init__(message, context, status)
+
+
+class UnknownServerError(ServerError):
+    """Unknown/unexpected server error, likely a bug."""
+
+    message = "Unknown server error, likely a bug. Please report."
+
+    def __init__(self, exception: Exception | None = None, context: dict | None = None):
+        cls_msg = self.__class__.message
+        msg = f"{cls_msg}: {exception}" if exception else cls_msg
+        super().__init__(msg, context)
+        self.exception = exception
+
+
+class MissingDependencyError(ServerError):
+    """A required dependency is missing or not installed."""
+
+    status = 501
+    message = "A required dependency is missing or not installed."
+
+    def __init__(self, dependency: str | None = None, context: dict | None = None):
+        cls_msg = self.__class__.message
+        msg = f"Missing required dependency '{dependency}'." if dependency else cls_msg
+        super().__init__(msg, context)
+        self.dependency = dependency
+
+
 # == Repo Domain ==
 
 
