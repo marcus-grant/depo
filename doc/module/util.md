@@ -12,15 +12,20 @@ Content hashing and code canonicalization.
 - `canonicalize_code(code: str) -> str`
   - normalize user input for DB lookup
 
+## errors.py
+
+Centralized exception hierarchy rooted at `DepoError`.
+All exceptions carry `status` (HTTP code), `message`, and `ctx` (dict).
+Domain bases: `RepoError`, `ValidationError`, `ClassificationError`, `ServerError`.
+See [errors.md](../design/errors.md) for the full hierarchy and patterns.
+
 ## validate.py
 
 Input validation for ingest pipeline.
-Raises on failure, returns None on success.
+Raises `PayloadSourceError` or `PayloadEmptyError` on invalid payload source.
+Raises `PayloadTooLargeError` if size exceeds maximum.
 
 ```python
 validate_payload(payload_bytes: bytes | None, payload_path: Path | None) -> None
 validate_size(size: int, max_size: int) -> None
 ```
-
-Raises `ValueError` with descriptive message.
-

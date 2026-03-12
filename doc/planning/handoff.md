@@ -131,6 +131,9 @@ note where it's documented and keep the entry here as a reminder.
   visual identity comes from structural choices, not typeface.
 - Replacing static asset stubs may require users to clear browser
   cache. Note in release docs.
+- Catch DepoError broadly in route handlers — covers all typed exceptions
+  via inheritance. Domain base classes need passthrough constructors or
+  subclasses must call DepoError.__init__ directly.
 
 ## Conventions **[static]**
 
