@@ -8,6 +8,8 @@ License: Apache-2.0
 
 from depo.util import errors
 
+# == Base DepoError ==
+
 
 class TestDepoError:
     """Tests for the DepoError base class."""
@@ -24,6 +26,58 @@ class TestDepoError:
         e = errors.DepoError("Test message", {"key": "value"})
         assert str(e) == "Test message"
         assert e.ctx == {"key": "value"}
+
+
+# == Server Domain ==
+
+
+class TestServerError:
+    """Tests for ServerError domain base (500)."""
+
+    def test_defaults(self):
+        err = errors.ServerError
+        assert issubclass(err, errors.DepoError)
+        assert err.status == 500
+        assert "server" in err.message.lower() or "error" in err.message.lower()
+
+
+class TestUnknownServerError:
+    """Tests for UnknownServerError (500)."""
+
+    def test_defaults(self):
+        err = errors.UnknownServerError
+        assert issubclass(err, errors.ServerError)
+        assert err.status == 500
+        for s in ["unknown", "server", "bug"]:
+            assert s in err.message.lower(), f"Expected '{s}' in message"
+
+    def test_with_exception(self):
+        """Accepts exception as first positional arg, includes it in message."""
+        err = RuntimeError("disk full")
+        e = errors.UnknownServerError(err)
+        assert e.status == 500
+        assert "disk full" in str(e)
+        assert e.exception is err
+
+
+# == Repo Domain ==
+
+
+class TestMissingDependencyError:
+    """Tests for MissingDependencyError (501)."""
+
+    def test_defaults(self):
+        err = errors.MissingDependencyError
+        assert issubclass(err, errors.ServerError)
+        assert err.status == 501
+        for s in ["depend", "missing", "install"]:
+            assert s in err.message.lower(), f"Expected '{s}' in message"
+
+    def test_with_dependency(self):
+        e = errors.MissingDependencyError(dependency="Pillow")
+        assert e.dependency == "Pillow"
+        assert "Pillow" in str(e)
+        assert e.status == 501
 
 
 class TestRepoError:

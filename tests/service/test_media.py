@@ -17,6 +17,7 @@ from depo.model.enums import ContentFormat
 from depo.service.media import ImageInfo, get_image_info
 from depo.util.errors import (
     ImageDecodeError,
+    MissingDependencyError,
     PayloadEmptyError,
     UnsupportedFormatError,
 )
@@ -82,11 +83,10 @@ class TestGetImageInfo:
         with pytest.raises(UnsupportedFormatError):
             get_image_info(gen_image("ICO", 16, 16))
 
-    @pytest.mark.skip(reason="MissingDependencyError not yet implemented")
     def test_raises_if_pillow_unavailable(self, monkeypatch):
-        """Raises ImportError if Pillow (PIL) unavailable for import"""
+        """Raises MissingDependencyError if Pillow (PIL) unavailable for import"""
         monkeypatch.setattr("depo.service.media._HAS_PILLOW", False)
-        with pytest.raises(ImportError, match=r"(?i)(require|pillow|image)"):
+        with pytest.raises(MissingDependencyError, match=r"(?i)pillow"):
             get_image_info(b"\x00")
 
     def test_works_with_pillow_roundtrip(self):

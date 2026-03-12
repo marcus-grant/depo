@@ -265,10 +265,10 @@ class TestHtmxUploadError:
         assert "<!-- BEGIN: partials/error.html" in resp.text
 
 
-@pytest.mark.asyncio
 class TestParseUpload:
     """Tests for parse_upload()."""
 
+    @pytest.mark.asyncio
     async def test_multipart_extracts_kwargs(self):
         """Multipart file extracts payload_bytes, filename, declared_mime."""
         file = UploadFile(
@@ -281,12 +281,14 @@ class TestParseUpload:
         assert result["filename"] == "hello.txt"
         assert result["declared_mime"] == "text/plain"
 
+    @pytest.mark.asyncio
     async def test_url_param_extracts_payload_bytes(self):
         """URL query param extracts links to payload_bytes."""
         result = dict(await _parse_upload(file=None, url="http://a.eu", request=None))
         assert result["payload_bytes"] == b"http://a.eu"
         assert result["declared_mime"] is None
 
+    @pytest.mark.asyncio
     async def test_raw_body_extracts_payload(self):
         """Raw body extracts payload_bytes and declared_mime."""
         mock_request = AsyncMock()
@@ -297,10 +299,21 @@ class TestParseUpload:
         assert result["declared_mime"] == "application/octet-stream"
         assert "link_url" not in result
 
+    @pytest.mark.asyncio
     async def test_no_input_raises(self):
         """No file, no url, no body raises ValueError."""
         with pytest.raises(PayloadSourceError, match="file.*url.*request"):
             await _parse_upload(file=None, url=None, request=None)
+
+    def test_missing_dependency_returns_error(self, t_htmx, monkeypatch):
+        """Missing Pillow dependency returns error partial with message."""
+        monkeypatch.setattr("depo.service.media._HAS_PILLOW", False)
+        file = {"file": ("photo.jpg", gen_image("jpeg", 16, 16))}
+        resp = t_htmx.post("/upload", files=file)
+        assert resp.status_code == 200
+        soup = BeautifulSoup(resp.text, "html.parser")
+        assert soup.find("div", class_="upload-error") is not None
+        assert "pillow" in resp.text.lower() or "depend" in resp.text.lower()
 
 
 @pytest.mark.asyncio
