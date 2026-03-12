@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 from depo.model.enums import ContentFormat, ItemKind
 from depo.model.formats import format_for_extension, format_for_mime, kind_for_format
+from depo.util.errors import UnknownClassificationError, UnsupportedFormatError
 
 
 # ======== Classify DTO ========#
@@ -307,10 +308,9 @@ def classify(
             or _from_url_pattern(data)
             or _from_text_content(data)
         )
-    except ValueError as e:
-        raise ValueError(f"Unable to classify: Classification error: {e}") from None
+    except Exception as e:
+        raise UnknownClassificationError(e) from None
     if result is None:
         inputs = requested_format or declared_mime or filename or "data bytes"
-        msg = f"Unable to classify content to a supported format with inputs: {inputs}"
-        raise ValueError(msg)
+        raise UnsupportedFormatError(format=inputs)
     return result

@@ -36,8 +36,6 @@ class RepoError(DepoError):
 
     message = "Repository error occurred."
 
-    ...
-
 
 class NotFoundError(RepoError):
     """Repo Domain error for not found resources."""
@@ -144,3 +142,46 @@ class PayloadSourceError(ValidationError):
             message = f"Provided invalid sources, must provide one of {message}."
         super().__init__(message, context, status or self.status)
         self.sources = sources
+
+
+# == Classification Domain ==
+
+
+class ClassificationError(DepoError):
+    """Base for classification errors."""
+
+    status = 422
+    message = "Error, content could not be classified to a supported format."
+
+
+class UnknownClassificationError(ClassificationError):
+    """Unknown/unexpected error in classification pipeline. Indicates a bug."""
+
+    status = 500
+    message = "Unknown classification error, likely a bug in the pipeline."
+
+    def __init__(self, exception: Exception | None = None, context: dict | None = None):
+        msg = self.__class__.message
+        if exception is not None:
+            msg = f"{self.__class__.message} Error: {exception}"
+        super().__init__(msg, context)
+        self.exception = exception
+
+
+class ImageDecodeError(ClassificationError):
+    """Validation domain error for image decoding failures."""
+
+    message = "Error while decoding image content."
+
+
+class UnsupportedFormatError(ClassificationError):
+    """Validation domain error for unsupported content formats."""
+
+    message = "Classified/Requested format is unsupported by Depo."
+
+    def __init__(self, format: str | None, context: dict | None = None):
+        message = self.__class__.message
+        if format:
+            message = f"Format '{format}' is unsupported by Depo."
+        super().__init__(message or self.__class__.message, context)
+        self.format = format

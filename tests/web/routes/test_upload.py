@@ -77,11 +77,10 @@ class TestUploadText:
         file = {"file": ("0.txt", b"")}
         assert t_client.post("/upload", files=file).status_code == 400
 
-    @pytest.mark.skip(reason="Class error being reimplemented")
     def test_unclassifiable_returns_422(self, t_client):
         """Unclassifiable content returns 400 with message."""
         resp = t_client.post("/upload", files={"file": ("noext", b"\xff\xfe\xfd")})
-        assert resp.status_code == 224
+        assert resp.status_code == 422
         assert len(resp.text) > 0  # error message present
 
 
@@ -94,7 +93,6 @@ class TestUploadImage:
         resp = t_client.post("/upload", files=file)
         _assert_api_upload_created(resp, ItemKind.PICTURE)
 
-    @pytest.mark.skip(reason="Class error being reimplemented")
     def test_corrupt_jpeg_returns_422(self, t_client):
         """JPEG magic bytes without valid image data returns 400."""
         resp = t_client.post("/upload", files={"file": b"\xff\xd8\xff\xe0"})

@@ -15,7 +15,13 @@ from tests.factories import gen_image
 
 from depo.model.enums import ContentFormat, ItemKind, PayloadKind
 from depo.service.ingest import IngestService
-from depo.util.errors import PayloadEmptyError, PayloadSourceError, PayloadTooLargeError
+from depo.util.errors import (
+    ClassificationError,
+    ImageDecodeError,
+    PayloadEmptyError,
+    PayloadSourceError,
+    PayloadTooLargeError,
+)
 from depo.util.shortcode import hash_full_b32
 
 
@@ -120,11 +126,8 @@ class TestIngestServiceClassify:
 
     def test_raises_if_classify_fails(self):
         """Raises ValueError if content cannot be classified."""
-        with pytest.raises(ValueError, match=r"(?i)(classify|unsupport)"):
-            IngestService().build_plan(
-                payload_bytes=b"\xff\xfe\xfd",
-                filename="no_extension",
-            )
+        with pytest.raises(ClassificationError, match=r"(?i)(classify|unsupport)"):
+            IngestService().build_plan(payload_bytes=b"\xff\xfe\xfd", filename="no-ext")
 
 
 class TestIngestServiceImage:
@@ -145,8 +148,10 @@ class TestIngestServiceImage:
 
     def test_raises_if_image_data_corrupt(self):
         """Raises ValueError if image metadata extraction fails"""
-        # Prefer the JPEG EXIF magic bytes since EXIF expected
-        with pytest.raises(ValueError, match=r"(?i)(invalid|corrupt)"):
+
+        with pytest.raises(
+            ImageDecodeError
+        ):  # Prefer JPEGEXIF magic bytes, expect EXIF
             IngestService().build_plan(payload_bytes=b"\xff\xd8\xff\xe1")
 
 
