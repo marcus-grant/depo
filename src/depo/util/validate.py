@@ -12,6 +12,8 @@ License: Apache-2.0
 
 from pathlib import Path
 
+from depo.util.errors import PayloadEmptyError, PayloadSourceError, PayloadTooLargeError
+
 
 # TODO: Consider deleting these because they dont DRY anything
 def validate_payload(
@@ -28,7 +30,7 @@ def validate_payload(
         ValueError: If both are None or both are provided.
     """
     if (payload_bytes is None) == (payload_path is None):
-        raise ValueError("Must provide exactly one of either payload bytes or path")
+        raise PayloadSourceError(sources=["payload_bytes", "payload_path"])
 
 
 def validate_size(size: int, max_size: int) -> None:
@@ -42,6 +44,6 @@ def validate_size(size: int, max_size: int) -> None:
         ValueError: If size is negative or exceeds max_size.
     """
     if size > max_size:
-        raise ValueError(f"Size ({size}) exceeds max_size ({max_size})")
+        raise PayloadTooLargeError(size=size, max_size=max_size)
     if size <= 0:
-        raise ValueError("Size cannot be negative or empty (size <= 0)")
+        raise PayloadEmptyError

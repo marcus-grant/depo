@@ -15,6 +15,7 @@ from tests.factories import gen_image
 
 from depo.model.enums import ContentFormat, ItemKind, PayloadKind
 from depo.service.ingest import IngestService
+from depo.util.errors import PayloadEmptyError, PayloadSourceError, PayloadTooLargeError
 from depo.util.shortcode import hash_full_b32
 
 
@@ -36,44 +37,39 @@ class TestIngestServiceInit:
         assert result.max_url_len == max_url
 
 
-@pytest.mark.skip(reason="PayloadTooLargeError being reimplemented")
 class TestIngestServiceValidation:
     """Tests IngestService.build_plan input validation."""
 
-    def test_if_no_payload(self):
-        """Raises ValueError if both payload_{bytes,path} are empty"""
-        with pytest.raises(ValueError, match=r"(?i)one of.*payload"):
-            ingest = IngestService()
+    def test_if_invalid_payload_source(self):
+        """Raises PayloadSourceError if neither or both payload_{bytes,path} given."""
+        ingest = IngestService()
+        with pytest.raises(PayloadSourceError, match=r"payload_bytes.*payload_path"):
             ingest.build_plan()
-
-    def test_if_both_payload_given(self):
-        """Raises ValueError if both payload_{bytes,path} are given"""
-        with pytest.raises(ValueError, match=r"(?i)one of.*payload"):
-            ingest = IngestService()
+        with pytest.raises(PayloadSourceError, match=r"payload_bytes.*payload_path"):
             ingest.build_plan(payload_bytes=b"\xff", payload_path=Path("/tmp"))
 
     def test_if_payload_file_max_size_exceeded(self, tmp_path):
-        """Raises ValueError if max_size_bytes is exceeded by payload_path"""
+        """Raises PayloadTooLargeError if max_size_bytes is exceeded by payload_path"""
         big_file = tmp_path / "big.txt"
         big_file.write_bytes(b"x" * 1001)
         ingest = IngestService(max_size_bytes=1000)
-        with pytest.raises(ValueError, match=r"1001 bytes.*exceeds.*1000"):
+        with pytest.raises(PayloadTooLargeError, match=r"1001.*1000"):
             ingest.build_plan(payload_path=big_file)
 
     def test_if_payload_bytes_max_size_exceeded(self):
-        """Raises ValueError if max_size_bytes is exceeded by payload_bytes"""
+        """Raises PayloadTooLargeError if max_size_bytes is exceeded by payload_bytes"""
         ingest = IngestService(max_size_bytes=1000)
-        with pytest.raises(ValueError, match=r"1001 bytes.*exceeds.*1000"):
+        with pytest.raises(PayloadTooLargeError, match=r"1001.*1000"):
             ingest.build_plan(payload_bytes=(b"\xff" * 1001))
 
     def test_if_payload_empty(self, tmp_path):
-        """Raises ValueError if max_size_bytes is exceeded by payload_bytes"""
+        """Raises PayloadEmptyError if max_size_bytes is exceeded by payload_bytes"""
         ingest = IngestService(max_size_bytes=1000)
         empty_file = tmp_path / "empty.txt"
         empty_file.write_bytes(b"")
-        with pytest.raises(ValueError, match=r"(?i)(empty|zero)"):
+        with pytest.raises(PayloadEmptyError):
             ingest.build_plan(payload_path=empty_file)
-        with pytest.raises(ValueError, match=r"(?i)(empty|zero)"):
+        with pytest.raises(PayloadEmptyError):
             ingest.build_plan(payload_bytes=b"")
 
 
@@ -165,8 +161,8 @@ class TestIngestServiceLink:
         assert plan.hash_full == hash_full_b32(bytes("http://a.eu", encoding="utf-8"))
 
     def test_raises_if_url_exceeds_max_url_len(self):
-        """Raises ValueError if classified URL payload exceeds max_url_len."""
-        with pytest.raises(ValueError, match=r"(?i)url.*(siz|len).*exceed"):
+        """Raises PayloadTooLargeError if classified URL payload exceeds max_url_len."""
+        with pytest.raises(PayloadTooLargeError, match=r"URL.*11.*4"):
             IngestService(max_url_len=4).build_plan(payload_bytes=b"http://a.eu")
 
 

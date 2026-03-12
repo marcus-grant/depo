@@ -6,6 +6,7 @@ Created: 2026-03-10
 License: Apache-2.0
 """
 
+from typing import Literal
 
 # == Base ==
 
@@ -17,12 +18,13 @@ class DepoError(Exception):
     message = "Unexpected error occurred, report to https://github.com/marcus-grant/depo/issues"
 
     def __init__(
-        self, message: str | None = None, context: dict | None = None, status: int = 500
+        self,
+        message: str | None = None,
+        context: dict | None = None,
+        status: int | None = None,
     ):
-        if message is None:
-            message = "Unexpected error occurred, contact developer."
-        super().__init__(message)
-        self.status = status
+        super().__init__(message or self.__class__.message)
+        self.status = status if status is not None else self.__class__.status
         self.ctx = context
 
 
@@ -86,14 +88,59 @@ class CodeCollisionError(RepoError):
         self.hash_full = hash_full
 
 
-# TODO: Needs to be validationerrror
-class PayloadTooLargeError:
-    """Payload exceeds maximum allowed size."""
+# == Validation Domain ==
+
+
+class ValidationError(DepoError):
+    """Base for validation errors."""
+
+    status = 400
+    message = "Validation error occurred."
+
+
+class PayloadTooLargeError(ValidationError):
+    """Validation domain error for payloads being too large."""
 
     status = 413
+    message = "Payload size exceeds maximum."
 
-    def __init__(self, *args, **kwargs):
-        raise NotImplementedError(
-            "PayloadTooLargeError is being reimplemented with ValidationError."
-            "This class should not be used."
-        )
+    def __init__(
+        self,
+        size: int,
+        max_size: int,
+        kind: Literal["Payload", "URL"] = "Payload",
+        status: int | None = None,
+        context: dict | None = None,
+    ):
+        message = f"{kind} of {size} bytes exceeds max size of {max_size} bytes."
+        super().__init__(message, context, status or self.status)
+        self.size = size
+        self.max_size = max_size
+        self.kind = kind
+
+
+class PayloadEmptyError(ValidationError):
+    """Validation domain error for empty payloads."""
+
+    status = 400
+    message = "Payload is empty."
+
+
+class PayloadSourceError(ValidationError):
+    """Validation domain error for invalid payload sources."""
+
+    status = 400
+    message = "Provided invalid payload sources."
+
+    def __init__(
+        self,
+        sources: list[str] | None = None,
+        status: int | None = None,
+        context: dict | None = None,
+    ):
+        message = self.__class__.message
+        if sources:
+            message = "these sources: " + ", ".join(sources)
+            message = f"Provided invalid sources, must provide one of {message}."
+        super().__init__(message, context, status or self.status)
+        self.sources = sources

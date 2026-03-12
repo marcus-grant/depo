@@ -19,12 +19,16 @@ from starlette.datastructures import UploadFile as StarletteUploadFile
 from depo.model.enums import ContentFormat
 from depo.model.item import LinkItem
 from depo.service.orchestrator import IngestOrchestrator, PersistResult
-from depo.util.errors import PayloadTooLargeError
+from depo.util.errors import (
+    DepoError,
+    PayloadEmptyError,
+    PayloadSourceError,
+    ValidationError,
+)
 from depo.web.deps import get_orchestrator
 from depo.web.templates import get_templates, is_htmx
 
 upload_router = APIRouter()
-_templates = get_templates()  # Preload templates for route handlers
 
 
 @upload_router.get("/upload")
@@ -57,32 +61,22 @@ async def upload(
 
 
 async def hx_upload(
-    req: Request,
+    request: Request,
     orch: IngestOrchestrator = Depends(get_orchestrator),
 ) -> HTMLResponse:
     """Browser form upload: textarea content + format override."""
-    templates = get_templates()
+    # Success case kwargs - update for failures in except blocks
+    kw = {"request": request, "name": "partials/success.html", "status_code": 200}
+    errname = "partials/error.html"
     try:
-        params = await _parse_form_upload(req)
+        params = await _parse_form_upload(request)
         result = orch.ingest(**dict(params))  # type: ignore[arg-type]
-    except PayloadTooLargeError as e:
-        return _templates.TemplateResponse(
-            request=req,
-            name="partials/error.html",
-            context={"error": str(e)},
-            status_code=413,
-        )
-    except (ValueError, ImportError) as e:
-        return _templates.TemplateResponse(
-            request=req,
-            name="partials/error.html",
-            context={"error": str(e)},
-        )
-    return templates.TemplateResponse(
-        request=req,
-        name="partials/success.html",
-        context={"code": result.item.code, "created": result.created},
-    )
+        kw["context"] = {"code": result.item.code, "created": result.created}
+    except ValidationError as e:
+        kw |= {"name": errname, "context": {"error": str(e)}}
+    # TODO: ImportError still needs reimplementation
+    # TODO: ClassificationError still needs reimplementation
+    return get_templates().TemplateResponse(**kw)
 
 
 async def api_upload(
@@ -97,10 +91,9 @@ async def api_upload(
     req_fmt = ContentFormat(req_fmt_str) if req_fmt_str else None
     try:
         result = await _ingest_upload(file, url, req, orch, req_fmt=req_fmt)
-    except PayloadTooLargeError as e:
-        return PlainTextResponse(str(e), status_code=413)
-    except ValueError as e:
-        return PlainTextResponse(str(e), status_code=400)
+    except DepoError as e:
+        return PlainTextResponse(str(e), status_code=e.status)
+    # TODO: Needs merging with other DepoError subclasses to pull out message, status and context
     except ImportError as e:
         return PlainTextResponse(str(e), status_code=501)
     return _upload_response(result)
@@ -141,24 +134,16 @@ async def _parse_upload(
 ) -> UploadParams:
     """Extract orchestrator.ingest kwargs from an HTTP request."""
     if request is not None:  # The URL endpoint has path/query meta to use
-        body = await request.body()
-        return UploadRawBodyParams(
-            payload_bytes=body,
-            declared_mime=str(request.headers.get("content-type")),
-        )
+        body, mime = await request.body(), str(request.headers.get("content-type"))
+        return UploadRawBodyParams(payload_bytes=body, declared_mime=mime)
     if file is not None:
-        return UploadMultipartParams(
-            payload_bytes=(await file.read()),
-            filename=(str(file.filename)),
-            declared_mime=(str(file.content_type)),
-        )
+        p, f, m = await file.read(), str(file.filename), str(file.content_type)
+        kwargs = {"payload_bytes": p, "filename": f, "declared_mime": m}
+        return UploadMultipartParams(**kwargs)
     if url is not None:
         kwargs = {"payload_bytes": url.encode("utf-8"), "declared_mime": None}
         return UploadRawBodyParams(**kwargs)
-    raise ValueError(
-        "parse_upload called with no input: file, url, and request are all None. "
-        "This is a routing bug — at least one must be provided."
-    )
+    raise PayloadSourceError(sources=["file", "url", "request"])
 
 
 async def _parse_form_upload(
@@ -177,7 +162,7 @@ async def _parse_form_upload(
             requested_format=ContentFormat(fmt) if fmt else None,
         )
     if not content:
-        raise ValueError("No content provided.")
+        raise PayloadEmptyError
     return UploadFormParams(
         payload_bytes=content.encode("utf-8"),
         declared_mime="text/plain",

@@ -9,9 +9,6 @@ License: Apache-2.0
 import sqlite3
 
 import pytest
-from tests.factories.db import insert_link_item, insert_pic_item, insert_text_item
-from tests.factories.models import make_write_plan
-from tests.helpers import assert_column
 
 from depo.model.enums import ContentFormat, ItemKind, Visibility
 from depo.model.item import LinkItem, PicItem, TextItem
@@ -23,6 +20,9 @@ from depo.repo.sqlite import (
     _row_to_text_item,
     init_db,
 )
+from tests.factories.db import insert_link_item, insert_pic_item, insert_text_item
+from tests.factories.models import make_write_plan
+from tests.helpers import assert_column
 
 
 class TestInitDb:

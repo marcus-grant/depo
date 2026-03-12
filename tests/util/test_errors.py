@@ -6,8 +6,6 @@ Created: 2026-03-10
 License: Apache-2.0
 """
 
-import pytest
-
 from depo.util import errors
 
 
@@ -74,22 +72,59 @@ class TestCodeCollisionError:
 
 
 class TestValidationError:
-    """Tests for the ValidationError domain base."""
+    """Tests for ValidationError domain base (400)."""
 
-    # should inherit from DepoError
-    # should have status = 500
-    ...
+    def test_defaults(self):
+        assert issubclass(errors.ValidationError, errors.DepoError)
+        assert errors.ValidationError.status == 400
+        assert errors.ValidationError.message == "Validation error occurred."
 
 
 class TestPayloadTooLargeError:
-    """Tests for PayloadTooLargeError."""
+    """Tests for PayloadTooLargeError (413)."""
 
-    # should inherit from ValidationError
-    # should have status = 413
-    ...
+    def test_defaults(self):
+        """Class-level defaults: inherits ValidationError, status 413."""
+        assert issubclass(errors.PayloadTooLargeError, errors.ValidationError)
+        assert errors.PayloadTooLargeError.status == 413
+        assert errors.PayloadTooLargeError.message == "Payload size exceeds maximum."
+
+    def test_with_size_and_max_size(self):
+        """Constructor accepts size and max_size, message reflects them."""
+        e = errors.PayloadTooLargeError(2048, 1024, status=420)
+        assert str(e) == "Payload of 2048 bytes exceeds max size of 1024 bytes."
+        assert e.status == 420
+
+    def test_with_limit_kind(self):
+        """Optional kind appears in message."""
+        e = errors.PayloadTooLargeError(11, 4, kind="URL")
+        assert "11" in str(e)
+        assert "4" in str(e)
+        assert "url" in str(e).lower()
 
 
-class TestBadRequestError:
-    """Tests for BadRequestError."""
+class TestPayloadEmptyError:
+    """Tests for PayloadEmptyError (400)."""
 
-    # should in
+    def test_defaults(self):
+        assert issubclass(errors.PayloadEmptyError, errors.ValidationError)
+        assert errors.PayloadEmptyError.status == 400
+        assert errors.PayloadEmptyError.message == "Payload is empty."
+
+
+class TestPayloadSourceError:
+    """Tests for PayloadSourceError (400)."""
+
+    def test_defaults(self):
+        """Inherits ValidationError, status 400, default message."""
+        assert issubclass(errors.PayloadSourceError, errors.ValidationError)
+        assert errors.PayloadSourceError.status == 400
+        assert errors.PayloadSourceError.message == "Provided invalid payload sources."
+
+    def test_with_sources(self):
+        """Stores sources list and generates message from it."""
+        e = errors.PayloadSourceError(sources=["payload_bytes", "payload_path"])
+        assert e.sources == ["payload_bytes", "payload_path"]
+        assert "payload_bytes" in str(e)
+        assert "payload_path" in str(e)
+        assert "one of" in str(e).lower()

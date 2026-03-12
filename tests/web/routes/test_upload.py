@@ -18,6 +18,7 @@ from starlette.datastructures import Headers
 
 from depo.model.enums import ContentFormat
 from depo.model.formats import ItemKind
+from depo.util.errors import PayloadEmptyError, PayloadSourceError
 from depo.util.shortcode import _CROCKFORD32
 from depo.web.routes.upload import _parse_form_upload, _parse_upload, _upload_response
 from tests.factories import HEADER_HTMX, gen_image, make_persist_result
@@ -63,7 +64,6 @@ class TestUploadDispatch:
         assert "X-Depo-Code" in resp.headers
 
 
-@pytest.mark.skip(reason="PayloadTooLargeError being reimplemented")
 class TestUploadText:
     """Tests for text content upload."""
 
@@ -77,14 +77,14 @@ class TestUploadText:
         file = {"file": ("0.txt", b"")}
         assert t_client.post("/upload", files=file).status_code == 400
 
-    def test_unclassifiable_returns_400(self, t_client):
+    @pytest.mark.skip(reason="Class error being reimplemented")
+    def test_unclassifiable_returns_422(self, t_client):
         """Unclassifiable content returns 400 with message."""
         resp = t_client.post("/upload", files={"file": ("noext", b"\xff\xfe\xfd")})
-        assert resp.status_code == 400
+        assert resp.status_code == 224
         assert len(resp.text) > 0  # error message present
 
 
-@pytest.mark.skip(reason="PayloadTooLargeError being reimplemented")
 class TestUploadImage:
     """Tests for image content upload."""
 
@@ -94,10 +94,11 @@ class TestUploadImage:
         resp = t_client.post("/upload", files=file)
         _assert_api_upload_created(resp, ItemKind.PICTURE)
 
-    def test_corrupt_jpeg_returns_400(self, t_client):
+    @pytest.mark.skip(reason="Class error being reimplemented")
+    def test_corrupt_jpeg_returns_422(self, t_client):
         """JPEG magic bytes without valid image data returns 400."""
         resp = t_client.post("/upload", files={"file": b"\xff\xd8\xff\xe0"})
-        assert resp.status_code == 400
+        assert resp.status_code == 422
         assert len(resp.text) > 0
 
 
@@ -244,7 +245,6 @@ class TestHtmxUploadSuccess:
         assert code is not None
 
 
-@pytest.mark.skip(reason="PayloadTooLargeError being reimplemented")
 class TestHtmxUploadError:
     """POST /upload with HX-Request returns error partial on failure."""
 
@@ -258,7 +258,7 @@ class TestHtmxUploadError:
     def test_error_contains_message(self, t_htmx):
         """Error partial includes a descriptive error message."""
         resp = t_htmx.post("/upload", data={"content": "", "format": ""})
-        assert "No content provided" in resp.text
+        assert all(s in resp.text.lower() for s in ["empty", "payload"])
 
     def test_error_is_fragment(self, t_htmx):
         """Error partial is not wrapped in base template."""
@@ -301,7 +301,7 @@ class TestParseUpload:
 
     async def test_no_input_raises(self):
         """No file, no url, no body raises ValueError."""
-        with pytest.raises(ValueError, match="routing bug"):
+        with pytest.raises(PayloadSourceError, match="file.*url.*request"):
             await _parse_upload(file=None, url=None, request=None)
 
 
@@ -352,7 +352,7 @@ class TestParseFormUpload:
     @pytest.mark.parametrize("content", ["", "   "], ids=["empty", "whitespace"])
     async def test_empty_content_raises(self, content):
         """Empty or whitespace-only textarea raises ValueError."""
-        with pytest.raises(ValueError, match="No content provided"):
+        with pytest.raises(PayloadEmptyError):
             await self._test_fn(content, "")
 
     async def test_file_extracts_fields(self):
@@ -369,7 +369,7 @@ class TestParseFormUpload:
 
     async def test_empty_file_raises(self):
         """Empty file raises ValueError."""
-        with pytest.raises(ValueError, match="No content provided"):
+        with pytest.raises(PayloadEmptyError):
             await self._file_fn(data=b"")
 
 
