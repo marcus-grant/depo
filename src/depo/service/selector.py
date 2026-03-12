@@ -13,9 +13,9 @@ License: Apache-2.0
 from typing import BinaryIO
 
 from depo.model.item import LinkItem, PicItem, TextItem
-from depo.repo.errors import NotFoundError
 from depo.repo.sqlite import SqliteRepository
 from depo.storage.protocol import StorageBackend
+from depo.util.errors import NotFoundError
 
 
 def get_item(repo: SqliteRepository, code: str) -> TextItem | PicItem | LinkItem:

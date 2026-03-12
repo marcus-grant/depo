@@ -17,9 +17,9 @@ from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 import depo.service.selector as selector
 from depo.model.formats import extension_for_format, mime_for_format
 from depo.model.item import LinkItem, PicItem, TextItem
-from depo.repo.errors import NotFoundError
 from depo.repo.sqlite import SqliteRepository
 from depo.storage.protocol import StorageBackend
+from depo.util.errors import NotFoundError
 from depo.web.deps import get_repo, get_storage
 from depo.web.negotiate import wants_html
 from depo.web.templates import get_templates
@@ -63,7 +63,7 @@ def _get_item_or_404(
     try:
         item = selector.get_item(repo, code)
     except NotFoundError as e:
-        return PlainTextResponse(content=str(e), status_code=404)
+        return PlainTextResponse(content=str(e), status_code=e.status)
     return item
 
 
@@ -79,7 +79,6 @@ def _serve_item_content(item: TextItem | PicItem, store: StorageBackend) -> Resp
     if isinstance(item, PicItem):
         mime = mime_for_format(item.format)
         return Response(content=data.read(), media_type=mime)
-    return PlainTextResponse("Unexpected item type", status_code=500)  # pyright: ignore
 
 
 @shortcode_router.get("/{code}.{ext}")

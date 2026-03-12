@@ -89,3 +89,6 @@ IngestOrchestrator coordinates Repository and StorageBackend as siblings.
 
 - [Ingest](./ingest.md)
   - Write pipeline, classification, orchestration
+
+- [Error Handling](./errors.md)
+  - Exception Hierarchy, domain bases, and web response builder patterns

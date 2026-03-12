@@ -12,7 +12,7 @@ from importlib import resources
 from depo.model.enums import ContentFormat, ItemKind, Visibility
 from depo.model.item import LinkItem, PicItem, TextItem
 from depo.model.write_plan import WritePlan
-from depo.repo.errors import CodeCollisionError
+from depo.util.errors import CodeCollisionError
 
 
 def init_db(conn: sqlite3.Connection) -> None:
@@ -263,7 +263,7 @@ class SqliteRepository:
                 )
             except sqlite3.IntegrityError as e:
                 if "UNIQUE" in e.args[0]:
-                    raise CodeCollisionError(f"Code collision on insert: {code}") from e
+                    raise CodeCollisionError(code=code, hash_full=plan.hash_full) from e
 
             # Next handle the subtype table insertion based on ItemKind
             if plan.kind == ItemKind.TEXT:

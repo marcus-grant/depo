@@ -34,7 +34,7 @@ pythonpath = ["src", "."]
 
 
 [tool.pyright]
-include = ["src"]
+include = ["src", "tests"]
 venvPath = "."
 venv = ".venv"
 

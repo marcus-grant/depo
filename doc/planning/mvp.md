@@ -30,32 +30,30 @@ service, repo, and storage. Dedupe by content hash.
 
 Ordered by dependency. Each heading is roughly one PR.
 
-### Browser UI and styling
+### Error handling (next PR)
 
-
-### Error handling
-
-Centralize error handling after routes and pipeline have stabilized.
-
-- Expand `util/errors.py` with specific exception types for clear status code
-  mapping (400 vs 413 vs 422). `PayloadTooLargeError` is the starting pattern.
-- Refactor scattered `ValueError` raises with inline strings into typed exceptions
-- Test `ImportError` path when Pillow is missing (currently uncaught 501)
+- For the rest of these MAKE SURE to consider how template responses might need redesign or markup changes and how that affects scope.
+  - Might need significant deferrals if so, so plan where to put it PR wise
+  - Refactor upload route handlers to use `web/error.py` builders
 - Improve the 500 fallback for unexpected item types in `info_page`
 - Plan logging architecture: structured logging, request IDs, error tracking
-- Extract validation logic from `build_plan` into a validation module.
-  - Validators raise typed exceptions, `build_plan` lets them bubble up.
-  - Pairs naturally with the typed exception refactor above.
-- Extract error response helpers (_response_404, _response_500) from
-  shortcode.py into shared error response module
-- Centralize standard error response builders alongside typed exceptions
+- Extract validation logic from `build_plan` into a validation module
+  - Validators raise typed exceptions, `build_plan` lets them bubble up
 - Investigate LinkItem format field gap (isinstance workaround in
-  _upload_response), consider adding format to base Item or LinkItem
-- Consider initial logging functionality and how to tie it into:
+  `_upload_response`), consider adding format to base Item or LinkItem
+- Consider initial logging functionality:
   - Centralized error handling
-  - The web server in use (e.g. middleware for request IDs)
+  - Middleware for request IDs
   - Rich output formatting
 - How to use MIME for responses
+- Review `shortcode.py` for remaining typed exception opportunities
+  - Extract `_response_404`, `_response_500`, `_get_item_or_404` helpers
+  - Add `ExtensionMismatchError` (404) for extensioned URL contract violations
+  - Add typed error for LinkItem raw content requests
+- Add browser error templates for 400, 409, 413, 422 status codes
+- Add `FormatMismatchError(ClassificationError)` when classification endpoint lands
+- Improve bug report UX for `UnknownClassificationError` and `UnknownServerError`
+- `StorageError` domain base for filesystem and remote storage backends
 
 ### Config and limits
 
@@ -80,43 +78,47 @@ Minimal auth to prevent open uploads on the public internet.
 - `/upload` requires auth
 - `uid=0` superuser convention continues until user table exists
 
-### Styling Refinement Pass
+### Global Chrome & Layout Realignment (nav / main / footer / base.html)
 
-- These next 2 might be better in final preMVP manual test/visual refinement tsk
-  - House cleaning to include:
-    - Split template tests from test_upload.py into test_upload_templates.py
-  - Rename .titlebar-inner to .page-column (or similar): used as a
-    generic layout column wrapper in nav and footer but named after
-    a nav-specific concept; rename for clarity post-MVP
-- Success state redesign: replace full-width banner with calm inline
-  state near the reference; small label with success hue on text/border
-  only; primary action is copy reference; no colored background fill
-- Focus indication primitive: consistent focus style (thick outline or
-  inset border) that works in grayscale; color is additive only, not
-  load-bearing; applies globally to all interactive elements
-- Spacing token cleanup: define a single vertical rhythm scale
-  (e.g. 0.5/1/1.5/2rem steps); replace ad-hoc micro-gaps throughout;
-  audit all padding/margin values for consistency
+**Goal:** Make the overall page shell feel like a single calm system surface.
+Prefer structural honesty (borders, spacing, rhythm) over “window/dialog” cosplay.
+Ensure all hierarchy works in pure grayscale; color remains semantic only.
 
->**NOTE:** Shortcode truncation: deferred;
->references are primary objects so hiding characters is risky;
->if overflow occurs in practice, prefer overflow-wrap:
->anywhere over ellipsis; JS prefix+suffix logic is out of scope pre-MVP
+#### Styling Refinement Pass (deferred from ft/visual-refinement)
 
-- Info page header row: merge shortcode and action row into single
-  flex row; shortcode left, record actions right; wrap on narrow
-  viewports
-- View Raw anchor button height: border thickness insufficient to
-  match adjacent button height; fix in final visual refinement pass
-- Reorganize depo.css into logical sections: tokens, base elements,
-  typography, page shell, structural utilities, components,
-  content primitives, upload components
-- Rename .titlebar-inner to .page-column (or similar); currently
-  reused as generic layout column wrapper in nav and footer
-- Upload page window width: too narrow at --depo-measure; needs
-  wider working surface; investigate Pico article/main constraints
-- Convert info page article.window to section.window; article
-  implies self-contained distributable content which is incorrect
+- Merge info header row
+- Fix View Raw button height
+- Resolve upload page width (too narrow despite `main--wide`)
+- Replace `article` with `section` on info page
+- Refactor upload route handlers to use `web/error.py` builders
+
+#### Interaction semantics stay semantic
+
+- Keep warm/cool meaning invariant across the shell:
+  - cool = focus/state
+  - warm = attention/interruption
+  - red = failure only
+- Do not use accent color to “decorate” global chrome.
+
+#### Primitive audit (enforce allowed tools)
+
+- Allowed:
+  - spacing,
+  - typography (mono for identifiers),
+  - weight,
+  - sizing steps,
+  - hard borders,
+  - optional dither separators.
+- Disallowed by default:
+  - blur shadows, gradients, large colored surfaces, decorative textures.
+- If a new visual device is introduced
+  - it must justify itself as structure (not vibe).
+
+#### HTMX compatibility (no layout surprises)
+
+- Shell (`header/main/footer`) should remain stable across HTMX swaps.
+- Swaps should target interior regions only;
+  - avoid global reflow by keeping consistent container widths/padding in `base.html`.
 
 ### Manual Testing
 

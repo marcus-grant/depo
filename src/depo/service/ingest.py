@@ -17,7 +17,7 @@ from depo.model.enums import ContentFormat, ItemKind, PayloadKind
 from depo.model.write_plan import WritePlan
 from depo.service.classify import classify
 from depo.service.media import get_image_info
-from depo.util.errors import PayloadTooLargeError
+from depo.util.errors import PayloadEmptyError, PayloadSourceError, PayloadTooLargeError
 from depo.util.shortcode import hash_full_b32
 
 
@@ -72,7 +72,7 @@ class IngestService:
         # Validate source data
         # TODO: Refactor: Validation should be its own module
         if sum([payload_bytes is not None, payload_path is not None]) != 1:
-            raise ValueError("Expected one of payload_bytes or payload_path.")
+            raise PayloadSourceError(sources=["payload_bytes", "payload_path"])
 
         # Determine PayloadKind and read data if needed
         data: bytes
@@ -87,10 +87,9 @@ class IngestService:
         # Validate payload size
         size = len(data)
         if size > self.max_size_bytes:
-            msg = f"Payload size {size} bytes exceeds limit {self.max_size_bytes}"
-            raise PayloadTooLargeError(msg)
+            raise PayloadTooLargeError(size, self.max_size_bytes)
         if size <= 0:
-            raise ValueError("Payload is empty")
+            raise PayloadEmptyError
 
         # If here - We're only dealing with a payload, classify it
         content_class = classify(
@@ -103,7 +102,7 @@ class IngestService:
         # For some content we need to validate AFTER classification
         if content_class.kind == ItemKind.LINK:  # If content is a link/url...
             if size > self.max_url_len:  # Validate URL length
-                raise ValueError(f"URL len {size} exceeds limit {self.max_url_len}")
+                raise PayloadTooLargeError(size, self.max_url_len, kind="URL")
 
         # If ItemKind.PICTURE - Extract Image metadata & verify image data
         width, height = None, None
