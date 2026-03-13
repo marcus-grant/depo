@@ -30,28 +30,38 @@ service, repo, and storage. Dedupe by content hash.
 
 Ordered by dependency. Each heading is roughly one PR.
 
-### Error handling (next PR)
+### Error surfaces (ref/error-surfaces)
 
-- For the rest of these MAKE SURE to consider how template responses might need redesign or markup changes and how that affects scope.
-  - Might need significant deferrals if so, so plan where to put it PR wise
-  - Refactor upload route handlers to use `web/error.py` builders
-- Improve the 500 fallback for unexpected item types in `info_page`
-- Plan logging architecture: structured logging, request IDs, error tracking
+- Add `ExtensionMismatchError(NotFoundError)` and
+  `LinkRawNotSupportedError(NotFoundError)` to `util/errors.py`
+- Collapse `errors/404.html` and `errors/500.html` into `errors/page.html`
+  - Receives `{"error": e, "request": req}`
+  - Branches on `error.status >= 500` for debug block
+- Replace `partials/error.html` with `errors/partial.html`
+  - Receives `{"error": e, "role": "alert"}`
+  - Uses role as CSS modifier class and ARIA attribute
+- Update `browser_error(req, e)` to render `errors/page.html`
+- Update `htmx_error(e, role="alert")` to render `errors/partial.html`
+- Drop `_response_404`, `_response_500`, `_get_item_or_404` from `shortcode.py`
+- Thin all route handlers: raise typed exceptions, catch `DepoError`,
+  delegate to builders
+- Fix `page_info` unexpected item type fallback to raise instead of
+  calling local helper
+- Refactor upload route handlers to use `web/error.py` builders
+
+### Error handling (deferred)
+
+- Plan logging architecture: structured logging, request IDs, middleware
 - Extract validation logic from `build_plan` into a validation module
   - Validators raise typed exceptions, `build_plan` lets them bubble up
 - Investigate LinkItem format field gap (isinstance workaround in
-  `_upload_response`), consider adding format to base Item or LinkItem
+  `_upload_response`)
 - Consider initial logging functionality:
   - Centralized error handling
   - Middleware for request IDs
   - Rich output formatting
-- How to use MIME for responses
-- Review `shortcode.py` for remaining typed exception opportunities
-  - Extract `_response_404`, `_response_500`, `_get_item_or_404` helpers
-  - Add `ExtensionMismatchError` (404) for extensioned URL contract violations
-  - Add typed error for LinkItem raw content requests
-- Add browser error templates for 400, 409, 413, 422 status codes
-- Add `FormatMismatchError(ClassificationError)` when classification endpoint lands
+- MIME response handling review
+- `FormatMismatchError(ClassificationError)` when classification endpoint lands
 - Improve bug report UX for `UnknownClassificationError` and `UnknownServerError`
 - `StorageError` domain base for filesystem and remote storage backends
 
@@ -90,7 +100,7 @@ Ensure all hierarchy works in pure grayscale; color remains semantic only.
 - Fix View Raw button height
 - Resolve upload page width (too narrow despite `main--wide`)
 - Replace `article` with `section` on info page
-- Refactor upload route handlers to use `web/error.py` builders
+
 
 #### Interaction semantics stay semantic
 
