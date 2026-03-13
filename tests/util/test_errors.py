@@ -89,24 +89,6 @@ class TestRepoError:
         assert errors.RepoError.status == 500
 
 
-class TestNotFoundError:
-    """Tests for NotFoundError (404)."""
-
-    def test_defaults(self):
-        """Class-level defaults: inherits RepoError, status 404, resource 'Item'."""
-        assert issubclass(errors.NotFoundError, errors.RepoError)
-        assert errors.NotFoundError.status == 404
-        assert errors.NotFoundError.resource == "Item"
-
-    def test_with_id_and_resource(self):
-        """Constructor stores id, resource, status, & context; message reflects them."""
-        e = errors.NotFoundError("01234567", "Tag", status=420)
-        assert e.status == 420
-        assert e.id == "01234567"
-        assert e.resource == "Tag"
-        assert str(e) == "Tag with ID 01234567 not found."
-
-
 class TestCodeCollisionError:
     """Tests for CodeCollisionError."""
 
@@ -123,6 +105,24 @@ class TestCodeCollisionError:
         assert e.status == 420
         assert e.code == "C0DE1234"
         assert e.hash_full == "HASH6789"
+
+
+class TestNotFoundError:
+    """Tests for NotFoundError (404)."""
+
+    def test_defaults(self):
+        """Class-level defaults: inherits RepoError, status 404, resource 'Item'."""
+        assert issubclass(errors.NotFoundError, errors.RepoError)
+        assert errors.NotFoundError.status == 404
+        assert errors.NotFoundError.resource == "Item"
+
+    def test_with_id_and_resource(self):
+        """Constructor stores id, resource, status, & context; message reflects them."""
+        e = errors.NotFoundError("01234567", "Tag", status=420)
+        assert e.status == 420
+        assert e.id == "01234567"
+        assert e.resource == "Tag"
+        assert str(e) == "Tag with ID 01234567 not found."
 
 
 # == Validation Domain ==
@@ -253,3 +253,45 @@ class TestUnsupportedFormatError:
         assert err.status == 422
         assert err.format == "ICO"
         assert "ICO" in str(err) and "unsupport" in str(err).lower()
+
+
+# == Shortcode Domain ==
+
+
+class TestExtensionMismatchError:
+    """Tests for ExtensionMismatchError (404)."""
+
+    err = errors.ExtensionMismatchError
+
+    def test_defaults(self):
+        """Tests class-level defaults:
+        inherits NotFoundError, status 404."""
+        assert issubclass(self.err, errors.NotFoundError)
+        assert self.err.status == 404
+
+    def test_with_args(self):
+        """Tests constructor stores attributes and formats message."""
+        err = self.err(code="abc123", expected="txt", got="png")
+        assert err.code == "abc123"
+        assert err.expected == "txt"
+        assert err.got == "png"
+        for s in ["abc123", "txt", "png"]:
+            assert s in str(err), f"Expected '{s}' in message"
+
+
+class TestLinkRawNotSupportedError:
+    """Tests for LinkRawNotSupportedError (404)."""
+
+    err = errors.LinkRawNotSupportedError
+
+    def test_defaults(self):
+        """Tests class-level defaults:
+        inherits NotFoundError, status 404."""
+        assert issubclass(self.err, errors.NotFoundError)
+        assert self.err.status == 404
+
+    def test_with_code(self):
+        """Tests constructor stores code and includes it in message."""
+        err = self.err(code="abc123")
+        assert err.code == "abc123"
+        assert "abc123" in str(err)

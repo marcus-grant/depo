@@ -228,3 +228,30 @@ class UnsupportedFormatError(ClassificationError):
             message = f"Format '{format}' is unsupported by Depo."
         super().__init__(message or self.__class__.message, context)
         self.format = format
+
+
+# == Shortcode Domain ==
+class ExtensionMismatchError(NotFoundError):
+    """Raised when the extension in an extensioned URL does not match
+    the item's format. The extension is a contract; mismatches are 404."""
+
+    message = "Extension does not match item format."
+
+    def __init__(self, code: str, expected: str, got: str, context: dict | None = None):
+        message = f"Expected .{expected} for {code}, got .{got}."
+        DepoError.__init__(self, message, context)
+        self.code = code
+        self.expected = expected
+        self.got = got
+
+
+class LinkRawNotSupportedError(NotFoundError):
+    """Raised when raw content is requested for a LinkItem.
+    Links have no payload; raw requests are 404."""
+
+    message = "Links do not have raw content."
+
+    def __init__(self, code: str, context: dict | None = None):
+        message = f"Item {code} is a link and has no raw content."
+        DepoError.__init__(self, message, context)
+        self.code = code
