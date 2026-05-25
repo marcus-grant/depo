@@ -45,6 +45,7 @@ __all__ = [
     "make_persist_result",
     "make_pic_item",
     "make_probe_client",
+    "make_request",
     "make_text_item",
     "make_write_plan",
 ]
@@ -128,6 +129,18 @@ def make_persist_result(
             format=ContentFormat.PLAINTEXT,
         )
     return PersistResult(item=item, created=created)
+
+
+def make_request(path: str = "/test", method: str = "GET") -> Request:
+    """Build a minimal Starlette Request stub for template rendering tests."""
+    scope = {
+        "type": "http",
+        "method": method,
+        "path": path,
+        "query_string": b"",
+        "headers": [],
+    }
+    return Request(scope)
 
 
 def render_template(name: str, ctx: dict | None = None) -> "BSoup":
