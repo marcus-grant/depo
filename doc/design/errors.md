@@ -6,9 +6,9 @@ Centralized exception hierarchy and response builder patterns for depo.
 
 All exceptions inherit from `DepoError` which carries three fields:
 
-- `status` — HTTP status code, defaults to class attribute
-- `message` — human-readable string, defaults to class attribute
-- `ctx` — optional dict of domain-specific context
+- `status` - HTTP status code, defaults to class attribute
+- `message` - human-readable string, defaults to class attribute
+- `ctx` - optional dict of domain-specific context
 
 Domain bases group related exceptions. Subclasses override `status` and
 `message` as class attributes and define constructor fields relevant to
@@ -18,8 +18,10 @@ their context.
 DepoError (500)
 ├── RepoError (500)
 │   ├── NotFoundError (404)
+│   │   ├── ExtensionMismatchError (404)
+│   │   └── LinkRawNotSupportedError (404)
 │   └── CodeCollisionError (409)
-├── ValidationError (500)
+├── ValidationError (400)
 │   ├── PayloadTooLargeError (413)
 │   ├── PayloadEmptyError (400)
 │   └── PayloadSourceError (400)
@@ -38,10 +40,11 @@ Domain bases carry passthrough constructors so subclasses can call
 
 `depo.web.error` provides three builders for route handlers:
 
-- `api_error(e: DepoError)` — returns `PlainTextResponse(str(e), status_code=e.status)`
-- `htmx_error(e: DepoError)` — returns kwargs dict for `TemplateResponse` handlers
-- `browser_error(req, e: DepoError)` — returns full-page `TemplateResponse`,
-  dispatches to `errors/404.html` or `errors/500.html` by `e.status`
+- `api_error(e: DepoError)` - returns `PlainTextResponse(str(e), status_code=e.status)`
+- `htmx_error(e: DepoError, role: str = "alert")` - returns kwargs dict for
+  `TemplateResponse` handlers; role used as CSS modifier and ARIA attribute
+- `browser_error(req, e: DepoError)` - returns full-page `TemplateResponse`
+  using `errors/page.html`; renders debug block for 5xx errors
 
 ## Route handler pattern
 
@@ -64,7 +67,6 @@ except Exception as e:
 ## Deferred
 
 - Browser error templates for 400, 409, 413, 422 status codes
-- `ExtensionMismatchError` for extensioned URL contract violations
 - `FormatMismatchError` when classification endpoint lands
 - `StorageError` domain base for filesystem and remote storage backends
 - Logging architecture: structured logging, request IDs, severity levels

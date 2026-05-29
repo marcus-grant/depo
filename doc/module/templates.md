@@ -21,11 +21,10 @@ templates/
 ├── partials/
 │   ├── nav.html             # Titlebar navigation
 │   ├── foot.html            # Site footer
-│   ├── success.html         # Upload success (HTMX fragment)
-│   └── error.html           # Validation error (HTMX fragment)
+│   └── success.html         # Upload success (HTMX fragment)
 └── errors/
-    ├── 404.html             # Not found (extends base.html)
-    └── 500.html             # Internal error (extends base.html)
+    ├── page.html            # Full-page error (extends base.html)
+    └── partial.html         # Error pip (HTMX fragment)
 ```
 
 ## Inheritance hierarchy
@@ -42,9 +41,10 @@ base.html
 │   ├── info/text.html
 │   └── info/pic.html
 └── errors/
-    ├── 404.html
-    └── 500.html
+    └── page.html
 ```
+
+`errors/partial.html` is a standalone fragment, not extending base.html.
 
 `base.html` provides the page shell:
 `nav` partial, content block, footer partial.

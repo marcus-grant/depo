@@ -74,9 +74,9 @@ Upload router, handlers, and request helpers.
 
 Algebraic union, each variant corresponds to an upload path.
 
-- `UploadMultipartParams` — payload_bytes, filename, declared_mime
-- `UploadRawBodyParams` — payload_bytes, declared_mime
-- `UploadFormParams` — payload_bytes, declared_mime, requested_format
+- `UploadMultipartParams` - payload_bytes, filename, declared_mime
+- `UploadRawBodyParams` - payload_bytes, declared_mime
+- `UploadFormParams` - payload_bytes, declared_mime, requested_format
 
 #### Functions
 
@@ -144,7 +144,7 @@ template structure, inheritance, conventions, and testing patterns.
 1. Form at `/upload` has `hx-post="/upload"`, `hx-target="#result"`, `hx-swap="innerHTML"`
 2. User submits → `upload_form()` processes
 3. Success → `partials/success.html` swapped into `#result` (shortcode + info link)
-4. Error → `partials/error.html` swapped into `#result` (error message)
+4. Error → `errors/partial.html` swapped into `#result` (error message)
 5. User stays on form, ready for next upload (multi-upload workflow)
 
 ### Request detection
@@ -166,7 +166,7 @@ static/
     └── htmx.min.js          # HTMX library
 ```
 
-Everything served comes from the deployed host — no CDN dependencies.
+Everything served comes from the deployed host - no CDN dependencies.
 
 ## Error Handling
 
@@ -177,8 +177,8 @@ for response codes.
 
 Response builders live in `depo.web.error`:
 
-- `api_error(e)` — PlainTextResponse with e.status
-- `htmx_error(e)` — kwargs dict for TemplateResponse handlers
-- `browser_error(req, e)` — full-page TemplateResponse
+- `api_error(e)` - PlainTextResponse with e.status
+- `htmx_error(e, role="alert")` - kwargs dict for TemplateResponse handlers; role as CSS modifier and ARIA attribute
+- `browser_error(req, e)` - full-page TemplateResponse using `errors/page.html`
 
 See [errors.md](../design/errors.md) for the full hierarchy and patterns.

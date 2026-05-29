@@ -17,24 +17,11 @@ _ISSUES_URL = "https://github.com/marcus-grant/depo/issues"
 
 def browser_error(req: Request, e: DepoError) -> Response:
     """Return a full-page error TemplateResponse for browser clients."""
-    if e.status == 404:
-        return _get().TemplateResponse(
-            request=req,
-            name="errors/404.html",
-            status_code=404,
-            context={"code": getattr(e, "id", None), "error": str(e)},
-        )
     return _get().TemplateResponse(
         request=req,
-        name="errors/500.html",
+        name="errors/page.html",
         status_code=e.status,
-        context={
-            "message": str(e),
-            "path": req.url.path,
-            "method": req.method,
-            "detail": str(e),
-            "issues_url": _ISSUES_URL,
-        },
+        context={"error": e, "issues_url": _ISSUES_URL},
     )
 
 
@@ -43,6 +30,6 @@ def api_error(e: DepoError) -> PlainTextResponse:
     return PlainTextResponse(str(e), status_code=e.status)
 
 
-def htmx_error(e: DepoError) -> dict:
-    """Return kwargs update dict for HTMX TemplateResponse handlers."""
-    return {"name": "partials/error.html", "context": {"error": str(e)}}
+def htmx_error(e: DepoError, role: str = "alert") -> dict:
+    """Return kwargs dict for HTMX partial TemplateResponse error renders."""
+    return {"name": "errors/partial.html", "context": {"error": e, "role": role}}

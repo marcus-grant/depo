@@ -26,6 +26,7 @@ from depo.util.errors import (
     UnknownServerError,
 )
 from depo.web.deps import get_orchestrator
+from depo.web.error import api_error, htmx_error
 from depo.web.templates import get_templates, is_htmx
 
 upload_router = APIRouter()
@@ -65,18 +66,15 @@ async def hx_upload(
     orch: IngestOrchestrator = Depends(get_orchestrator),
 ) -> HTMLResponse:
     """Browser form upload: textarea content + format override."""
-    # Success case kwargs - update for failures in except blocks
     kw = {"request": request, "name": "partials/success.html", "status_code": 200}
-    errname = "partials/error.html"
     try:
         params = await _parse_form_upload(request)
         result = orch.ingest(**dict(params))  # type: ignore[arg-type]
         kw["context"] = {"code": result.item.code, "created": result.created}
     except DepoError as e:
-        kw |= {"name": errname, "context": {"error": str(e)}}
+        kw |= htmx_error(e)
     except Exception as e:
-        err = UnknownServerError(e)
-        kw |= {"name": errname, "context": {"error": str(err)}}
+        kw |= htmx_error(UnknownServerError(e))
     return get_templates().TemplateResponse(**kw)
 
 
@@ -93,7 +91,7 @@ async def api_upload(
     try:
         result = await _ingest_upload(file, url, req, orch, req_fmt=req_fmt)
     except DepoError as e:
-        return PlainTextResponse(str(e), status_code=e.status)
+        return api_error(e)
     return _upload_response(result)
 
 
