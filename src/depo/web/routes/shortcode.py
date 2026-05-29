@@ -19,25 +19,19 @@ from depo.model.formats import extension_for_format, mime_for_format
 from depo.model.item import LinkItem, PicItem, TextItem
 from depo.repo.sqlite import SqliteRepository
 from depo.storage.protocol import StorageBackend
-from depo.util.errors import DepoError, NotFoundError, UnknownServerError
+from depo.util.errors import (
+    DepoError,
+    ExtensionMismatchError,
+    LinkRawNotSupportedError,
+    UnknownServerError,
+)
 from depo.web.deps import get_repo, get_storage
-from depo.web.error import browser_error
+from depo.web.error import api_error, browser_error
 from depo.web.negotiate import wants_html
 from depo.web.templates import get_templates
 
 shortcode_router = APIRouter()  # Initialize router
 
-
-def _get_item_or_404(
-    code: str, repo: SqliteRepository
-) -> LinkItem | TextItem | PicItem | Response:
-    """Item lookup helper that returns a 404 response on NotFoundError.
-    Otherwise it returns the found item (LinkItem, TextItem, or PicItem)."""
-    try:
-        item = selector.get_item(repo, code)
-    except NotFoundError as e:
-        return PlainTextResponse(content=str(e), status_code=e.status)
-    return item
 
 
 def _serve_item_content(item: TextItem | PicItem, store: StorageBackend) -> Response:
@@ -62,15 +56,15 @@ async def raw_ext(
     store: StorageBackend = Depends(get_storage),
 ) -> Response:
     """Return raw content for the given code. Extension must match item format."""
-    result = _get_item_or_404(code, repo)
-    if isinstance(result, Response):
-        return result
-    if isinstance(result, LinkItem):
-        return PlainTextResponse("Links do not support raw content.", status_code=404)
-    if (expect := extension_for_format(result.format)) != ext:
-        msg = f"Extension mismatch: expected .{expect}"
-        return PlainTextResponse(msg, status_code=404)
-    return _serve_item_content(result, store)
+    try:
+        item = selector.get_item(repo, code)
+        if isinstance(item, LinkItem):
+            raise LinkRawNotSupportedError(code)
+        if (expect := extension_for_format(item.format)) != ext:
+            raise ExtensionMismatchError(code, expect, ext)
+        return _serve_item_content(item, store)
+    except DepoError as e:
+        return api_error(e)
 
 
 @shortcode_router.get("/{code}")
@@ -105,8 +99,8 @@ async def api_info(
     """Return item metadata for the given code."""
     try:
         item = selector.get_item(repo, code)
-    except NotFoundError as e:
-        return PlainTextResponse(content=str(e), status_code=404)
+    except DepoError as e:
+        return api_error(e)
     lines = [f"{f.name}={getattr(item, f.name)}" for f in dataclasses.fields(item)]
     body = "\n".join(lines)
     return PlainTextResponse(content=body)
@@ -145,9 +139,10 @@ async def raw(
     store: StorageBackend = Depends(get_storage),
 ) -> Response:
     """Return raw content for the given code."""
-    result = _get_item_or_404(code, repo)
-    if isinstance(result, Response):
-        return result
-    if isinstance(result, LinkItem):
-        return RedirectResponse(result.url, status_code=307)
-    return _serve_item_content(result, store)
+    try:
+        item = selector.get_item(repo, code)
+    except DepoError as e:
+        return api_error(e)
+    if isinstance(item, LinkItem):
+        return RedirectResponse(item.url, status_code=307)
+    return _serve_item_content(item, store)

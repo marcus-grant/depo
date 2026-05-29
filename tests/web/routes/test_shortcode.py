@@ -187,7 +187,7 @@ class TestGetRawExtension:
         assert resp_ext.status_code == 404, "Mismatched extension should return 404"
         assert resp_link.status_code == 404, "Links should return 404 for raw content"
         assert resp_noexist.status_code == 404, "Nonexistent code should return 404"
-        msg = "404 message should indicate mismatch"
-        assert "mismatch" in resp_ext.text.lower(), msg
+        msg = "404 message should indicate extension mismatch"
+        assert all(s in resp_ext.text.lower() for s in ["expected", "got"]), msg
         msg = "404 message should indicate link items have no raw content"
         assert all(s in resp_link.text.lower() for s in ["link", "raw", "no"]), msg
