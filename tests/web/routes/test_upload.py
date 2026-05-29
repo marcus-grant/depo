@@ -251,7 +251,7 @@ class TestHtmxUploadError:
         resp = t_htmx.post("/upload", data={"content": "", "format": ""})
         assert resp.status_code == 200
         soup = BeautifulSoup(resp.text, "html.parser")
-        assert soup.find("div", class_="upload-error") is not None
+        assert soup.find("div", class_="error") is not None
 
     def test_error_contains_message(self, t_htmx):
         """Error partial includes a descriptive error message."""
@@ -262,7 +262,19 @@ class TestHtmxUploadError:
         """Error partial is not wrapped in base template."""
         resp = t_htmx.post("/upload", data={"content": "", "format": ""})
         assert "<!-- BEGIN: base.html -->" not in resp.text
-        assert "<!-- BEGIN: partials/error.html" in resp.text
+        assert "<!-- BEGIN: errors/partial.html" in resp.text
+
+
+class TestApiUploadError:
+    """Tests for API upload error responses."""
+
+    def test_oversized_returns_413(self, t_client):
+        """API upload exceeding max size returns 413."""
+        from depo.service.ingest import DEFAULT_MAX_SIZE_BYTES
+
+        payload = b"x" * (DEFAULT_MAX_SIZE_BYTES + 1)
+        resp = t_client.post("/upload", files={"file": ("big.txt", payload)})
+        assert resp.status_code == 413
 
 
 class TestParseUpload:
@@ -312,7 +324,7 @@ class TestParseUpload:
         resp = t_htmx.post("/upload", files=file)
         assert resp.status_code == 200
         soup = BeautifulSoup(resp.text, "html.parser")
-        assert soup.find("div", class_="upload-error") is not None
+        assert soup.find("div", class_="error") is not None
         assert "pillow" in resp.text.lower() or "depend" in resp.text.lower()
 
 

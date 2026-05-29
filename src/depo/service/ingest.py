@@ -20,6 +20,9 @@ from depo.service.media import get_image_info
 from depo.util.errors import PayloadEmptyError, PayloadSourceError, PayloadTooLargeError
 from depo.util.shortcode import hash_full_b32
 
+DEFAULT_MAX_SIZE_BYTES = 2**26  # 64 MiB
+DEFAULT_MAX_URL_LEN = 2048
+
 
 # TODO: Create config loader infrastructure and centralized defaults
 # TODO: Implement file streaming for classification, hashing and sizing
@@ -31,8 +34,8 @@ class IngestService:
         self,
         *,
         min_code_length: int = 8,
-        max_size_bytes: int = 2**20,
-        max_url_len: int = 2048,
+        max_size_bytes: int = DEFAULT_MAX_SIZE_BYTES,
+        max_url_len: int = DEFAULT_MAX_URL_LEN,
     ) -> None:
         """Initialize with configuration.
 
