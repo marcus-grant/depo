@@ -23,7 +23,8 @@ class DepoError(Exception):
         context: dict | None = None,
         status: int | None = None,
     ):
-        super().__init__(message or self.__class__.message)
+        self.message = message or self.__class__.message
+        super().__init__(self.message)
         self.status = status if status is not None else self.__class__.status
         self.ctx = context
 
