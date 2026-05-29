@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- BEGIN: errors/page.html#content -->
+<section class="window window--error">
+  <h2>{{ error.message }}</h2>
+  {% if error.status >= 500 %}
+  <details>
+    <summary>Debug info</summary>
+    <a href="{{ issues_url }}">Report above info to project issues</a>
+    <p>{{ request.scope.method }} {{ request.scope.path }}</p>
+  </details>
+  {% endif %}
+</section>
+<!-- END: errors/page.html#content -->
+{% endblock %}

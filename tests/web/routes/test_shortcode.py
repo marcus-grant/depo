@@ -179,15 +179,18 @@ class TestGetRawExtension:
         assert resp.headers["content-type"].startswith("image/jpeg")
         assert len(resp.content) == t_seeded.pic.size_b
 
-    def test_404_cases(self, t_seeded):
-        """Returns 404 for: ext mismatch, link items and nonexistent code."""
-        resp_ext = t_seeded.client.get(f"/{t_seeded.txt.code}.jpg")
-        resp_link = t_seeded.client.get(f"/{t_seeded.link.code}.txt")
-        resp_noexist = t_seeded.client.get("/N0EX1ST.txt")
-        assert resp_ext.status_code == 404, "Mismatched extension should return 404"
-        assert resp_link.status_code == 404, "Links should return 404 for raw content"
-        assert resp_noexist.status_code == 404, "Nonexistent code should return 404"
-        msg = "404 message should indicate mismatch"
-        assert "mismatch" in resp_ext.text.lower(), msg
-        msg = "404 message should indicate link items have no raw content"
-        assert all(s in resp_link.text.lower() for s in ["link", "raw", "no"]), msg
+    def test_extension_mismatch_returns_404(self, t_seeded):
+        """Extension mismatch returns 404 with expected/got in message."""
+        resp = t_seeded.client.get(f"/{t_seeded.txt.code}.jpg")
+        assert resp.status_code == 404
+        assert all(s in resp.text.lower() for s in ["expected", "got"])
+
+    def test_link_raw_returns_404(self, t_seeded):
+        """Link item raw request returns 404 with link/raw/no in message."""
+        resp = t_seeded.client.get(f"/{t_seeded.link.code}.txt")
+        assert resp.status_code == 404
+        assert all(s in resp.text.lower() for s in ["link", "raw", "no"])
+
+    def test_nonexistent_code_returns_404(self, t_seeded):
+        """Nonexistent code returns 404."""
+        assert t_seeded.client.get("/N0EX1ST.txt").status_code == 404

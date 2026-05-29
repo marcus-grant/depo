@@ -30,34 +30,24 @@ service, repo, and storage. Dedupe by content hash.
 
 Ordered by dependency. Each heading is roughly one PR.
 
-### Error handling (next PR)
+### Error handling (deferred)
 
-- For the rest of these MAKE SURE to consider how template responses might need redesign or markup changes and how that affects scope.
-  - Might need significant deferrals if so, so plan where to put it PR wise
-  - Refactor upload route handlers to use `web/error.py` builders
-- Improve the 500 fallback for unexpected item types in `info_page`
-- Plan logging architecture: structured logging, request IDs, error tracking
+- Plan logging architecture: structured logging, request IDs, middleware
 - Extract validation logic from `build_plan` into a validation module
   - Validators raise typed exceptions, `build_plan` lets them bubble up
 - Investigate LinkItem format field gap (isinstance workaround in
-  `_upload_response`), consider adding format to base Item or LinkItem
+  `_upload_response`)
 - Consider initial logging functionality:
   - Centralized error handling
   - Middleware for request IDs
   - Rich output formatting
-- How to use MIME for responses
-- Review `shortcode.py` for remaining typed exception opportunities
-  - Extract `_response_404`, `_response_500`, `_get_item_or_404` helpers
-  - Add `ExtensionMismatchError` (404) for extensioned URL contract violations
-  - Add typed error for LinkItem raw content requests
-- Add browser error templates for 400, 409, 413, 422 status codes
-- Add `FormatMismatchError(ClassificationError)` when classification endpoint lands
+- MIME response handling review
+- `FormatMismatchError(ClassificationError)` when classification endpoint lands
 - Improve bug report UX for `UnknownClassificationError` and `UnknownServerError`
 - `StorageError` domain base for filesystem and remote storage backends
 
 ### Config and limits
 
-- Raise default upload limit to 64 MiB (guests disabled by default)
 - Refactor size limits to use the config loading infrastructure
 - Set up local dev/manual testing config in XDG paths
 - Access tracking per item (UPDATE on access for recent/popular surfacing,
@@ -90,7 +80,6 @@ Ensure all hierarchy works in pure grayscale; color remains semantic only.
 - Fix View Raw button height
 - Resolve upload page width (too narrow despite `main--wide`)
 - Replace `article` with `section` on info page
-- Refactor upload route handlers to use `web/error.py` builders
 
 #### Interaction semantics stay semantic
 

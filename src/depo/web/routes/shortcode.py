@@ -19,52 +19,19 @@ from depo.model.formats import extension_for_format, mime_for_format
 from depo.model.item import LinkItem, PicItem, TextItem
 from depo.repo.sqlite import SqliteRepository
 from depo.storage.protocol import StorageBackend
-from depo.util.errors import NotFoundError
+from depo.util.errors import (
+    DepoError,
+    ExtensionMismatchError,
+    LinkRawNotSupportedError,
+    UnknownServerError,
+)
 from depo.web.deps import get_repo, get_storage
+from depo.web.error import api_error, browser_error
 from depo.web.negotiate import wants_html
 from depo.web.templates import get_templates
 
 shortcode_router = APIRouter()  # Initialize router
-_templates = get_templates()  # Alias templates
 
-
-# TODO: Extract to shared error response module (error handling PR)
-#       Centralize with custom exceptions and standard response builders
-def _response_404(req: Request, code: str, e: Exception) -> Response:
-    return _templates.TemplateResponse(
-        request=req,
-        name="errors/404.html",
-        status_code=404,
-        context={"code": code, "error": str(e)},
-    )
-
-
-def _response_500(req: Request, detail: str) -> Response:
-    """Return a 500 response with debug context."""
-    return _templates.TemplateResponse(
-        request=req,
-        name="errors/500.html",
-        status_code=500,
-        context={
-            "message": "Something went wrong",
-            "path": req.url.path,
-            "method": req.method,
-            "detail": detail,
-            "issues_url": "https://github.com/marcus-grant/depo/issues",
-        },
-    )
-
-
-def _get_item_or_404(
-    code: str, repo: SqliteRepository
-) -> LinkItem | TextItem | PicItem | Response:
-    """Item lookup helper that returns a 404 response on NotFoundError.
-    Otherwise it returns the found item (LinkItem, TextItem, or PicItem)."""
-    try:
-        item = selector.get_item(repo, code)
-    except NotFoundError as e:
-        return PlainTextResponse(content=str(e), status_code=e.status)
-    return item
 
 
 def _serve_item_content(item: TextItem | PicItem, store: StorageBackend) -> Response:
@@ -89,15 +56,15 @@ async def raw_ext(
     store: StorageBackend = Depends(get_storage),
 ) -> Response:
     """Return raw content for the given code. Extension must match item format."""
-    result = _get_item_or_404(code, repo)
-    if isinstance(result, Response):
-        return result
-    if isinstance(result, LinkItem):
-        return PlainTextResponse("Links do not support raw content.", status_code=404)
-    if (expect := extension_for_format(result.format)) != ext:
-        msg = f"Extension mismatch: expected .{expect}"
-        return PlainTextResponse(msg, status_code=404)
-    return _serve_item_content(result, store)
+    try:
+        item = selector.get_item(repo, code)
+        if isinstance(item, LinkItem):
+            raise LinkRawNotSupportedError(code)
+        if (expect := extension_for_format(item.format)) != ext:
+            raise ExtensionMismatchError(code, expect, ext)
+        return _serve_item_content(item, store)
+    except DepoError as e:
+        return api_error(e)
 
 
 @shortcode_router.get("/{code}")
@@ -132,8 +99,8 @@ async def api_info(
     """Return item metadata for the given code."""
     try:
         item = selector.get_item(repo, code)
-    except NotFoundError as e:
-        return PlainTextResponse(content=str(e), status_code=404)
+    except DepoError as e:
+        return api_error(e)
     lines = [f"{f.name}={getattr(item, f.name)}" for f in dataclasses.fields(item)]
     body = "\n".join(lines)
     return PlainTextResponse(content=body)
@@ -148,22 +115,21 @@ async def page_info(
     """Serve HTML info view, template selected by item kind."""
     try:
         item = selector.get_item(repo, code)
-    except NotFoundError as e:
-        return _response_404(req, code, e)
-
-    ctx: dict = {"request": req, "item": item}
-
-    if isinstance(item, LinkItem):
-        name = "info/link.html"
-    elif isinstance(item, TextItem):
-        name = "info/text.html"
-        ctx["content"] = selector.get_raw(store, item).read()
-    elif isinstance(item, PicItem):
-        name = "info/pic.html"
-    else:
-        return _response_500(req, f"Unexpected item type for code {code}")
-    kwargs = {"request": req, "name": name, "status_code": 200, "context": ctx}
-    return _templates.TemplateResponse(**kwargs)
+        ctx: dict = {"request": req, "item": item}
+        if isinstance(item, LinkItem):
+            name = "info/link.html"
+        elif isinstance(item, TextItem):
+            name = "info/text.html"
+            ctx["content"] = selector.get_raw(store, item).read()
+        elif isinstance(item, PicItem):
+            name = "info/pic.html"
+        else:
+            raise UnknownServerError(context={"code": code})
+        return get_templates().TemplateResponse(
+            request=req, name=name, status_code=200, context=ctx
+        )
+    except DepoError as e:
+        return browser_error(req, e)
 
 
 @shortcode_router.get("/{code}/raw")
@@ -173,9 +139,10 @@ async def raw(
     store: StorageBackend = Depends(get_storage),
 ) -> Response:
     """Return raw content for the given code."""
-    result = _get_item_or_404(code, repo)
-    if isinstance(result, Response):
-        return result
-    if isinstance(result, LinkItem):
-        return RedirectResponse(result.url, status_code=307)
-    return _serve_item_content(result, store)
+    try:
+        item = selector.get_item(repo, code)
+    except DepoError as e:
+        return api_error(e)
+    if isinstance(item, LinkItem):
+        return RedirectResponse(item.url, status_code=307)
+    return _serve_item_content(item, store)

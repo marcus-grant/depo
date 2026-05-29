@@ -1,85 +1,112 @@
 # tests/web/test_error_templates.py
 """
-Tests for error page templates (404, 500).
+Tests for error page and partial templates.
 Author: Marcus Grant
-Created: 2026-02-25
+Created: 2026-05-05
 License: Apache-2.0
 """
 
-from tests.factories import render_template
+from depo.util.errors import NotFoundError, PayloadTooLargeError, UnknownServerError
+from tests.factories import make_request, render_template
+
+_ISSUES_URL = "https://github.com/marcus-grant/depo/issues"
 
 
-def _404_select(selector: str):
-    """Render 404 template w/ stub context, return first CSS match."""
-    return render_template("errors/404.html", {"code": "abc123"}).select_one(selector)
+class TestErrorPartialTemplate:
+    """Tests for errors/partial.html - HTMX error partial renders."""
+
+    def _render(self, error, role="alert"):
+        return render_template("errors/partial.html", {"error": error, "role": role})
+
+    def test_renders_error_message(self):
+        """Renders error.message in the partial body."""
+        e = PayloadTooLargeError(size=257, max_size=256)
+        assert e.message in self._render(e).text
+
+    def test_base_error_class(self):
+        """Container always has base error class."""
+        e = PayloadTooLargeError(size=257, max_size=256)
+        assert self._render(e).find("div", class_="error") is not None
+
+    def test_default_role_css_class(self):
+        """Default role 'alert' applied as CSS mod class."""
+        e = PayloadTooLargeError(size=257, max_size=256)
+        div = self._render(e).find("div")
+        assert div is not None
+        classes = list(div.get("class") or [])
+        assert "error--alert" in classes
+        assert len([c for c in classes if c.startswith("error--")]) == 1
+
+    def test_role_aria_attribute(self):
+        """Role applied as ARIA role attribute on container."""
+        e = PayloadTooLargeError(size=257, max_size=256)
+        assert self._render(e).find("div", attrs={"role": "alert"}) is not None
+
+    def test_custom_role(self):
+        """Custom role applied as CSS modifier and ARIA attribute."""
+        e = PayloadTooLargeError(size=257, max_size=256)
+        soup = self._render(e, role="status")
+        div = soup.find("div")
+        assert div is not None
+        classes = list(div.get("class") or [])
+        assert "error--status" in classes
+        assert len([c for c in classes if c.startswith("error--")]) == 1
+        assert soup.find("div", attrs={"role": "status"}) is not None
 
 
-_500_MSG = "Something went wrong"
-_500_DET = "test error detail"
-_500_URL = "https://github.com/marcus-grant/depo/issues"
+class TestErrorPageTemplate:
+    """Tests for errors/page.html - full page error renders."""
 
-
-def _500_select(selector: str):
-    """Render 500 template w/ stub context, return first CSS match."""
-    return render_template(
-        "errors/500.html",
-        {
-            "message": _500_MSG,
-            "path": "/test",
-            "method": "GET",
-            "detail": _500_DET,
-            "issues_url": _500_URL,
-        },
-    ).select_one(selector)
-
-
-class TestError404:
-    """404 error template."""
-
-    def select(self, selector):
-        """Helper alias for selecting from 404 template soup."""
-        return _404_select(selector)
+    def _render(self, error, request=None):
+        req = request or make_request()
+        ctx = {"error": error, "request": req, "issues_url": _ISSUES_URL}
+        return render_template("errors/page.html", ctx)
 
     def test_window_error_container(self):
-        """Renders inside a .window container."""
-        assert self.select("section.window.window--error") is not None
+        """Renders inside a section.window.window--error container."""
+        e = NotFoundError(id="abc123")
+        soup = self._render(e)
+        assert soup.find("section", class_="window--error") is not None
 
-    def test_shortcode_in_error_text(self):
-        """Has shortcode in code tag in error message."""
-        assert self.select("section.window code.shortcode") is not None
-        assert self.select("section.window code.shortcode").text == "ABC123"  # type: ignore
+    def test_message_in_h2(self):
+        """Renders error.message in h2."""
+        e = NotFoundError(id="abc123")
+        soup = self._render(e)
+        h2 = soup.find("h2")
+        assert h2 is not None
+        assert e.message in h2.text
+
+    def test_no_debug_block_for_4xx(self):
+        """No debug details block rendered for 4xx errors."""
+        e = NotFoundError(id="abc123")
+        assert self._render(e).find("details") is None
+
+    def test_debug_block_for_5xx(self):
+        """Debug details block rendered for 5xx errors."""
+        e = UnknownServerError()
+        assert self._render(e).find("details") is not None
+
+    def test_debug_block_contains_path_and_method(self):
+        """Debug block contains request path and method."""
+        e = UnknownServerError()
+        req = make_request(path="/test/path", method="POST")
+        details = self._render(e, request=req).find("details")
+        assert details is not None
+        assert "/test/path" in details.text
+        assert "POST" in details.text
+
+    def test_issues_link_for_5xx(self):
+        """Issues link present inside error section for 5xx errors."""
+        e = UnknownServerError()
+        section = self._render(e).find("section", class_="window--error")
+        assert section is not None
+        assert section.find("a", href=_ISSUES_URL) is not None
 
     def test_no_action_or_metadata(self):
-        """Nas no action row, metadata, or meta elements (info pages only)."""
-        assert self.select("section.window .action-row") is None
-        assert self.select("section.window .metadata") is None
-        assert self.select("section.window .meta") is None
-
-
-class TestError500:
-    """500 error template."""
-
-    def select(self, selector):
-        """Helper alias for selecting from 500 template soup."""
-        return _500_select(selector)
-
-    def test_window_error_container(self):
-        """Renders inside a .window container."""
-        assert self.select("section.window.window--error") is not None
-
-    def test_message_in_error_text(self):
-        """Renders message text in .error-text element."""
-        assert self.select("section.window--error h2") is not None
-        assert self.select("section.window--error h2").text == _500_MSG  # type: ignore
-
-    def test_debug_details(self):
-        """Debug details block has summary, path, and method."""
-        details = self.select("section.window--error details")
-        assert details is not None, "No <details> element found"
-        assert details.find("summary") is not None, "No <summary> in details"
-        assert "GET" in details.text and "/test" in details.text
-
-    def test_issues_link(self):
-        """Issues link present for error reporting."""
-        url_selector = f"section.window--error a[href='{_500_URL}']"
-        assert self.select(url_selector) is not None
+        """No action row, metadata, or meta elements rendered."""
+        e = NotFoundError(id="abc123")
+        section = self._render(e).find("section", class_="window--error")
+        assert section is not None
+        assert section.find(class_="action-row") is None
+        assert section.find(class_="metadata") is None
+        assert section.find(class_="meta") is None

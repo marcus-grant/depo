@@ -52,15 +52,15 @@ class TestInfoStructure:
 
     def test_window_container(self):
         """Info page content renders inside a .window container."""
-        assert self.select("article.window") is not None
+        assert self.select("section.window") is not None
 
     def test_code_first(self):
         """Renders shortcode as first child of .window."""
-        assert self.select("article.window > .shortcode") is not None
+        assert self.select("section.window > .shortcode") is not None
 
     def test_action_after_code(self):
         """Has .action-row after shortcode."""
-        assert self.select("article.window > .shortcode + .action-row") is not None
+        assert self.select("section.window > .shortcode + .action-row") is not None
 
     def test_metadata_after_action(self):
         """Has dl.meta after action row."""
