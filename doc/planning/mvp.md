@@ -30,25 +30,6 @@ service, repo, and storage. Dedupe by content hash.
 
 Ordered by dependency. Each heading is roughly one PR.
 
-### Error surfaces (ref/error-surfaces)
-
-- Add `ExtensionMismatchError(NotFoundError)` and
-  `LinkRawNotSupportedError(NotFoundError)` to `util/errors.py`
-- Collapse `errors/404.html` and `errors/500.html` into `errors/page.html`
-  - Receives `{"error": e, "request": req}`
-  - Branches on `error.status >= 500` for debug block
-- Replace `partials/error.html` with `errors/partial.html`
-  - Receives `{"error": e, "role": "alert"}`
-  - Uses role as CSS modifier class and ARIA attribute
-- Update `browser_error(req, e)` to render `errors/page.html`
-- Update `htmx_error(e, role="alert")` to render `errors/partial.html`
-- Drop `_response_404`, `_response_500`, `_get_item_or_404` from `shortcode.py`
-- Thin all route handlers: raise typed exceptions, catch `DepoError`,
-  delegate to builders
-- Fix `page_info` unexpected item type fallback to raise instead of
-  calling local helper
-- Refactor upload route handlers to use `web/error.py` builders
-
 ### Error handling (deferred)
 
 - Plan logging architecture: structured logging, request IDs, middleware
@@ -67,7 +48,6 @@ Ordered by dependency. Each heading is roughly one PR.
 
 ### Config and limits
 
-- Raise default upload limit to 64 MiB (guests disabled by default)
 - Refactor size limits to use the config loading infrastructure
 - Set up local dev/manual testing config in XDG paths
 - Access tracking per item (UPDATE on access for recent/popular surfacing,
@@ -100,7 +80,6 @@ Ensure all hierarchy works in pure grayscale; color remains semantic only.
 - Fix View Raw button height
 - Resolve upload page width (too narrow despite `main--wide`)
 - Replace `article` with `section` on info page
-
 
 #### Interaction semantics stay semantic
 
