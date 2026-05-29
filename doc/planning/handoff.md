@@ -30,6 +30,8 @@ During the session:
   the user to paste. Combine into single commands where possible.
   grep/sed over cat — never cat whole files unless small and
   fully needed
+- Verify project layout with a command before specifying file edits
+  or test placements. Plan from the tree, not from memory
 - Track tasks, deferrals, and doc items as they arise
 - Commit messages in code fences, never mixed with other content
 
@@ -47,55 +49,69 @@ Before ending a session:
 
 ## Orientation **[per-session]**
 
-Date: YYYY-MM-DD
+Date: 2026-05-29
 
 What just finished:
 
-- (1-3 bullet summary of completed work, not a changelog)
-- (focus on outcomes, not individual steps)
+- Planned the error-logging work end to end. Errors carry a self-describing
+  `severity` (new `Severity` IntEnum, set per domain base with leaf
+  overrides). The three builders in `web/error.py` are the single logging
+  seam through a `_log` helper. An app-level exception handler backstops
+  unexpected non-DepoError exceptions.
+- Split it into two PRs, both written as task blocks in mvp.md: Error
+  logging foundation (`ft/error-logging`, additive expected-error logging)
+  and Unexpected-error boundary (`ref/error-boundary`, the handler plus
+  `htmx_error` normalization and `hx_upload` thinning).
+- Added the Task Planning guide (`doc/planning/tasks.md`), linked from the
+  planning README and referenced in this handoff.
 
 What's in progress:
 
-- (anything partially done, with enough context to resume)
-- (omit if nothing is in progress)
+- Nothing. Planning only, no source changed.
 
 What's next:
 
-- (the next planned task from [mvp.md](./mvp.md) or relevant planning doc)
-- (link to the specific section, not just the doc)
+- Execute Error logging foundation (`ft/error-logging`) in [mvp.md](./mvp.md),
+  then Unexpected-error boundary (`ref/error-boundary`).
+- Loose end: the non-logging items that left the old "Error handling
+  (deferred)" section need a home. `StorageError` and `FormatMismatchError`
+  fit existing unplanned.md sections; the logging observability follow-up
+  (request IDs, middleware, JSON formatting), validation extraction, the
+  LinkItem format gap, MIME review, and bug-report UX read as v0.2. Place
+  against v0.2.md next session.
 
 ## Layer status **[per-session]**
 
-Only list layers that changed this session or have caveats for the
-next session. If a layer is stable and untouched, omit it. The goal
-is to flag what the next collaborator needs to be careful about.
-
 | Layer | Status | Notes |
 |-------|--------|-------|
-| (e.g. service/classify) | (changed/broken/stable) | (brief caveat) |
+| doc/planning | changed | mvp.md PR 1/PR 2 blocks replace the old deferred checklist; new tasks.md; README and handoff link tasks.md |
+| source | unchanged | planning only, no code written this session |
 
 ## Known issues **[per-session]**
 
-Bugs or broken states only. Not design decisions or future work — those
-are deferrals. Long-lived issues belong in planning docs, not here.
-
-- (issue and how it manifests)
+- None open. The previous `hx_upload` silent-swallow is now tracked as
+  planned work: PR 1's builder logging closes the swallow, PR 2 removes the
+  bare except.
 
 ## Test fixtures **[per-session]**
 
-Brief snapshot of what's available.
-See [module docs](../module/README.md) for full details.
-Brief snapshot of what's available.
-Must reflect actual state after this session's changes —
-don't copy from previous handoff without verifying.
+Verified against the tree this session.
 
-Factories:
+Factories (`tests/factories/`): `__init__.py`, `db.py`, `models.py`,
+`payloads.py`. `make_client` builds the wired TestClient.
 
-- (list current factory modules and key helpers)
+Fixtures (`tests/fixtures/__init__.py`):
 
-Fixtures:
+- `t_conn`, `t_db`, `t_repo`, `t_store`, `t_orch_env`
+- `t_client` bare TestClient, empty db and store
+- `t_browser` same with `Accept: text/html`
+- `t_htmx` same with `HX-Request: true`
+- `t_seeded` `SeededApp` bundling `.client`/`.browser`/`.htmx` and one
+  `.txt`/`.pic`/`.link` item each
 
-- (list shared fixtures)
+No fixture changes this session. PR 2 will add a
+`raise_server_exceptions=False` client fixture to observe the boundary
+handler's response.
 
 ## Session learnings **[static, cumulative]**
 
@@ -116,8 +132,6 @@ note where it's documented and keep the entry here as a reminder.
 - Always provide a commit message before moving on to the next task.
 - Route ordering matters in FastAPI. Specific routes register first,
   wildcards last.
-- PayloadTooLargeError inherits from ValueError. Catch it before ValueError
-  in except chains. **Does this still belong here?**
 - Hardcoded test assertions over dynamic ones to prevent false positives.
 - Test stubs must include module docstring, imports, and spec comments.
 - Don't re-ask for context already provided in conversation. Track what's been shared.
@@ -133,7 +147,24 @@ note where it's documented and keep the entry here as a reminder.
   cache. Note in release docs.
 - Catch DepoError broadly in route handlers — covers all typed exceptions
   via inheritance. Domain base classes need passthrough constructors or
-  subclasses must call DepoError.__init__ directly.
+  subclasses must call DepoError.**init** directly.
+- `DepoError.message` is a class attribute default; set `self.message`
+  in `__init__` for instance messages to work correctly.
+- BS4 class checks use `find("tag", class_="name")` pattern;
+  `get("class")` returns list or None, never crash on missing class.
+- Pico styles `article` as a card. Prefer `section` for record
+  inspection views.
+- Em-dashes are forbidden in all docs and code comments.
+- Verify project layout with `cc`/bash before specifying file edits or
+  test placements. Plan from the tree, not from memory.
+- `util` cannot import `model`. Util-layer enums such as error `Severity`
+  live in `util`, not `model/enums.py`.
+- `caplog` is not yet used in the suite. Log-capture tests need
+  `caplog.set_level(...)` and the `depo` logger to propagate.
+- Testing an app-level exception handler needs
+  `TestClient(raise_server_exceptions=False)`. The default re-raises.
+- Errors self-describe with a `severity` member, the builders are the single
+  logging seam, and an app-level handler backstops non-DepoError exceptions.
 
 ## Conventions **[static]**
 
@@ -144,6 +175,9 @@ note where it's documented and keep the entry here as a reminder.
 - Reference docs live in `doc/design/` and `doc/module/`
 - Planning docs live in `doc/planning/`
 - See [planning README](./README.md) for current priorities
+- New tasks and PRs follow the [Task Planning](./tasks.md) guide: one PR per
+  task, four phases (setup and gating test, TDD implementation, integration
+  and documentation, PR), descriptively named units, commits under 300 lines
 
 ### Commit and PR rules
 
@@ -202,10 +236,10 @@ When updating an existing module, only include the stubs being added.
 ### Non-Python work (CSS, templates, HTML)
 
 Same stub-first principle. Describe what to add, which selectors or
-elements, and where in the file — don't provide full code blocks
-unless explicitly asked or it's clearly busywork. For CSS, name the
-properties and values. For templates, describe the structure and
-classes. The user writes the actual code.
+elements, and where in the file. For CSS, always provide full code
+blocks — descriptions cause errors and waste time. For templates,
+describe the structure and classes unless explicitly asked for full
+markup. The user writes the actual code.
 
 ### Improving this document **[static]**
 
