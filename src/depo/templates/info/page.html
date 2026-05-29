@@ -2,7 +2,7 @@
 {% block content %}
 <!-- BEGIN: info/page.html#content -->
 <!-- EXTENDS: base.html -->
-<article class="window">
+<section class="window">
   <h2 class="shortcode">{{ item.code | upper }}</h2>
   <div class="action-row" role="toolbar">
     {% block copy_link %}<button class="secondary" disabled>Copy Link</button>{% endblock %}
@@ -20,7 +20,7 @@
     {% block payload %}
     {% endblock %}
   </div>
-</article>
+</section>
 <!-- END: info/page.html#content -->
 {% endblock %}
 <!-- TODO: Does base.html need a scripts block? -->
