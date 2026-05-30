@@ -69,6 +69,7 @@ class TestDepoConfig:
             ("port", int, False, 8765),
             ("max_size_bytes", int, False, 10_485_760),
             ("max_url_len", int, False, 2048),
+            ("log_level", str, False, "WARNING"),
         ],
     )
     def test_simple_fields(self, name, typ, required, default):
@@ -181,6 +182,14 @@ class TestLoadConfigEnv:
         monkeypatch.setenv("DEPO_MAX_SIZE_BYTES", "5242880")
         cfg = load_config()
         assert cfg.max_size_bytes == 5_242_880
+
+    def test_env_log_level(self, monkeypatch, tmp_path):
+        """DEPO_LOG_LEVEL overrides the default log_level."""
+        self._clear_depo_env(monkeypatch)
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("DEPO_LOG_LEVEL", "DEBUG")
+        assert load_config().log_level == "DEBUG"
 
 
 class TestLoadConfigFlag:

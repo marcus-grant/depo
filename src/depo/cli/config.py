@@ -45,6 +45,8 @@ class DepoConfig:
     # Limits/thresholds
     max_size_bytes: int = 10_485_760
     max_url_len: int = 2048
+    # Logging/ErrorHandling
+    log_level: str = "WARNING"
 
 
 def _xdg_config_home() -> Path:

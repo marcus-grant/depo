@@ -9,6 +9,7 @@ Created: 2026-02-09
 License: Apache-2.0
 """
 
+import logging
 import sqlite3
 from pathlib import Path
 
@@ -55,3 +56,14 @@ def app_factory(config: DepoConfig) -> FastAPI:
     static_dir = Path(__file__).parent.parent / "static"
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
     return app  # Return FastAPI app
+
+
+def configure_logging(level: str) -> None:
+    """Set the depo logger to the named level with a text handler"""
+    logger = logging.getLogger("depo")
+    logger.setLevel(level.upper())
+    if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
+        handler = logging.StreamHandler()
+        fmt = "%(levelname)s %(name)s: %(message)s"
+        handler.setFormatter(logging.Formatter(fmt))
+        logger.addHandler(handler)

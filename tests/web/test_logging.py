@@ -10,6 +10,8 @@ import logging
 
 import pytest
 
+from depo.web import app
+
 
 class TestErrorLoggingIntegration:
     """End-to-end logging behavior for expected errors."""
@@ -22,3 +24,26 @@ class TestErrorLoggingIntegration:
         records = [r for r in caplog.records if r.levelno == logging.INFO]
         assert len(records) == 1
         assert "ZZZZZZZZ" in records[0].getMessage()
+
+
+class TestConfigureLogging:
+    """Tests for configure_logging level mapping."""
+
+    @pytest.mark.parametrize(
+        "name, level",
+        [
+            ("DEBUG", logging.DEBUG),
+            ("INFO", logging.INFO),
+            ("WARNING", logging.WARNING),
+            ("ERROR", logging.ERROR),
+        ],
+    )
+    def test_sets_depo_logger_level(self, name, level):
+        """configure_logging sets the depo logger to the named level."""
+        logger = logging.getLogger("depo")
+        original = logger.level
+        try:
+            app.configure_logging(name)
+            assert logger.level == level
+        finally:
+            logger.setLevel(original)
