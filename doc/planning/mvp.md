@@ -30,18 +30,111 @@ service, repo, and storage. Dedupe by content hash.
 
 Ordered by dependency. Each heading is roughly one PR.
 
-### Config and limits
+### Canonical config (Branch: `ref/canonical-config`)
 
-- Raise default upload limit to 64MiB (`max_size_bytes` = 67_108_864);
-  - guests disabled by default
-- Refactor size limits to use the config loading infrastructure
-- Set up local dev/manual testing config in XDG paths
-- Access tracking per item (UPDATE on access for recent/popular surfacing,
-  naive first, optimize later)
-- Unify `payload_bytes`/`payload_path` into `payload: bytes | Path`:
-  - Use `isinstance` dispatch.
-  - Reduces null coalescing throughout ingest pipeline.
-  - Related to temp file streaming and async pipeline work.
+*Problem: DepoConfig mixes value production with override-resolution
+logic, and the resolved config never reaches IngestService.
+Scalar defaults are inline literals on the dataclass;
+the path factories (_default_store_dir, _default_db_path)
+compute defaults but live beside the resolution chain;
+and app_factory builds IngestService() with no arguments,
+so its local defaults for min_code_length, max_size_bytes,
+and max_url_len govern at runtime while the resolved config values are dead.
+Extract all value production into a new cli/defaults.py
+(scalar constants plus the renamed public path helpers and their tests),
+leaving config.py as slim structuring and override logic.
+Source DepoConfig fields from defaults.py,
+raise the max_size_bytes default to 64 MiB (2**26),
+add min_code_length as a config field,
+and wire all three resolved fields into IngestService at app_factory,
+dropping the service's local defaults so they are required.
+Out of scope:
+the override chain and config-file discovery
+(_xdg_config_home, load_config layering), confirmed working and untouched;
+guests-disabled-by-default (moved to Auth).*
+
+#### Setup and gating test
+
+- [ ] Add `**overrides` to the make_config factory; small green test
+      that an override reaches the returned config.
+  - [ ] Commit: `Tst: Add overrides to make_config factory`
+- [ ] Add skipped TestConfigWiring class to tests/web/test_app.py: three
+      tests, one per field, each asserting the config value governs the
+      live API upload path (tiny max_size_bytes rejects any upload, tiny
+      max_url_len rejects a link, raised min_code_length yields a code of
+      exactly that length on an empty repo via X-Depo-Code).
+  - [ ] Commit: `Tst: Add skipped gating tests for canonical config`
+
+#### TDD implementation
+
+**Relocate path-discovery helpers to cli/defaults.py**
+(`tests/cli/test_defaults.py`)
+
+- [ ] Stub cli/defaults.py with module header; move and rename
+      _default_store_dir -> default_store_dir,_default_db_path ->
+      default_db_path; reference via defaults namespace in config.py.
+- [ ] Move the four path-factory tests from test_config.py to
+      test_defaults.py (refactor-under-green).
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ref: Relocate path-discovery helpers to cli/defaults.py`
+
+**Source DepoConfig scalars from cli/defaults.py**
+(`tests/cli/test_config.py`, `tests/cli/test_defaults.py`)
+
+- [ ] Add scalar constants to defaults.py: DEFAULT_HOST, DEFAULT_PORT,
+      DEFAULT_MAX_SIZE_BYTES = 2**26, DEFAULT_MAX_URL_LEN,
+      DEFAULT_LOG_LEVEL.
+- [ ] Update test_config.py default assertions: max_size_bytes
+      10_485_760 -> 2**26 (the bump red).
+- [ ] Rewire DepoConfig scalar fields to reference the constants.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ref: Source DepoConfig scalars from cli/defaults.py`
+
+**Add min_code_length to DepoConfig**
+(`tests/cli/test_config.py`, `tests/cli/test_defaults.py`)
+
+- [ ] Add DEFAULT_MIN_CODE_LENGTH = 8 to defaults.py; add
+      min_code_length field to DepoConfig sourcing it; add
+      min_code_length to_coerce int_fields.
+- [ ] Red: resolution test that an overridden min_code_length (env or
+      TOML) resolves onto the config, mirroring existing override tests.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ref: Add min_code_length to DepoConfig`
+
+**Route test IngestService construction through a factory**
+(`tests/factories/`, `tests/service/`, `tests/fixtures/`)
+
+- [ ] Add make_ingest_service(**overrides) to tests/factories with sane
+      defaults for the three limit fields.
+- [ ] Migrate all IngestService() / IngestService(...) sites in
+      test_ingest.py and test_orchestrator.py, and t_orch_env, to the
+      factory (refactor-under-green: production defaults still exist).
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Tst: Route IngestService construction through factory`
+
+**Wire resolved config into IngestService** (`tests/web/test_app.py`)
+
+- [ ] Drop the local defaults from IngestService.**init**; make
+      min_code_length, max_size_bytes, max_url_len required.
+- [ ] In app_factory, construct IngestService with all three threaded
+      from app.state.config.
+- [ ] Unskip the three TestConfigWiring gating tests (the red for this
+      unit); minimal green.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ref: Wire resolved config into IngestService`
+
+#### Integration and documentation
+
+- [ ] Confirm the three gating tests pass unskipped.
+- [ ] Update affected doc/module reference docs (cli.md and service.md
+      carry stale max_size_bytes values; new cli/defaults.py needs an
+      entry linked from the cli module README). Dev decides final scope.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Doc: ...`
+
+#### PR
+
+- [ ] gh pr create --title "Ref: Canonical config" --body "..."
 
 ### Non-HTMX form fallback error handling (needs planning)
 
@@ -69,6 +162,9 @@ templates. Plan alongside request access logging.
 Minimal auth to prevent open uploads on the public internet.
 
 - No anonymous uploads
+  - Guests disabled by default
+    - *(the config default to enforce once a guest/role concept exists)*
+    - moved here from Config and limits
 - Manual user provisioning (admin edits DB)
 - Username + password
 - Item has owner (`uid`) + visibility (`perm`)
