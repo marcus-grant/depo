@@ -23,7 +23,6 @@ from depo.util.errors import (
     DepoError,
     PayloadEmptyError,
     PayloadSourceError,
-    UnknownServerError,
 )
 from depo.web.deps import get_orchestrator
 from depo.web.error import api_error, htmx_error
@@ -77,8 +76,6 @@ async def hx_upload(
         )
     except DepoError as e:
         return htmx_error(request, e)
-    except Exception as e:
-        return htmx_error(request, UnknownServerError(e))
 
 
 async def api_upload(
