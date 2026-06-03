@@ -1,22 +1,27 @@
 # web/ module
 
-FastAPI application layer. Depends on service/, repo/, storage/, model/, cli/.
+FastAPI application layer.
+Depends on service/, repo/, storage/, model/, cli/.
 
 ## app.py
 
-Application factory. Wires dependencies from DepoConfig.
+Application factory and logging setup. Wires dependencies from DepoConfig.
 
-### Function
+### Functions
 
 ```python
 app_factory(config: DepoConfig) -> FastAPI
+configure_logging(level: str) -> None
 ```
 
-Creates FastAPI instance, initializes DB and storage,
+`app_factory` creates the FastAPI instance, initializes DB and storage,
 wires repo/storage/orchestrator onto `app.state`.
-Includes route handlers via `APIRouter`.
+Includes route handlers via`APIRouter`.
 Mounts static files from `src/depo/static/`.
 SQLite uses `check_same_thread=False` for async handler compatibility.
+
+`configure_logging` sets the `depo` logger level and attaches a text handler.
+`app_factory` calls it as its first step, driven by `config.log_level`.
 
 ## routes/
 
@@ -166,19 +171,28 @@ static/
     └── htmx.min.js          # HTMX library
 ```
 
-Everything served comes from the deployed host - no CDN dependencies.
+Everything served comes from the deployed host; no CDN dependencies.
 
 ## Error Handling
 
-Error handling is centralized in `depo.util.errors` with a typed exception
-hierarchy rooted at `DepoError`. All exceptions carry `status`, `message`,
-and `ctx` fields. Route handlers catch `DepoError` broadly using `e.status`
-for response codes.
+Error handling is centralized in
+`depo.util.errors` with a typed exception hierarchy rooted at `DepoError`.
+All exceptions carry
+`status`, `message`, `ctx`, `severity`, and `exception` fields.
+Route handlers catch `DepoError` broadly using `e.status` for response codes.
 
 Response builders live in `depo.web.error`:
 
-- `api_error(e)` - PlainTextResponse with e.status
-- `htmx_error(e, role="alert")` - kwargs dict for TemplateResponse handlers; role as CSS modifier and ARIA attribute
-- `browser_error(req, e)` - full-page TemplateResponse using `errors/page.html`
+- `api_error(e)`
+  - PlainTextResponse with `e.status`
+- `htmx_error(e, role="alert")`
+  - __kwargs__ dict for `TemplateResponse` handlers;
+  - role as CSS modifier and ARIA attribute
+- `browser_error(req, e)`
+  - full-page `TemplateResponse` using `errors/page.html`
+
+These builders are also the single logging seam:
+each emits one record on the `depo` logger at `e.severity`,
+attaching `exc_info` when `e.exception` is set.
 
 See [errors.md](../design/errors.md) for the full hierarchy and patterns.

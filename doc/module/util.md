@@ -15,9 +15,17 @@ Content hashing and code canonicalization.
 ## errors.py
 
 Centralized exception hierarchy rooted at `DepoError`.
-All exceptions carry `status` (HTTP code), `message`, and `ctx` (dict).
-Domain bases: `RepoError`, `ValidationError`, `ClassificationError`, `ServerError`.
-See [errors.md](../design/errors.md) for the full hierarchy and patterns.
+All exceptions carry `status` (HTTP code), `message`, `ctx` (dict),
+`severity` (a `Severity` level), and `exception` (optional wrapped exception).
+Domain bases:
+`RepoError`, `ValidationError`, `ClassificationError`, `ServerError`.
+
+`Severity` is an `IntEnum` mirroring stdlib logging levels
+(DEBUG 10 through CRITICAL 50);
+each error's `severity` is a class attribute resolved by inheritance.
+
+See [errors.md](../design/errors.md)
+for the full hierarchy, severity decisions, and the logging seam.
 
 ## validate.py
 
