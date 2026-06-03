@@ -11,17 +11,42 @@ import logging
 from fastapi import Request
 from starlette.responses import PlainTextResponse, Response
 
-from depo.util.errors import DepoError
+from depo.util.errors import DepoError, UnknownServerError
+from depo.web.negotiate import wants_html
 from depo.web.templates import get_templates as _get
+from depo.web.templates import is_htmx
 
 _ISSUES_URL = "https://github.com/marcus-grant/depo/issues"
 
-_log = logging.getLogger("depo.web.error")
+
+def log_error(e: DepoError) -> None:
+    """Emit one record on the module logger at the error's severity."""
+    logging.getLogger(__name__).log(e.severity, e.message, exc_info=e.exception)
+
+
+def unhandled(request: Request, exc: Exception) -> Response:
+    """App-level boundary for non-DepoError exceptions.
+
+    Wraps the exception as UnknownServerError and delegates to the
+    surface-appropriate builder. Does not log: the builders log.
+    """
+    err = UnknownServerError(exc)
+    if is_htmx(request):
+        return htmx_error(request, err)
+    if wants_html(request):
+        return browser_error(request, err)
+    return api_error(err)
+
+
+def api_error(err: DepoError) -> PlainTextResponse:
+    """Return a PlainTextResponse for API clients."""
+    log_error(err)
+    return PlainTextResponse(str(err), status_code=err.status)
 
 
 def browser_error(req: Request, err: DepoError) -> Response:
     """Return a full-page error TemplateResponse for browser clients."""
-    _log.log(err.severity, err.message, exc_info=err.exception)
+    log_error(err)
     return _get().TemplateResponse(
         request=req,
         name="errors/page.html",
@@ -30,13 +55,12 @@ def browser_error(req: Request, err: DepoError) -> Response:
     )
 
 
-def api_error(err: DepoError) -> PlainTextResponse:
-    """Return a PlainTextResponse for API clients."""
-    _log.log(err.severity, err.message, exc_info=err.exception)
-    return PlainTextResponse(str(err), status_code=err.status)
-
-
-def htmx_error(err: DepoError, role: str = "alert") -> dict:
-    """Return kwargs dict for HTMX partial TemplateResponse error renders."""
-    _log.log(err.severity, err.message, exc_info=err.exception)
-    return {"name": "errors/partial.html", "context": {"error": err, "role": role}}
+def htmx_error(req: Request, err: DepoError, role: str = "alert") -> Response:
+    """Return an HTMX partial TemplateResponse, always at HTTP 200."""
+    log_error(err)
+    return _get().TemplateResponse(
+        request=req,
+        name="errors/partial.html",
+        status_code=200,
+        context={"error": err, "role": role},
+    )

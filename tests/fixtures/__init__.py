@@ -129,6 +129,20 @@ def t_htmx(tmp_path) -> TestClient:
     return TestClient(client.app, headers={"HX-Request": "true"})
 
 
+@pytest.fixture
+def t_noreraise(tmp_path) -> TestClient:
+    """TestClient that surfaces the app's 500 instead of re-raising.
+
+    Mirrors t_client but with raise_server_exceptions=False, so the
+    app-level boundary handler's response is observable rather than
+    propagated as an exception. Select surface per-request via Accept
+    or HX-Request headers.
+    Depends on pytest builtin fixture: tmp_path for isolated filesystem.
+    """
+    client = make_client(tmp_path)
+    return TestClient(client.app, raise_server_exceptions=False)
+
+
 @dataclass(frozen=True)
 class SeededApp:
     """TestClient bundled with pre-populated items.
@@ -175,15 +189,3 @@ def t_seeded(tmp_path) -> SeededApp:
     store.put(code=item_txt.code, format=item_txt.format, source_bytes=txt_data)
     store.put(code=item_pic.code, format=item_pic.format, source_bytes=pic_data)
     return SeededApp(client, browser, htmx, item_txt, item_pic, item_link)
-
-
-__all__ = [
-    "SeededApp",
-    "t_client",
-    "t_conn",
-    "t_db",
-    "t_orch_env",
-    "t_repo",
-    "t_seeded",
-    "t_store",
-]

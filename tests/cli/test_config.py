@@ -139,6 +139,14 @@ class TestLoadConfigToml:
         assert cfg.port == 8765
         assert cfg.max_url_len == 2048
 
+    def test_toml_log_level(self, monkeypatch, tmp_path):
+        """log_level resolves from a TOML config file."""
+        _clear_depo_env(monkeypatch)
+        _write_toml(tmp_path / "xdg/depo/config.toml", log_level="DEBUG")
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+        monkeypatch.chdir(tmp_path)
+        assert load_config().log_level == "DEBUG"
+
 
 class TestLoadConfigEnv:
     """Tests for DEPO_* environment variable overrides."""

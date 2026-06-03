@@ -12,7 +12,7 @@ import logging
 import pytest
 
 from depo.util.errors import DepoError, NotFoundError
-from depo.web.error import _ISSUES_URL, api_error, browser_error, htmx_error
+from depo.web.error import _ISSUES_URL, api_error, browser_error, htmx_error, log_error
 from tests.factories import make_request
 
 _T_DEPO_ERR = DepoError("something went wrong")
@@ -32,23 +32,30 @@ class TestApiError:
 
 
 class TestHtmxError:
-    """Tests for htmx_error kwargs builder."""
+    """Tests for htmx_error Response builder."""
 
-    def test_returns_error_partial(self):
-        """Returns dict with errors/partial.html template name."""
-        assert htmx_error(_T_DEPO_ERR)["name"] == "errors/partial.html"
+    def test_uses_partial_template(self):
+        """htmx_error always uses errors/partial.html."""
+        req, e = make_request(), _T_DEPO_ERR
+        assert htmx_error(req, e).template.name == "errors/partial.html"  # type: ignore
+
+    def test_status_code_is_200(self):
+        """HTMX contract: status is always 200 regardless of error status."""
+        assert htmx_error(make_request(), _T_DEPO_ERR).status_code == 200
 
     def test_context_contains_error_object(self):
         """Context contains error object, not string."""
-        assert htmx_error(_T_DEPO_ERR)["context"]["error"] is _T_DEPO_ERR
+        req, e = make_request(), _T_DEPO_ERR
+        assert htmx_error(req, e).context["error"] is e  # type: ignore
 
     def test_default_role_is_alert(self):
         """Default role 'alert' passed in context."""
-        assert htmx_error(_T_DEPO_ERR)["context"]["role"] == "alert"
+        assert htmx_error(make_request(), _T_DEPO_ERR).context["role"] == "alert"  # type: ignore
 
     def test_custom_role_in_context(self):
         """Custom role passed through to context."""
-        assert htmx_error(_T_DEPO_ERR, role="status")["context"]["role"] == "status"
+        resp = htmx_error(make_request(), _T_DEPO_ERR, role="status")
+        assert resp.context["role"] == "status"  # type: ignore
 
 
 class TestBrowserError:
@@ -78,12 +85,30 @@ class TestBrowserError:
 class TestErrorLogging:
     """Builders emit one depo log record at the error's severity."""
 
+    def test_log_error_emits_one_record_at_severity(self, caplog):
+        """log_error emits exactly one depo record at the error's severity."""
+        caplog.set_level(logging.DEBUG, logger="depo")
+        log_error(_T_NOTFOUND_ERR)
+        recs = [r for r in caplog.records if r.name.startswith("depo")]
+        assert len(recs) == 1
+        assert recs[0].levelno == logging.INFO
+        assert recs[0].getMessage() == _T_NOTFOUND_ERR.message
+
+    def test_log_error_attaches_exc_info(self, caplog):
+        """log_error attaches exc_info from the error's exception."""
+        caplog.set_level(logging.DEBUG, logger="depo")
+        err = NotFoundError(id="ABC12345")
+        err.exception = ValueError("boom")
+        log_error(err)
+        recs = [r for r in caplog.records if r.name.startswith("depo")]
+        assert recs[0].exc_info is not None
+
     @pytest.mark.parametrize(
         "call",
         [
             lambda e: api_error(e),
             lambda e: browser_error(make_request(), e),
-            lambda e: htmx_error(e),
+            lambda e: htmx_error(make_request(), e),
         ],
         ids=["api", "browser", "htmx"],
     )

@@ -96,3 +96,50 @@ class TestHtmxErrorPartial:
         """HTMX error responses always return 200 status."""
         assert self._empty_resp(t_client).status_code == 200
         assert self._oversize_resp(t_client).status_code == 200
+
+
+class TestUnexpectedErrorBoundary:
+    """Non-DepoError exceptions hit the app-level boundary, get wrapped
+    as UnknownServerError, surface-negotiated, and logged once."""
+
+    def _patch_selector_oserror(self, monkeypatch):
+        """Make selector.get_item raise a non-DepoError on any call."""
+        from depo.web.routes import shortcode
+
+        def _boom(*_):
+            raise OSError("disk gone")
+
+        monkeypatch.setattr(shortcode.selector, "get_item", _boom)
+
+    def test_boundary_browser_returns_500_page(self, t_noreraise, monkeypatch):
+        """Browser surface: non-DepoError yields a controlled 500 rendering
+        errors/page.html, not FastAPI's default 500."""
+        self._patch_selector_oserror(monkeypatch)
+        resp = t_noreraise.get("/ABC12345/info", headers={"Accept": "text/html"})
+        assert resp.status_code == 500
+        assert "<!-- BEGIN: errors/page.html" in resp.text
+
+    def test_boundary_api_returns_500(self, t_noreraise, monkeypatch):
+        """API surface: non-DepoError yields a controlled 500 response."""
+        self._patch_selector_oserror(monkeypatch)
+        resp = t_noreraise.get("/ABC12345/info")
+        assert resp.status_code == 500
+
+    def test_boundary_htmx_returns_200_partial(self, t_noreraise, monkeypatch):
+        """HTMX surface: non-DepoError yields 200 plus errors/partial.html,
+        honoring the HTMX contract that errors ride in the body."""
+        self._patch_selector_oserror(monkeypatch)
+        resp = t_noreraise.get("/ABC12345/info", headers=HEADER_HTMX)
+        assert resp.status_code == 200
+        assert "<!-- BEGIN: errors/partial.html" in resp.text
+
+    def test_boundary_logs_once(self, t_noreraise, monkeypatch, caplog):
+        """The boundary logs exactly one depo record: the builders log,
+        the handler must not log again."""
+        import logging
+
+        self._patch_selector_oserror(monkeypatch)
+        caplog.set_level(logging.DEBUG, logger="depo")
+        t_noreraise.get("/ABC12345/info")
+        recs = [r for r in caplog.records if r.name.startswith("depo")]
+        assert len(recs) == 1

@@ -16,7 +16,10 @@ configure_logging(level: str) -> None
 
 `app_factory` creates the FastAPI instance, initializes DB and storage,
 wires repo/storage/orchestrator onto `app.state`.
-Includes route handlers via`APIRouter`.
+Includes route handlers via `APIRouter`.
+Registers the `unhandled` boundary via
+`add_exception_handler(Exception, ...)` to
+catch non-DepoError exceptions that escape routes.
 Mounts static files from `src/depo/static/`.
 SQLite uses `check_same_thread=False` for async handler compatibility.
 
@@ -83,7 +86,7 @@ Algebraic union, each variant corresponds to an upload path.
 - `UploadRawBodyParams` - payload_bytes, declared_mime
 - `UploadFormParams` - payload_bytes, declared_mime, requested_format
 
-#### Functions
+#### upload.py - functions
 
 - `_parse_upload(file, url, request)`:
   - extract orchestrator kwargs from API request
@@ -181,18 +184,25 @@ All exceptions carry
 `status`, `message`, `ctx`, `severity`, and `exception` fields.
 Route handlers catch `DepoError` broadly using `e.status` for response codes.
 
-Response builders live in `depo.web.error`:
+Response builders live in `depo.web.error`. Each returns a finished
+`Response`:
 
 - `api_error(e)`
-  - PlainTextResponse with `e.status`
-- `htmx_error(e, role="alert")`
-  - __kwargs__ dict for `TemplateResponse` handlers;
+  - `PlainTextResponse` with `e.status`
+- `htmx_error(req, e, role="alert")`
+  - `errors/partial.html` `TemplateResponse` hardcoded at `status_code=200`
   - role as CSS modifier and ARIA attribute
 - `browser_error(req, e)`
-  - full-page `TemplateResponse` using `errors/page.html`
+  - full-page `TemplateResponse` using `errors/page.html` at `e.status`
 
 These builders are also the single logging seam:
-each emits one record on the `depo` logger at `e.severity`,
+each calls `log_error(e)`, emitting one record at `e.severity`,
 attaching `exc_info` when `e.exception` is set.
+
+Non-DepoError exceptions that escape a route are caught by
+the app-level boundary `unhandled`, registered in `app_factory`.
+It wraps the exception in `UnknownServerError`, negotiates surface,
+and delegates to a builder.
+It does not log; the builder does.
 
 See [errors.md](../design/errors.md) for the full hierarchy and patterns.
