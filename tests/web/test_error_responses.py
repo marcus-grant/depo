@@ -12,7 +12,7 @@ import logging
 import pytest
 
 from depo.util.errors import DepoError, NotFoundError
-from depo.web.error import _ISSUES_URL, api_error, browser_error, htmx_error
+from depo.web.error import _ISSUES_URL, api_error, browser_error, htmx_error, log_error
 from tests.factories import make_request
 
 _T_DEPO_ERR = DepoError("something went wrong")
@@ -77,6 +77,24 @@ class TestBrowserError:
 
 class TestErrorLogging:
     """Builders emit one depo log record at the error's severity."""
+
+    def test_log_error_emits_one_record_at_severity(self, caplog):
+        """log_error emits exactly one depo record at the error's severity."""
+        caplog.set_level(logging.DEBUG, logger="depo")
+        log_error(_T_NOTFOUND_ERR)
+        recs = [r for r in caplog.records if r.name.startswith("depo")]
+        assert len(recs) == 1
+        assert recs[0].levelno == logging.INFO
+        assert recs[0].getMessage() == _T_NOTFOUND_ERR.message
+
+    def test_log_error_attaches_exc_info(self, caplog):
+        """log_error attaches exc_info from the error's exception."""
+        caplog.set_level(logging.DEBUG, logger="depo")
+        err = NotFoundError(id="ABC12345")
+        err.exception = ValueError("boom")
+        log_error(err)
+        recs = [r for r in caplog.records if r.name.startswith("depo")]
+        assert recs[0].exc_info is not None
 
     @pytest.mark.parametrize(
         "call",
