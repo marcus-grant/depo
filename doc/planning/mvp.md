@@ -136,26 +136,101 @@ guests-disabled-by-default (moved to Auth).*
 
 - [ ] gh pr create --title "Ref: Canonical config" --body "..."
 
-### Non-HTMX form fallback error handling (needs planning)
+### Non-HTMX form fallback error surface (Branch: `fix/form-error-surface`)
 
-Problem: the `application/x-www-form-urlencoded` fallback branch in the
+*Problem: the `application/x-www-form-urlencoded` fallback branch in the
 upload dispatcher (`web/routes/upload.py`) runs `_parse_form_upload` and
-`orch.ingest` with no `except DepoError`. Expected domain errors (empty,
-oversized, bad format) on a non-HTMX form POST escape to the app-level
-boundary, which wraps them as `UnknownServerError` and renders a 500. This
-mislabels ordinary 4xx domain errors as server errors and discards their
-real status and message.
+`orch.ingest` with no `except DepoError`, so expected domain errors (empty,
+oversized, bad format) on a non-HTMX form POST escape to the boundary, which
+wraps them as `UnknownServerError` and renders a 500. This mislabels ordinary
+4xx as server errors and discards their true status and message. Compounding
+it, a bad `format=` token raises a raw `ValueError` from `ContentFormat(fmt)`
+at three sites (form parse file branch, form parse text branch, and
+`api_upload`), which escapes even a bare `except DepoError`. Decision: the
+form path renders full-page `browser_error` at the error's true status; the
+success 303 redirect to `/{code}/info` is unchanged. Coercion is normalized
+through `format_for_extension` (alias-tolerant, returns None on unknown), with
+the web layer raising `UnsupportedFormatError` on None so the model layer stays
+free of web-error semantics. Out of scope: redirect-with-flash (no flash or
+session infrastructure exists, not introducing it); FormatMismatchError
+(unplanned, unrelated to unsupported-token coercion); the htmx and api error
+surfaces (already wired and tested).*
 
-This was assumed closed by the `ref/error-boundary` boundary handler. It is
-not: the boundary is for unexpected errors and must not be the catch path
-for expected ones. The fix is entangled with the fallback's success shape
-(currently a 303 redirect, no error render of its own), so the surface and
-flow need a design decision, not a patch.
+#### Setup and gating test
 
-To plan: what the non-HTMX form path renders on a DepoError (full-page
-browser_error, redirect-with-flash, or other), whether the success redirect
-stays, and how this interacts with the deferred non-404 4xx browser
-templates. Plan alongside request access logging.
+- [ ] Branch `fix/form-error-surface` from main.
+- [ ] Add a skipped integration test to `tests/web/routes/test_upload.py`
+      (new `TestFormFallbackError` class) asserting the end state: a non-HTMX
+      form POST (`t_client.post`, `data=...`, no `HEADER_HTMX`) that triggers
+      a domain error renders full-page HTML at the error's true 4xx status,
+      not 500 and not plaintext. Assert `status_code == 400` for an empty
+      submission (PayloadEmptyError is 400), `text/html` content-type, and the
+      `errors/page.html` marker in the body via BeautifulSoup.
+      `@pytest.mark.skip` until the last unit.
+  - [ ] Commit: `Tst: Add skipped gating test for form fallback error surface`
+
+#### TDD implementation
+
+**Normalize format-token coercion through `format_for_extension`**
+(`tests/web/routes/test_upload.py`)
+
+- [ ] Red: add a parse-unit test to `TestParseFormUpload` asserting a bad
+      `format` token on non-empty content raises `UnsupportedFormatError`
+      (use `_test_fn("hello", "bogus")`; non-empty content avoids the
+      `PayloadEmptyError` short-circuit).
+- [ ] Replace the three `ContentFormat(fmt)` call sites in `upload.py`
+      (`_parse_form_upload` file branch, text branch, and `api_upload`'s
+      `req_fmt`) with `format_for_extension(...)`, raising
+      `UnsupportedFormatError(fmt)` when it returns None. Import
+      `format_for_extension` and `UnsupportedFormatError`.
+- [ ] Confirm `test_request_format_for_select_option` stays green
+      (refactor-under-green: canonical tokens still resolve, so the existing
+      assertion is the regression guard for the swap).
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Fix: Normalize format-token coercion, raise UnsupportedFormatError`
+
+**Surface bad API-path format token as 422**
+(`tests/web/routes/test_upload.py`)
+
+- [ ] Red: add a test under `TestApiUploadError` asserting `?format=bogus`
+      returns 422, mirroring `test_oversized_returns_413`. The coercion swap
+      from the prior unit already routes this through `api_upload`'s existing
+      `except DepoError`, so this asserts the now-correct API surface
+      end to end.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Tst: Assert API-path bad format token returns 422`
+
+**Wire form fallback branch to `browser_error`**
+(`tests/web/routes/test_upload.py`)
+
+- [ ] Red: add form-branch tests (`TestFormFallbackError`) asserting an
+      oversized non-HTMX form POST renders full-page HTML at 413, and a
+      bad-format one at 422 (full surface, distinct from the empty-content
+      400 the gating test covers).
+- [ ] In `upload.py`, wrap the form fallback branch's `_parse_form_upload` and
+      `orch.ingest` in `try/except DepoError as e: return browser_error(req, e)`.
+      Import `browser_error`. Catch `DepoError` broadly; `e.status` drives the
+      response. Leave the 303 success path unchanged.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Fix: Render browser_error on non-HTMX form fallback DepoError`
+
+#### Integration and documentation
+
+- [ ] Unskip the `TestFormFallbackError` gating test; confirm it passes.
+- [ ] Update `doc/design/errors.md` Deferred section: remove the
+      form-fallback entry (closed by this PR) and mark the non-404 4xx
+      browser-template entry resolved (the error rearchitecture made
+      `errors/page.html` render any status generically; the note drifted
+      out of sync and was never updated).
+- [ ] Note in errors.md that `FormatMismatchError` (unplanned) is unrelated
+      and untouched, to prevent a future reader conflating it with the
+      unsupported-token coercion landed here.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Doc: ...`
+
+#### PR
+
+- [ ] gh pr create --title "Fix: Non-HTMX form fallback error surface" --body "..."
 
 ### Auth
 
