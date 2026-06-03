@@ -30,89 +30,6 @@ service, repo, and storage. Dedupe by content hash.
 
 Ordered by dependency. Each heading is roughly one PR.
 
-### Error logging foundation (Branch: `ft/error-logging`)
-
-*Problem: errors are formatted into responses but never logged, and
-`hx_upload`'s bare except silently drops tracebacks. Give the error
-hierarchy a self-describing severity and emit one record at the builder
-seam. Scope is expected-error logging only. The unexpected-error boundary
-and handler thinning are the follow-up (`ref/error-boundary`).*
-
-#### Setup and gating test
-
-- [ ] `git checkout -b ft/error-logging`
-- [ ] `tests/web/test_logging.py`: skipped integration test that triggers a
-      `NotFoundError` through `t_client` and asserts via `caplog` one INFO
-      record carrying the code. `caplog` is new to the suite, so call
-      `caplog.set_level(logging.INFO)` and keep the `depo` logger
-      propagating. Mark `@pytest.mark.skip("logging not implemented")`.
-- [ ] `uv run ruff check && uv run pytest`
-- [ ] Commit: `Tst: Add skipped logging integration test`
-
-#### TDD implementation
-
-**Severity vocabulary** (`tests/util/test_errors.py`)
-
-- [ ] Add `Severity(IntEnum)` to `util/errors.py` (not `model/enums.py`,
-      since `util` cannot import `model`), DEBUG=10 through CRITICAL=50.
-- [ ] Test: members equal stdlib level ints (`Severity.WARNING == 30`).
-- [ ] `uv run ruff check && uv run pytest`
-- [ ] Commit: `Ft: Add Severity IntEnum`
-
-**Error severity and exception slot** (`tests/util/test_errors.py`)
-
-- [ ] On `DepoError`: `severity: Severity = Severity.ERROR` and
-      `exception: Exception | None = None` as class-attr defaults.
-- [ ] Domain defaults: `RepoError` WARNING, `ValidationError` INFO,
-      `ClassificationError` INFO. Leaf overrides: `NotFoundError` INFO,
-      `MissingDependencyError` WARNING, `UnknownClassificationError` ERROR.
-- [ ] Gap test: enumerate concrete `DepoError` subclasses, assert each
-      `.severity` resolves to its expected level (hardcoded per type).
-- [ ] `uv run ruff check && uv run pytest`
-- [ ] Commit: `Ft: Add severity and exception slot to error hierarchy`
-
-**Logging configuration** (`tests/cli/test_config.py`, `tests/web/test_logging.py`)
-
-- [ ] Add `log_level: str = "WARNING"` to `DepoConfig` in `cli/config.py`,
-      beside `max_url_len`. Picked up by TOML and `DEPO_LOG_LEVEL` through the
-      existing resolution chain.
-- [ ] Add `configure_logging(level: str)` in `web/app.py` that maps the
-      string to a level and sets the `depo` logger level plus a text handler.
-- [ ] Tests: `log_level` resolves through defaults, TOML, `DEPO_LOG_LEVEL`
-      (`test_config.py`); `configure_logging` sets the logger level
-      (`test_logging.py`).
-- [ ] `uv run ruff check && uv run pytest`
-- [ ] Commit: `Ft: Add log_level config and configure_logging`
-
-**Builder emission** (`tests/web/test_error_responses.py`)
-
-- [ ] Add a module logger and `_log(e: DepoError)` to `web/error.py`. Each of
-      `browser_error`, `api_error`, `htmx_error` calls `_log(e)` first.
-- [ ] Tests (`caplog`): each builder logs at `e.severity` with `e.message`;
-      `exc_info` present when `e.exception` is set.
-- [ ] `uv run ruff check && uv run pytest`
-- [ ] Commit: `Ft: Emit log records from error builders`
-
-**Logging init** (`tests/web/test_logging.py`)
-
-- [ ] Call `configure_logging(config.log_level)` as the first statement of
-      `app_factory` (`web/app.py:25`).
-- [ ] Test: `app_factory` configures the `depo` logger to the level.
-- [ ] `uv run ruff check && uv run pytest`
-- [ ] Commit: `Ft: Initialize logging in app_factory`
-
-#### Integration and documentation
-
-- [ ] Remove the skip from the gating test, verify it passes.
-- [ ] Document the architecture in `doc/design/errors.md`, kept linked from
-      `doc/design/README.md`.
-- [ ] `uv run ruff check && uv run pytest`
-- [ ] Commit: `Doc: Document error severity and logging architecture`
-
-#### PR
-
-- [ ] `gh pr create --title "Ft: Error logging foundation" --body "..."`
-
 ### Unexpected-error boundary (Branch: `ref/error-boundary`)
 
 *Problem: non-DepoError exceptions slip past the per-route `except DepoError`
@@ -132,6 +49,17 @@ The builders already log (PR 1), so the handler must not log again. Depends on
       `@pytest.mark.skip("boundary not implemented")`.
 - [ ] `uv run ruff check && uv run pytest`
 - [ ] Commit: `Tst: Add skipped boundary integration test`
+
+**Carryover from ft/error-logging** (`web/error.py`, `util/errors.py`, `tests/cli/test_config.py`)
+
+- [ ] Extract `_log(e)` helper in `web/error.py`: rename the module logger to
+      `_logger`, add `_log(e)` emitting at `e.severity` with
+      `exc_info=e.exception`, replace the inline calls in all three builders
+      with `_log(e)`. Covered by existing builder-logging tests.
+- [ ] Annotate `severity: Severity` on `DepoError` to match the slot intent.
+- [ ] Add a TOML resolution test for `log_level` in `test_config.py`.
+- [ ] `uv run ruff check && uv run pytest`
+- [ ] Commit: `Ref: Extract _log helper, close ft/error-logging gaps`
 
 #### TDD implementation
 
@@ -188,6 +116,8 @@ The builders already log (PR 1), so the handler must not log again. Depends on
 
 ### Config and limits
 
+- Raise default upload limit to 64MiB (`max_size_bytes` = 67_108_864);
+  - guests disabled by default
 - Refactor size limits to use the config loading infrastructure
 - Set up local dev/manual testing config in XDG paths
 - Access tracking per item (UPDATE on access for recent/popular surfacing,

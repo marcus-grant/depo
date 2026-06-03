@@ -14,9 +14,10 @@ class DepoConfig:
     db_path: Path
     store_root: Path
     host: str           # default: "127.0.0.1"
-    port: int           # default: 8000
+    port: int           # default: 8765
     max_size_bytes: int # default: 10_485_760
     max_url_len: int    # default: 2048
+    log_level: str      # default: "WARNING"
 ```
 
 Frozen dataclass. Immutable after resolution.

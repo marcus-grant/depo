@@ -6,7 +6,21 @@ Created: 2026-03-10
 License: Apache-2.0
 """
 
+from enum import IntEnum
 from typing import Literal
+
+# Severity Enum used in errors
+
+
+class Severity(IntEnum):
+    """Logging severity levels for errors."""
+
+    DEBUG = 10
+    INFO = 20
+    WARNING = 30
+    ERROR = 40
+    CRITICAL = 50
+
 
 # == Base ==
 
@@ -14,8 +28,11 @@ from typing import Literal
 class DepoError(Exception):
     """Root exception for all depo errors."""
 
+    severity = Severity.ERROR
+    exception = None
     status = 500
     message = "Unexpected error occurred, report to https://github.com/marcus-grant/depo/issues"
+    exception: Exception | None = None
 
     def __init__(
         self,
@@ -62,6 +79,7 @@ class UnknownServerError(ServerError):
 class MissingDependencyError(ServerError):
     """A required dependency is missing or not installed."""
 
+    severity = Severity.WARNING
     status = 501
     message = "A required dependency is missing or not installed."
 
@@ -78,12 +96,14 @@ class MissingDependencyError(ServerError):
 class RepoError(DepoError):
     """Base for repository errors."""
 
+    severity = Severity.WARNING
     message = "Repository error occurred."
 
 
 class NotFoundError(RepoError):
     """Repo Domain error for not found resources."""
 
+    severity = Severity.INFO
     status = 404
     resource = "Item"
 
@@ -136,6 +156,7 @@ class CodeCollisionError(RepoError):
 class ValidationError(DepoError):
     """Base for validation errors."""
 
+    severity = Severity.INFO
     status = 400
     message = "Validation error occurred."
 
@@ -194,6 +215,7 @@ class PayloadSourceError(ValidationError):
 class ClassificationError(DepoError):
     """Base for classification errors."""
 
+    severity = Severity.INFO
     status = 422
     message = "Error, content could not be classified to a supported format."
 
@@ -201,6 +223,7 @@ class ClassificationError(DepoError):
 class UnknownClassificationError(ClassificationError):
     """Unknown/unexpected error in classification pipeline. Indicates a bug."""
 
+    severity = Severity.ERROR
     status = 500
     message = "Unknown classification error, likely a bug in the pipeline."
 

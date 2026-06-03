@@ -8,6 +8,57 @@ License: Apache-2.0
 
 from depo.util import errors
 
+
+class TestSeverity:
+    """Tests for the Severity IntEnum."""
+
+    def test_levels_match_stdlib(self):
+        """Severity members map to stdlib logging level ints."""
+        assert errors.Severity.DEBUG == 10
+        assert errors.Severity.INFO == 20
+        assert errors.Severity.WARNING == 30
+        assert errors.Severity.ERROR == 40
+        assert errors.Severity.CRITICAL == 50
+
+
+class TestErrorSeverity:
+    """Severity resolution across the concrete error hierarchy (gap test)."""
+
+    EXPECTED = {
+        errors.ServerError: errors.Severity.ERROR,
+        errors.UnknownServerError: errors.Severity.ERROR,
+        errors.MissingDependencyError: errors.Severity.WARNING,
+        errors.RepoError: errors.Severity.WARNING,
+        errors.NotFoundError: errors.Severity.INFO,
+        errors.ExtensionMismatchError: errors.Severity.INFO,
+        errors.LinkRawNotSupportedError: errors.Severity.INFO,
+        errors.CodeCollisionError: errors.Severity.WARNING,
+        errors.ValidationError: errors.Severity.INFO,
+        errors.PayloadTooLargeError: errors.Severity.INFO,
+        errors.PayloadEmptyError: errors.Severity.INFO,
+        errors.PayloadSourceError: errors.Severity.INFO,
+        errors.ClassificationError: errors.Severity.INFO,
+        errors.UnknownClassificationError: errors.Severity.ERROR,
+        errors.ImageDecodeError: errors.Severity.INFO,
+        errors.UnsupportedFormatError: errors.Severity.INFO,
+    }
+
+    def test_each_subclass_resolves_expected_severity(self):
+        """Each concrete subclass resolves to its expected severity."""
+        for cls, expected in self.EXPECTED.items():
+            msg = f"{cls.__name__}: severity {cls.severity!r}, expected {expected!r}"
+            assert cls.severity == expected, msg
+
+    def test_every_subclass_has_a_severity_decision(self):
+        """Discovered subclasses match EXPECTED, so new ones force a decision."""
+
+        def descendants(cls):
+            subs = set(cls.__subclasses__())
+            return subs.union(*(descendants(s) for s in subs))
+
+        assert descendants(errors.DepoError) == set(self.EXPECTED)
+
+
 # == Base DepoError ==
 
 
@@ -26,6 +77,11 @@ class TestDepoError:
         e = errors.DepoError("Test message", {"key": "value"})
         assert str(e) == "Test message"
         assert e.ctx == {"key": "value"}
+
+    def test_severity_and_exception_defaults(self):
+        """DepoError defaults severity to ERROR and exception to None."""
+        assert errors.DepoError.severity == errors.Severity.ERROR
+        assert errors.DepoError.exception is None
 
 
 # == Server Domain ==
