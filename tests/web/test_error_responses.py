@@ -32,23 +32,30 @@ class TestApiError:
 
 
 class TestHtmxError:
-    """Tests for htmx_error kwargs builder."""
+    """Tests for htmx_error Response builder."""
 
-    def test_returns_error_partial(self):
-        """Returns dict with errors/partial.html template name."""
-        assert htmx_error(_T_DEPO_ERR)["name"] == "errors/partial.html"
+    def test_uses_partial_template(self):
+        """htmx_error always uses errors/partial.html."""
+        req, e = make_request(), _T_DEPO_ERR
+        assert htmx_error(req, e).template.name == "errors/partial.html"  # type: ignore
+
+    def test_status_code_is_200(self):
+        """HTMX contract: status is always 200 regardless of error status."""
+        assert htmx_error(make_request(), _T_DEPO_ERR).status_code == 200
 
     def test_context_contains_error_object(self):
         """Context contains error object, not string."""
-        assert htmx_error(_T_DEPO_ERR)["context"]["error"] is _T_DEPO_ERR
+        req, e = make_request(), _T_DEPO_ERR
+        assert htmx_error(req, e).context["error"] is e  # type: ignore
 
     def test_default_role_is_alert(self):
         """Default role 'alert' passed in context."""
-        assert htmx_error(_T_DEPO_ERR)["context"]["role"] == "alert"
+        assert htmx_error(make_request(), _T_DEPO_ERR).context["role"] == "alert"  # type: ignore
 
     def test_custom_role_in_context(self):
         """Custom role passed through to context."""
-        assert htmx_error(_T_DEPO_ERR, role="status")["context"]["role"] == "status"
+        resp = htmx_error(make_request(), _T_DEPO_ERR, role="status")
+        assert resp.context["role"] == "status"  # type: ignore
 
 
 class TestBrowserError:
@@ -101,7 +108,7 @@ class TestErrorLogging:
         [
             lambda e: api_error(e),
             lambda e: browser_error(make_request(), e),
-            lambda e: htmx_error(e),
+            lambda e: htmx_error(make_request(), e),
         ],
         ids=["api", "browser", "htmx"],
     )

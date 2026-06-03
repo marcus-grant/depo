@@ -13,7 +13,7 @@ License: Apache-2.0
 from typing import TypedDict
 
 from fastapi import APIRouter, Depends, Query, Request, Response, UploadFile
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from depo.model.enums import ContentFormat
@@ -64,18 +64,21 @@ async def upload(
 async def hx_upload(
     request: Request,
     orch: IngestOrchestrator = Depends(get_orchestrator),
-) -> HTMLResponse:
+) -> Response:
     """Browser form upload: textarea content + format override."""
-    kw = {"request": request, "name": "partials/success.html", "status_code": 200}
     try:
         params = await _parse_form_upload(request)
         result = orch.ingest(**dict(params))  # type: ignore[arg-type]
-        kw["context"] = {"code": result.item.code, "created": result.created}
+        return get_templates().TemplateResponse(
+            request=request,
+            name="partials/success.html",
+            status_code=200,
+            context={"code": result.item.code, "created": result.created},
+        )
     except DepoError as e:
-        kw |= htmx_error(e)
+        return htmx_error(request, e)
     except Exception as e:
-        kw |= htmx_error(UnknownServerError(e))
-    return get_templates().TemplateResponse(**kw)
+        return htmx_error(request, UnknownServerError(e))
 
 
 async def api_upload(

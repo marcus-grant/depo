@@ -22,6 +22,12 @@ def log_error(e: DepoError) -> None:
     logging.getLogger(__name__).log(e.severity, e.message, exc_info=e.exception)
 
 
+def api_error(err: DepoError) -> PlainTextResponse:
+    """Return a PlainTextResponse for API clients."""
+    log_error(err)
+    return PlainTextResponse(str(err), status_code=err.status)
+
+
 def browser_error(req: Request, err: DepoError) -> Response:
     """Return a full-page error TemplateResponse for browser clients."""
     log_error(err)
@@ -33,13 +39,12 @@ def browser_error(req: Request, err: DepoError) -> Response:
     )
 
 
-def api_error(err: DepoError) -> PlainTextResponse:
-    """Return a PlainTextResponse for API clients."""
+def htmx_error(req: Request, err: DepoError, role: str = "alert") -> Response:
+    """Return an HTMX partial TemplateResponse, always at HTTP 200."""
     log_error(err)
-    return PlainTextResponse(str(err), status_code=err.status)
-
-
-def htmx_error(err: DepoError, role: str = "alert") -> dict:
-    """Return kwargs dict for HTMX partial TemplateResponse error renders."""
-    log_error(err)
-    return {"name": "errors/partial.html", "context": {"error": err, "role": role}}
+    return _get().TemplateResponse(
+        request=req,
+        name="errors/partial.html",
+        status_code=200,
+        context={"error": err, "role": role},
+    )
