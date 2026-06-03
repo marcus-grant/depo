@@ -30,90 +30,6 @@ service, repo, and storage. Dedupe by content hash.
 
 Ordered by dependency. Each heading is roughly one PR.
 
-### Unexpected-error boundary (Branch: `ref/error-boundary`)
-
-*Problem: non-DepoError exceptions slip past the per-route `except DepoError`
-catches and reach FastAPI's default 500 unlogged, and `hx_upload` guards its
-own HTMX case with a bare except. Centralize unexpected errors in one
-app-level handler that wraps, negotiates surface, and delegates to a builder.
-The builders already log (PR 1), so the handler must not log again. Depends on
-`ft/error-logging`.*
-
-#### Setup and gating test
-
-- [ ] `git checkout -b ref/error-boundary`
-- [ ] `tests/web/test_errors.py`: skipped integration test. Monkeypatch a
-      selector call to raise `OSError`, hit a shortcode GET, assert a logged
-      controlled 500; repeat with `HX-Request` and assert 200 plus the error
-      partial. Needs the no-reraise client. Mark
-      `@pytest.mark.skip("boundary not implemented")`.
-- [ ] `uv run ruff check && uv run pytest`
-- [ ] Commit: `Tst: Add skipped boundary integration test`
-
-**Carryover from ft/error-logging** (`web/error.py`, `util/errors.py`, `tests/cli/test_config.py`)
-
-- [ ] Extract `_log(e)` helper in `web/error.py`: rename the module logger to
-      `_logger`, add `_log(e)` emitting at `e.severity` with
-      `exc_info=e.exception`, replace the inline calls in all three builders
-      with `_log(e)`. Covered by existing builder-logging tests.
-- [ ] Annotate `severity: Severity` on `DepoError` to match the slot intent.
-- [ ] Add a TOML resolution test for `log_level` in `test_config.py`.
-- [ ] `uv run ruff check && uv run pytest`
-- [ ] Commit: `Ref: Extract _log helper, close ft/error-logging gaps`
-
-#### TDD implementation
-
-**Uniform builder return** (`tests/web/test_error_responses.py`)
-
-- [ ] Change `htmx_error` to `htmx_error(req, e, role="alert") -> Response`,
-      returning the `errors/partial.html` TemplateResponse hardcoded at
-      `status_code=200` (the HTMX contract, unlike `browser_error` which uses
-      `e.status`).
-- [ ] Update `hx_upload`: error branch becomes `return htmx_error(request, e)`,
-      success path returns its TemplateResponse directly, the `kw` merge goes
-      away. Leave the `except Exception` branch for now as
-      `return htmx_error(request, UnknownServerError(e))`.
-- [ ] Rewrite the 4 `TestHtmxError` tests to assert on the Response (status
-      200, partial marker, error in context) instead of dict keys.
-- [ ] `uv run ruff check && uv run pytest`
-- [ ] Commit: `Ref: Make htmx_error return a Response`
-
-**Boundary handler** (`tests/web/test_errors.py`, fixture in `tests/fixtures/__init__.py`)
-
-- [ ] Add `unhandled(request, exc) -> Response` to `web/error.py`: wrap in
-      `UnknownServerError(exc)`, then `is_htmx` -> `htmx_error`, `wants_html`
-      -> `browser_error`, else `api_error`. No log call here; the builders log.
-- [ ] Register in `app_factory`: `app.add_exception_handler(Exception, unhandled)`.
-- [ ] Add a `TestClient(client.app, raise_server_exceptions=False)` fixture
-      mirroring `t_client`, so the handler's response is observable.
-- [ ] Tests: non-DepoError through a shortcode GET gives a logged controlled
-      500 (api and browser surfaces); with `HX-Request`, 200 plus partial.
-      Confirm `_500_response()` in `test_errors.py:52` still holds; adjust if
-      it leaned on the default 500.
-- [ ] `uv run ruff check && uv run pytest`
-- [ ] Commit: `Ft: Add app-level boundary handler for unexpected errors`
-
-**Thin hx_upload** (`tests/web/routes/test_upload.py`)
-
-- [ ] Remove `hx_upload`'s `except Exception`; unexpected upload errors now
-      bubble to the boundary.
-- [ ] Test: inject a non-DepoError into the upload path through the no-reraise
-      client, assert 200 plus partial via the boundary.
-- [ ] `uv run ruff check && uv run pytest`
-- [ ] Commit: `Ref: Remove hx_upload bare except, defer to boundary`
-
-#### Integration and documentation
-
-- [ ] Remove the skip from the gating test, verify it passes.
-- [ ] Update `doc/design/errors.md` and `doc/module/web.md` (boundary handler,
-      uniform builders, hx_upload thinning), kept linked from their READMEs.
-- [ ] `uv run ruff check && uv run pytest`
-- [ ] Commit: `Doc: Document unexpected-error boundary`
-
-#### PR
-
-- [ ] `gh pr create --title "Ref: Unexpected-error boundary" --body "..."`
-
 ### Config and limits
 
 - Raise default upload limit to 64MiB (`max_size_bytes` = 67_108_864);
@@ -126,6 +42,27 @@ The builders already log (PR 1), so the handler must not log again. Depends on
   - Use `isinstance` dispatch.
   - Reduces null coalescing throughout ingest pipeline.
   - Related to temp file streaming and async pipeline work.
+
+### Non-HTMX form fallback error handling (needs planning)
+
+Problem: the `application/x-www-form-urlencoded` fallback branch in the
+upload dispatcher (`web/routes/upload.py`) runs `_parse_form_upload` and
+`orch.ingest` with no `except DepoError`. Expected domain errors (empty,
+oversized, bad format) on a non-HTMX form POST escape to the app-level
+boundary, which wraps them as `UnknownServerError` and renders a 500. This
+mislabels ordinary 4xx domain errors as server errors and discards their
+real status and message.
+
+This was assumed closed by the `ref/error-boundary` boundary handler. It is
+not: the boundary is for unexpected errors and must not be the catch path
+for expected ones. The fix is entangled with the fallback's success shape
+(currently a 303 redirect, no error render of its own), so the surface and
+flow need a design decision, not a patch.
+
+To plan: what the non-HTMX form path renders on a DepoError (full-page
+browser_error, redirect-with-flash, or other), whether the success redirect
+stays, and how this interacts with the deferred non-404 4xx browser
+templates. Plan alongside request access logging.
 
 ### Auth
 
