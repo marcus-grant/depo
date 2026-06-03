@@ -28,8 +28,7 @@ class Severity(IntEnum):
 class DepoError(Exception):
     """Root exception for all depo errors."""
 
-    severity = Severity.ERROR
-    exception = None
+    severity: Severity = Severity.ERROR
     status = 500
     message = "Unexpected error occurred, report to https://github.com/marcus-grant/depo/issues"
     exception: Exception | None = None
