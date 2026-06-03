@@ -58,49 +58,70 @@ so a new error added without a severity decision fails the suite.
 
 ## Response builders
 
-`depo.web.error` provides three builders for route handlers:
+`depo.web.error` provides three builders.
+Each returns a finished `Response`,
+so route handlers and the boundary pick a builder rather than
+assemble responses themselves:
 
 - `api_error(e: DepoError)`: returns `PlainTextResponse(str(e), status_code=e.status)`
-- `htmx_error(e: DepoError, role: str = "alert")`: returns kwargs dict for
-  `TemplateResponse` handlers; role used as CSS modifier and ARIA attribute
+- `htmx_error(req, e: DepoError, role: str = "alert")`: returns the
+  `errors/partial.html` `TemplateResponse` hardcoded at `status_code=200`,
+  the HTMX contract. `role` is used as CSS modifier and ARIA attribute
 - `browser_error(req, e: DepoError)`: returns full-page `TemplateResponse`
-  using `errors/page.html`; renders debug block for 5xx errors
+  using `errors/page.html` at `e.status`; renders debug block for 5xx errors
 
 ## Route handler pattern
 
-API handlers catch `DepoError` broadly:
+API handlers catch `DepoError` broadly and return a builder:
 
 ```python
 except DepoError as e:
     return api_error(e)
 ```
 
-HTMX handlers always return 200. Error info lives in the partial body:
+HTMX handlers always return 200, with error info in the partial body:
 
 ```python
 except DepoError as e:
-    kw |= htmx_error(e)
-except Exception as e:
-    kw |= htmx_error(UnknownServerError(e))
+    return htmx_error(request, e)
 ```
+
+Routes catch only `DepoError`.
+Non-`DepoError` exceptions are left to escape to the app-level boundary,
+which removes the need for per-route bare `except Exception` guards.
+
+## Unexpected-error boundary
+
+`unhandled(request, exc)` in `depo.web.error` is registered on the app via
+`add_exception_handler(Exception, unhandled)` in `app_factory`.
+It catches any non-DepoError that escapes a route,
+wraps it in `UnknownServerError`, negotiates surface
+(`is_htmx` to `htmx_error`, `wants_html` to `browser_error`, otherwise `api_error`),
+and delegates.
+It does not log: the builder it delegates to is the logging seam.
 
 ## Logging
 
 The three response builders are the single logging seam.
-Each calls a module-level `_log(e)` first,
-emitting one record on the `depo` logger at `e.severity` with `e.message`,
+Each calls `log_error(e)` first, emitting one record at `e.severity` with `e.message`,
 attaching `exc_info` when `e.exception` is set.
+The helper logs on `getLogger(__name__)`,
+a child of the `depo` logger, so there is no stored module logger to keep in sync.
 Routes do not log; building the response logs.
-
+The boundary handler does not log, since it delegates to a builder.
 `configure_logging(level)` in `web/app.py` sets the `depo` logger level and
-attaches a text handler.
-`app_factory` calls it first,
+attaches a text handler. `app_factory` calls it first,
 driven by the `log_level` config field (see [cli](../module/cli.md)).
 Propagation stays on so test capture and parent handlers still see records.
 
 ## Deferred
 
 Browser error templates for the non-404 4xx codes (400, 409, 413, 422)
+
+The non-HTMX form fallback in `hx_upload`'s dispatcher has no `except DepoError`.
+Expected domain errors on that path currently reach the boundary and
+badly classify as 500 instead of their true 4xx status.
+Needs first-class error handling, tracked in planning.
 
 Remaining error-handling work is tracked in planning:
 structured logging observability in `v0.2`,
