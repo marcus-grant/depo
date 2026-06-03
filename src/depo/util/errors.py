@@ -32,6 +32,7 @@ class DepoError(Exception):
     exception = None
     status = 500
     message = "Unexpected error occurred, report to https://github.com/marcus-grant/depo/issues"
+    exception: Exception | None = None
 
     def __init__(
         self,
