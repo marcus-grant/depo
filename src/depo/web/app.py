@@ -29,6 +29,9 @@ def app_factory(config: DepoConfig) -> FastAPI:
     Stores config and wired dependencies in app.state.
     Includes route handlers via APIRouter.
     """
+    # Configure the logger
+    configure_logging(config.log_level)
+
     # Start FastAPI lifecycle storing DepoConfig
     app = FastAPI()
     app.state.config = config

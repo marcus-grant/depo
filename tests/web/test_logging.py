@@ -7,21 +7,41 @@ License: Apache-2.0
 """
 
 import logging
+from dataclasses import replace
 
 import pytest
 
 from depo.web import app
+from tests.factories import make_config
+
+
+class TestAppFactoryLogging:
+    """app_factory configures the depo logger on startup."""
+
+    def test_app_factory_configures_logging(self, tmp_path):
+        """app_factory sets the depo logger to the configured level."""
+        logger = logging.getLogger("depo")
+        original = logger.level
+        logger.setLevel(logging.WARNING)
+        try:
+            app.app_factory(replace(make_config(tmp_path), log_level="DEBUG"))
+            assert logger.level == logging.DEBUG
+        finally:
+            logger.setLevel(original)
 
 
 class TestErrorLoggingIntegration:
     """End-to-end logging behavior for expected errors."""
 
-    @pytest.mark.skip("logging not implemented")
     def test_not_found_logs_info_record(self, t_client, caplog):
         """A 404 through the stack emits one INFO record carrying the code."""
         caplog.set_level(logging.INFO, logger="depo")
         t_client.get("/ZZZZZZZZ/info")
-        records = [r for r in caplog.records if r.levelno == logging.INFO]
+
+        def is_depo_info(r):
+            return r.name.startswith("depo") and r.levelno == logging.INFO
+
+        records = [r for r in caplog.records if is_depo_info(r)]
         assert len(records) == 1
         assert "ZZZZZZZZ" in records[0].getMessage()
 
