@@ -11,8 +11,10 @@ import logging
 from fastapi import Request
 from starlette.responses import PlainTextResponse, Response
 
-from depo.util.errors import DepoError
+from depo.util.errors import DepoError, UnknownServerError
+from depo.web.negotiate import wants_html
 from depo.web.templates import get_templates as _get
+from depo.web.templates import is_htmx
 
 _ISSUES_URL = "https://github.com/marcus-grant/depo/issues"
 
@@ -20,6 +22,20 @@ _ISSUES_URL = "https://github.com/marcus-grant/depo/issues"
 def log_error(e: DepoError) -> None:
     """Emit one record on the module logger at the error's severity."""
     logging.getLogger(__name__).log(e.severity, e.message, exc_info=e.exception)
+
+
+def unhandled(request: Request, exc: Exception) -> Response:
+    """App-level boundary for non-DepoError exceptions.
+
+    Wraps the exception as UnknownServerError and delegates to the
+    surface-appropriate builder. Does not log: the builders log.
+    """
+    err = UnknownServerError(exc)
+    if is_htmx(request):
+        return htmx_error(request, err)
+    if wants_html(request):
+        return browser_error(request, err)
+    return api_error(err)
 
 
 def api_error(err: DepoError) -> PlainTextResponse:

@@ -55,6 +55,12 @@ def app_factory(config: DepoConfig) -> FastAPI:
     # Store the router for FastAPI
     app.include_router(router)
 
+    # App-level boundary: catch non-DepoError exceptions that escape
+    # per-route handlers, negotiate surface, delegate to a builder.
+    from depo.web.error import unhandled
+
+    app.add_exception_handler(Exception, unhandled)
+
     # Mount static assets directory for frontend - must come AFTER routes
     static_dir = Path(__file__).parent.parent / "static"
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
