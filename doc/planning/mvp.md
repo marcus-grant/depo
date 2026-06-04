@@ -255,6 +255,26 @@ the `/upload` gate (`ft/upload-gate`); `perm`/visibility enforcement
 
 #### TDD implementation
 
+**Enable WAL journal mode and busy timeout**
+(`tests/repo/test_sqlite.py`)
+
+- [ ] Red: test asserting `PRAGMA journal_mode` resolves to `wal` after
+      `init_db`, and that `busy_timeout` is set on the connection (so a
+      separate-process writer, the `set-password` command in
+      `ft/credentials`, can commit without `database is locked`).
+- [ ] In `init_db` (`src/depo/repo/sqlite.py`) add `PRAGMA journal_mode =
+      WAL`, `PRAGMA busy_timeout = <ms>`, and `PRAGMA synchronous =
+      NORMAL` beside the existing `PRAGMA foreign_keys = ON`.
+      `journal_mode` persists in the DB file; `busy_timeout` is
+      per-connection, set on every `init_db` call (server and CLI alike).
+      Out of scope: thread-safety of the web app's shared connection
+      (the `app.py` thread-pooling/write-queuing note is a separate
+      deferred concern; WAL does not address it).
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Enable WAL journal mode and busy timeout`
+
+**Add the User domain model**
+
 **Add the User domain model**
 (`tests/model/test_user.py`)
 
@@ -305,12 +325,26 @@ the `/upload` gate (`ft/upload-gate`); `perm`/visibility enforcement
 - [ ] uv run ruff check && uv run pytest
 - [ ] Commit: `Ft: Add user repo CRUD`
 
+**Add user password-hash update**
+(`tests/repo/test_sqlite.py`)
+
+- [ ] Red: test asserting `update_user_pw_hash(uid, new_hash)` changes
+      the stored `pw_hash` for an existing user (fetch confirms the new
+      value) and that an unknown uid raises `NotFoundError`.
+- [ ] Add `update_user_pw_hash(uid, new_hash)` to
+      `src/depo/repo/sqlite.py` following the existing write idioms: a
+      single `UPDATE users SET pw_hash = ? WHERE id = ?`, raising
+      `NotFoundError` when no row is affected.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Add user password-hash update`
+
 #### Integration and documentation
 
 - [ ] Unskip the `TestUserPersistence` gating test; confirm it passes.
 - [ ] Update `doc/module/model.md` (User model) and `doc/module/repo.md`
-      (user CRUD); note the `items.uid` foreign key wherever the schema is
-      documented.
+      (user CRUD, `update_user_pw_hash`, and the WAL / busy_timeout /
+      synchronous connection config); note the `items.uid` foreign key
+      wherever the schema is documented.
 - [ ] uv run ruff check && uv run pytest
 - [ ] Commit: `Doc: ...`
 
@@ -388,12 +422,30 @@ Assumes `ref/canonical-config` has landed: scalar defaults live in
 - [ ] uv run ruff check && uv run pytest
 - [ ] Commit: `Ft: Add create-user admin command`
 
+**Add the set-password admin command**
+(`tests/cli/test_main.py`)
+
+- [ ] Red: tests asserting the command changes an existing user's
+      password (the new password verifies via `verify_password`, the old
+      no longer does), accepts either an email or a numeric id and
+      resolves an email through `get_user_by_email` to a uid, errors
+      cleanly if the user does not exist, and reads the new password via
+      a hidden prompt without echoing it.
+- [ ] Add a `set-password` command on the `cli` group in
+      `src/depo/cli/main.py`: resolve the target to a uid (numeric id used
+      directly; email looked up via `get_user_by_email`), hash the new
+      password via `hash_password` with cost params from the resolved
+      config, and write via `update_user_pw_hash`. Surface a clean CLI
+      error (not a traceback) when the user is not found.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Add set-password admin command`
+
 #### Integration and documentation
 
 - [ ] Unskip the `TestCreateUser` gating test; confirm it passes.
 - [ ] Update `doc/module/util.md` (password module) and
-      `doc/module/cli.md` (create-user command); note the scrypt cost
-      params wherever config fields are documented.
+      `doc/module/cli.md` (create-user and set-password commands); note
+      the scrypt cost params wherever config fields are documented.
 - [ ] uv run ruff check && uv run pytest
 - [ ] Commit: `Doc: ...`
 
@@ -521,6 +573,170 @@ revocation (post-MVP, tracked); email login and password reset (post-MVP).*
 #### PR
 
 - [ ] gh pr create --title "Ft: Login and session" --body "..."
+
+### Upload gate (Branch: `ft/upload-gate`)
+
+*Problem: any anonymous visitor can POST to `/upload` and create items
+with the default `uid=0`. The MVP-critical requirement is that no
+anonymous POST is ever possible. Add a web-layer `require_auth`
+dependency that gates both `/upload` routes, a 401 `AuthRequiredError`,
+and thread the authenticated uid into the existing ingest path so items
+persist with the real uploader's id instead of 0. Branch from
+`ft/login-session`. PRECONDITION: this branches only AFTER
+`fix/form-error-surface` has merged (auth adds an unauthenticated path
+to the same upload dispatcher and relies on that dispatcher's error
+surfaces being correct); confirm it has landed before branching. Out of
+scope: `perm`/visibility enforcement and any 403/ownership checks
+(post-MVP, the column is present and ingest already passes the PUBLIC
+default); roles and user relations (post-MVP); per-item ownership on
+read/delete (post-MVP); CSRF (v1, tracked); rate limiting (post-MVP);
+gating any route other than the two `/upload` routes.*
+
+*Open decision (resolve before the require_auth and gate units): the auth
+failure raises `AuthRequiredError(DepoError, status=401)`. The per-surface
+response is settled in intent: plain browser 302 to `/login`, pure API a
+plain 401, HTMX a client navigation to `/login` (via `HX-Redirect`) rather
+than an inline error. Two coupled things are UNRESOLVED. First, the HTMX
+case does NOT fit `htmx_error`'s established contract (200 + an error
+partial in the body); an `HX-Redirect` navigation is a distinct response,
+so either `htmx_error` learns a redirect mode or the HTMX auth failure
+short-circuits to a dedicated redirect response that never enters the
+error-partial path. Second, where the redirect-vs-render negotiation lives:
+(a) `require_auth` raises and the three builders negotiate surface
+(centralizes it but couples the generic error seam to auth-specific
+redirect logic), or (b) `require_auth` returns the redirect directly for
+browser/HTMX context and only raises for API (keeps the builders generic
+but splits the gate's behavior by surface), or (c) `AuthRequiredError`
+carries a redirect target and the builders gain a generic
+redirect-instead-of-render rule (reusable, larger builder-contract change).
+The require_auth unit below is written assuming (a)/(c) (it raises); if (b)
+is chosen, that unit changes to return-redirect-for-browser-context. All
+three interact with `fix/form-error-surface`, which reshapes the same
+builders, so confirm that branch's final builder shape before implementing
+either the require_auth or the gate units.*
+
+Mechanics note on (b): a FastAPI `Depends` cannot short-circuit by
+returning a `Response`; a returned value only populates the parameter.
+So "return the redirect" is not directly possible. (b) in practice means
+raising a redirect-carrying exception handled at the boundary, which
+collapses it toward (c). Pick (b) only with that understanding.
+
+#### Setup and gating test
+
+- [ ] Confirm `fix/form-error-surface` has merged; branch
+      `ft/upload-gate` from `ft/login-session`.
+- [ ] Add a skipped integration test to `tests/web/test_routes.py` (new
+      `TestUploadGate` class) asserting the MVP guarantee end to end: an
+      unauthenticated POST `/upload` is rejected and creates no item; an
+      authenticated client (session established via `/login`) POST
+      `/upload` creates an item whose `uid` is the logged-in user, not 0.
+      Assert the invariant (rejected, no item, correct uid on success),
+      NOT the per-surface mechanism (302 vs `HX-Redirect` vs error
+      partial) which the builder open-decision settles and the per-route
+      gate units assert. `@pytest.mark.skip` until the last unit.
+  - [ ] Commit: `Tst: Add skipped gating test for upload gate`
+
+#### TDD implementation
+
+**Add the AuthRequiredError type**
+(`tests/util/test_errors.py`)
+
+- [ ] Red: tests asserting `AuthRequiredError` is a `DepoError` subclass
+      with status 401 and `Severity.INFO` (unauthenticated traffic is
+      expected, not a fault), and a pass-through constructor. Add
+      `AuthRequiredError: Severity.INFO` to the gap-test `EXPECTED` dict
+      so `descendants(DepoError) == set(EXPECTED)` still holds (a new
+      concrete error without a severity decision fails the suite).
+- [ ] Add `AuthRequiredError(DepoError)` to `src/depo/util/errors.py` as
+      a new top-level domain base (parallel to `RepoError` /
+      `ValidationError`): `status = 401`, `severity = Severity.INFO`,
+      pass-through `__init__`.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Add AuthRequiredError type`
+
+**Thread authenticated uid through ingest**
+(`tests/service/test_orchestrator.py`)
+
+- [ ] Red: test asserting `ingest(uid=N)` persists an item with
+      `items.uid == N` (currently `ingest` accepts `uid` but drops it:
+      the `self._repo.insert(plan)` call omits it, so a non-default uid
+      never reaches the row).
+- [ ] In `IngestOrchestrator.ingest` (`src/depo/service/orchestrator.py`)
+      pass the param through: `self._repo.insert(plan, uid=uid)`.
+      `repo.insert` already accepts and writes `uid`; this is the missing
+      link, not a repo change.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Thread authenticated uid through ingest`
+
+**Add the require_auth dependency**
+(`tests/web/test_deps.py`, new)
+
+- [ ] Red: tests asserting `require_auth` yields the uid when a valid
+      session is present, and raises `AuthRequiredError` when there is no
+      session uid. Built on `get_current_uid` (PR 3); yields the bare uid
+      (the upload path only needs the int, and this keeps `pw_hash` out
+      of request scope). For MVP, yielding the session uid without a
+      confirming user fetch is acceptable: `items.uid` is FK-checked at
+      insert, so a stale-cookie / deleted-user uid fails at the FK rather
+      than persisting. (If the chosen design instead fetches to validate,
+      a missing row is an auth failure, raise `AuthRequiredError`, not a
+      500.)
+- [ ] Add `require_auth(request) -> int` to `src/depo/web/deps.py`,
+      reading `get_current_uid` and raising `AuthRequiredError` on None.
+      (Written assuming open-decision option (a)/(c): raises, builders
+      negotiate. Under (b) this returns a redirect for browser/HTMX
+      context and raises only for API.)
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Add require_auth dependency`
+
+**Gate POST /upload and pass uid to ingest**
+(`tests/web/test_routes.py`)
+
+- [ ] Red: tests asserting an unauthenticated POST `/upload` is rejected
+      and creates no item, and an authenticated POST creates an item with
+      the session user's uid. Assert the per-surface mechanism settled by
+      the open decision (401 api; HTMX client-navigation to `/login`;
+      302 to `/login` for a non-HTMX form). Cover the dispatcher and both
+      `hx_`/`api_` paths.
+- [ ] Wire `require_auth` into the `upload` dispatcher in
+      `src/depo/web/routes/upload.py` via `Depends(require_auth)`, and
+      pass the yielded uid into `orch.ingest(uid=...)` in the dispatcher
+      and the `hx_`/`api_`/`_ingest_upload` call sites that currently call
+      `ingest` with no uid.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Gate POST /upload and pass uid to ingest`
+
+**Gate GET /upload (the form)**
+(`tests/web/test_routes.py`)
+
+- [ ] Red: tests asserting an unauthenticated GET `/upload` does not
+      render the form and redirects to `/login` (302 for a browser; the
+      HTMX-GET case, if the form is ever fetched via HTMX, uses the same
+      client-navigation mechanism settled in the open decision), and an
+      authenticated GET renders the form.
+- [ ] Wire `require_auth` into `page_upload` in
+      `src/depo/web/routes/upload.py` via `Depends(require_auth)`.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Gate GET /upload form`
+
+#### Integration and documentation
+
+- [ ] Unskip the `TestUploadGate` gating test; confirm it passes.
+- [ ] Update `doc/module/web.md` (`require_auth`, the gated `/upload`
+      routes), `doc/module/util.md` and `doc/design/errors.md`
+      (`AuthRequiredError`, the new 401 top-level domain base), and
+      `doc/module/service.md` (ingest now threads uid to the row).
+- [ ] Record a post-MVP item in the post-MVP planning doc: examine
+      moving `pw_hash` into a dedicated `credentials` table associated to
+      a user (keeps `users`/`User` hash-free by construction, confines
+      the hash to the credential layer, room for multiple auth methods
+      per user). Open: one-to-one vs one-to-many; when it lands.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Doc: ...`
+
+#### PR
+
+- [ ] gh pr create --title "Ft: Upload gate" --body "..."
 
 ### Global Chrome & Layout Realignment (nav / main / footer / base.html)
 
