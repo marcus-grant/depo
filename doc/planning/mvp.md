@@ -232,19 +232,295 @@ surfaces (already wired and tested).*
 
 - [ ] gh pr create --title "Fix: Non-HTMX form fallback error surface" --body "..."
 
-### Auth
+### Users table and model (Branch: `ft/users-table`)
 
-Minimal auth to prevent open uploads on the public internet.
+*Problem: there is no user identity in the system. `items.uid` is an
+integer referencing nothing and auth has no table to authenticate
+against. Add a `users` table, a `User` domain model, and user repo CRUD,
+with `items.uid` gaining a foreign key to `users(id)`. Out of scope:
+password hashing and the provisioning command (owned by
+`ft/credentials`); login and session infrastructure (`ft/login-session`);
+the `/upload` gate (`ft/upload-gate`); `perm`/visibility enforcement
+(post-MVP, column already present and defaulting to PUBLIC).*
 
-- No anonymous uploads
-  - Guests disabled by default
-    - *(the config default to enforce once a guest/role concept exists)*
-    - moved here from Config and limits
-- Manual user provisioning (admin edits DB)
-- Username + password
-- Item has owner (`uid`) + visibility (`perm`)
-- `/upload` requires auth
-- `uid=0` superuser convention continues until user table exists
+#### Setup and gating test
+
+- [ ] Branch `ft/users-table` from main.
+- [ ] Add a skipped integration test to `tests/repo/test_sqlite.py`
+      (new `TestUserPersistence` class) asserting the end state: a `User`
+      inserted via the repo round-trips, fetch-by-id and fetch-by-email
+      each return a `User` equal to the inserted one. `@pytest.mark.skip`
+      until the last unit.
+  - [ ] Commit: `Tst: Add skipped gating test for user persistence round-trip`
+
+#### TDD implementation
+
+**Add the User domain model**
+(`tests/model/test_user.py`)
+
+- [ ] Red: add field-spec tests mirroring `TestItem` (`test_instance_dataclass`,
+      parametrized `test_fields` over `id`, `email`, `name`, `pw_hash`,
+      `created_at`, `test_frozen`, `test_instantiate`).
+- [ ] Add `src/depo/model/user.py`: frozen `kw_only` `User` dataclass,
+      all fields required, no optionals.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Add User domain model`
+
+**Add the make_user factory**
+(`tests/model/test_user.py`)
+
+- [ ] Red: add a test asserting `make_user()` returns a valid `User` and
+      that overrides apply.
+- [ ] Add `make_user(**overrides) -> User` to `tests/factories/models.py`
+      alongside the existing model factories.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Tst: Add make_user factory`
+
+**Add the users table and items.uid foreign key**
+(`tests/repo/test_sqlite.py`)
+
+- [ ] Red: add a test asserting the FK is enforced, inserting an item with
+      an unknown uid raises under `PRAGMA foreign_keys = ON`; and a test
+      asserting the seeded superuser row exists after `init_db`.
+- [ ] Edit `src/depo/repo/schema.sql`: add the `users` table above `items`
+      (`id INTEGER PRIMARY KEY`, `email TEXT NOT NULL UNIQUE`, `name TEXT
+      NOT NULL UNIQUE`, `pw_hash TEXT NOT NULL`, `created_at INTEGER NOT
+      NULL`); add `REFERENCES users(id)` to `items.uid`; seed the reserved
+      superuser row with an idempotent `INSERT OR IGNORE` carrying a
+      non-verifying `pw_hash` sentinel (no hashing exists until
+      `ft/credentials`; the superuser stays un-loginable until that PR
+      sets a real password) so the `uid` default has a referent.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Add users table and items.uid foreign key`
+
+**Add user repo CRUD**
+(`tests/repo/test_sqlite.py`)
+
+- [ ] Red: add tests for insert, fetch-by-id, fetch-by-email, and unique
+      violations on `email` and `name`; add an `insert_user` DB helper
+      delegating to `make_user`.
+- [ ] Add `_row_to_user`, `insert_user`, `get_user`, and
+      `get_user_by_email` to `src/depo/repo/sqlite.py`, following the
+      existing `_row_to_*` and insert idioms.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Add user repo CRUD`
+
+#### Integration and documentation
+
+- [ ] Unskip the `TestUserPersistence` gating test; confirm it passes.
+- [ ] Update `doc/module/model.md` (User model) and `doc/module/repo.md`
+      (user CRUD); note the `items.uid` foreign key wherever the schema is
+      documented.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Doc: ...`
+
+#### PR
+
+- [ ] gh pr create --title "Ft: Users table and model" --body "..."
+
+### Password credentials and provisioning (Branch: `ft/credentials`)
+
+*Problem: users have a `pw_hash` column but nothing produces or
+verifies a hash, and manual provisioning via raw SQL cannot compute
+one. Add a stdlib credentials module (scrypt hashing, constant-time
+verify) and a click create-user command that writes a row with a
+valid hash. Depends on `ft/users-table`. Out of scope: login route
+and sessions (`ft/login-session`); the `/upload` gate
+(`ft/upload-gate`); email-based provisioning flows (post-MVP).
+Assumes `ref/canonical-config` has landed: scalar defaults live in
+`cli/defaults.py` and `DepoConfig` sources from them.*
+
+#### Setup and gating test
+
+- [ ] Branch `ft/credentials` from `ft/users-table`.
+- [ ] Add a skipped integration test to `tests/cli/test_main.py` (new
+      `TestCreateUser` class) asserting the end state: invoking the
+      create-user command with email, name, and password writes a
+      `users` row whose stored `pw_hash` verifies against the password
+      and rejects a wrong one. `@pytest.mark.skip` until the last unit.
+  - [ ] Commit: `Tst: Add skipped gating test for user provisioning`
+
+#### TDD implementation
+
+**Hash and verify passwords with stdlib scrypt**
+(`tests/util/test_password.py`)
+
+- [ ] Red: tests asserting `hash_password(pw, *, n, r, p)` returns a
+      self-describing PHC-style string (algorithm, params, salt_hex,
+      digest_hex), `verify_password(pw, stored)` is true for the right
+      password and false for a wrong one, two hashes of the same
+      password differ (random salt), and a tampered field fails verify.
+- [ ] Add `src/depo/util/password.py`: `hash_password` using
+      `hashlib.scrypt` with an `os.urandom` salt, hex-encoded
+      (`bytes.hex`) into a PHC-style string; `verify_password` parsing
+      it (`bytes.fromhex`), recomputing, and comparing with
+      `hmac.compare_digest`. Stdlib only, no new dependency. Do not
+      reuse the Crockford codec (encode-only, built for shortcodes).
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Add scrypt password hashing and verification`
+
+**Add scrypt cost parameters to config**
+(`tests/cli/test_defaults.py`, `tests/cli/test_config.py`)
+
+- [ ] Red: test asserting `DepoConfig` exposes scrypt cost fields with
+      sane defaults sourced from `cli/defaults.py`, and a resolution
+      test that an overridden value (env or TOML) coerces to int onto
+      the config, mirroring the existing override tests.
+- [ ] Add `DEFAULT_SCRYPT_N` (2**14), `DEFAULT_SCRYPT_R` (8),
+      `DEFAULT_SCRYPT_P` (1) to `cli/defaults.py`; add
+      `scrypt_n`/`scrypt_r`/`scrypt_p` fields to `DepoConfig` sourcing
+      them; add the three names to the `_coerce` `int_fields` set.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Add scrypt cost parameters to config`
+
+**Add the create-user click command**
+(`tests/cli/test_main.py`)
+
+- [ ] Red: tests asserting the command creates a user with a verifying
+      hash, errors on duplicate email or name (surfacing the repo
+      unique violation), and reads the password without echoing it.
+- [ ] Add a `create-user` command on the `cli` group in
+      `src/depo/cli/main.py` taking email and name as options and the
+      password via a hidden prompt (`click.password_option` or
+      `prompt=..., hide_input=True`); hash via `hash_password` with
+      cost params from the resolved config, write the row via
+      `insert_user`.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Add create-user admin command`
+
+#### Integration and documentation
+
+- [ ] Unskip the `TestCreateUser` gating test; confirm it passes.
+- [ ] Update `doc/module/util.md` (password module) and
+      `doc/module/cli.md` (create-user command); note the scrypt cost
+      params wherever config fields are documented.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Doc: ...`
+
+#### PR
+
+- [ ] gh pr create --title "Ft: Password credentials and provisioning" --body "..."
+
+### Login and session (Branch: `ft/login-session`)
+
+*Problem: users can be created and their passwords verified, but no
+request is ever recognized as logged in. Add a stateless signed-cookie
+session, a login route that verifies credentials and starts a session, a
+logout that ends it, and a single seam that reads the current user id
+from a request. Branch from `ft/credentials`. Assumes `ref/canonical-config`
+has landed (scalar defaults in `cli/defaults.py`, `DepoConfig` sources
+from them, `_coerce` typed field sets) and that `ft/credentials` provides
+`verify_password` and `ft/users-table` provides `get_user_by_email`. Out
+of scope: the `/upload` gate and `require_auth` as a route dependency
+(`ft/upload-gate`, which consumes the `get_current_uid` seam this PR
+builds); CSRF tokens (v1, tracked); server-side session store and
+revocation (post-MVP, tracked); email login and password reset (post-MVP).*
+
+#### Setup and gating test
+
+- [ ] Branch `ft/login-session` from `ft/credentials`.
+- [ ] Add a skipped integration test to `tests/web/test_routes.py` (new
+      `TestLoginSession` class) asserting the end state: POSTing valid
+      credentials to `/login` establishes a session such that a subsequent
+      request is recognized as that user; bad credentials are rejected and
+      re-render the form; `/logout` clears the session so a following
+      request is unauthenticated. `@pytest.mark.skip` until the last unit.
+  - [ ] Commit: `Tst: Add skipped gating test for login and session`
+
+#### TDD implementation
+
+**Add the itsdangerous dependency and session config**
+(`tests/cli/test_defaults.py`, `tests/cli/test_config.py`, make_config tests)
+
+- [ ] Add `itsdangerous` to `pyproject.toml` dependencies (Starlette
+      `SessionMiddleware` requires it for cookie signing); sync the env.
+- [ ] Red: tests asserting `DepoConfig` exposes `session_secret` and
+      `session_https_only` sourced from `cli/defaults.py`; overrides (env
+      or TOML) resolve onto the config; an empty or missing
+      `session_secret` hard-fails rather than signing with a known value;
+      `session_https_only` coerces to bool and defaults False.
+- [ ] Add `DEFAULT_SESSION_SECRET = ""` (empty force-fail sentinel) and
+      `DEFAULT_SESSION_HTTPS_ONLY = False` (plain-HTTP LAN selfhost is the
+      MVP deployment; secure-only cookies would never be sent) to
+      `cli/defaults.py`; add `session_secret: str` and
+      `session_https_only: bool` fields to `DepoConfig` sourcing them; add
+      them to `_coerce` (secret as string, https_only to the bool set);
+      validate `session_secret` non-empty at resolution.
+- [ ] Update `make_config` in `tests/factories` to supply a non-empty
+      `session_secret` default so fixtures built from it pass the
+      non-empty validation; add a test that the default is present.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Add itsdangerous and session config`
+
+**Wire SessionMiddleware and the current-user seam**
+(`tests/web/test_app.py`, `tests/web/test_routes.py`)
+
+- [ ] Red: test asserting `request.session` is populated inside a handler
+      (fails if the middleware is not actually in the stack); an
+      unauthenticated request resolves to no current user (not a default
+      uid, not a 500); a tampered or forged session cookie is rejected as
+      unauthenticated; and a `uid` set in the session round-trips back
+      from `get_current_uid` as an `int` (PR 4 keys auth off the type).
+- [ ] In `app_factory` (`web/app.py`) call `app.add_middleware(
+      SessionMiddleware, secret_key=config.session_secret,
+      https_only=config.session_https_only, same_site="lax")` (the cookie
+      is httponly by default). `add_middleware` wraps the whole app
+      including the routers regardless of call order relative to
+      `include_router`, but place it explicitly in `app_factory` so it is
+      unambiguous. Add `get_current_uid(request) -> int | None` to
+      `web/deps.py` reading `request.session.get("uid")`; this is the only
+      function aware of `request.session` and is the seam `require_auth`
+      consumes in PR 4.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Wire SessionMiddleware and current-user seam`
+
+**Add the login route**
+(`tests/web/test_routes.py`)
+
+- [ ] Red: tests asserting GET `/login` renders the login form page; POST
+      with valid credentials clears any prior session, sets `uid`, and
+      redirects; POST with a wrong password and POST with an unknown email
+      both re-render the form with a generic error and identical surface
+      (no user-enumeration difference); neither logs the password.
+- [ ] Add `web/routes/auth.py` with a `page_login` GET handler rendering a
+      new `templates/auth/login.html` (mirroring the `page_upload` +
+      `upload/page.html` idiom) and a POST handler that calls
+      `get_user_by_email` then `verify_password`; on success
+      `request.session.clear()` then sets `request.session["uid"]` and
+      redirects (302); on failure re-renders the form with an error in the
+      page body (page idiom, not the error builders). Register the auth
+      router in `routes/__init__.py` among the `include_router` calls but
+      before `shortcode_router` (the wildcard `/{code}` must stay last).
+      Add `templates/auth/login.html` extending `base.html`.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Add login route`
+
+**Add the logout route**
+(`tests/web/test_routes.py`)
+
+- [ ] Red: test asserting `/logout` clears the session, a subsequent
+      request is unauthenticated, and logout redirects.
+- [ ] Add a logout handler to `web/routes/auth.py` that calls
+      `request.session.clear()` and redirects (302). Register on the auth
+      router.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Ft: Add logout route`
+
+#### Integration and documentation
+
+- [ ] Unskip the `TestLoginSession` gating test; confirm it passes.
+- [ ] Update `doc/module/web.md` (session middleware, `get_current_uid`
+      seam, login/logout routes), `doc/module/templates.md` (auth/login
+      template), and add `/login` and `/logout` to the reserved-namespaces
+      list in `doc/design/routes.md`. Note the `session_secret` and
+      `session_https_only` config fields wherever config fields are
+      documented.
+- [ ] uv run ruff check && uv run pytest
+- [ ] Commit: `Doc: ...`
+
+#### PR
+
+- [ ] gh pr create --title "Ft: Login and session" --body "..."
 
 ### Global Chrome & Layout Realignment (nav / main / footer / base.html)
 
