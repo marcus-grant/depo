@@ -53,15 +53,16 @@ __all__ = [
 HEADER_HTMX = {"HX-Request": "true"}
 
 
-def make_config(p: Path) -> DepoConfig:
+def make_config(p: Path, **overrides: Any) -> DepoConfig:
     """Build a DepoConfig with db and store paths under p.
-
     Typically called with pytest's tmp_path fixture.
     Creates paths at p/data/depo.db and p/store but does
     not initialize the database or create directories.
+    Keyword overrides replace any default field on the returned config.
     Used internally by make_client.
     """
-    return DepoConfig(db_path=p / "data" / "depo.db", store_root=p / "store")
+    base = {"db_path": p / "data" / "depo.db", "store_root": p / "store"}
+    return DepoConfig(**{**base, **overrides})
 
 
 def make_client(p: Path) -> TestClient:

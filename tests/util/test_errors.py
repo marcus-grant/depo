@@ -25,6 +25,7 @@ class TestErrorSeverity:
     """Severity resolution across the concrete error hierarchy (gap test)."""
 
     EXPECTED = {
+        errors.ConfigError: errors.Severity.CRITICAL,
         errors.ServerError: errors.Severity.ERROR,
         errors.UnknownServerError: errors.Severity.ERROR,
         errors.MissingDependencyError: errors.Severity.WARNING,
@@ -82,6 +83,46 @@ class TestDepoError:
         """DepoError defaults severity to ERROR and exception to None."""
         assert errors.DepoError.severity == errors.Severity.ERROR
         assert errors.DepoError.exception is None
+
+
+# == Preflight Domain ==
+
+
+class TestConfigError:
+    """Tests for ConfigError."""
+
+    def _default_err(self):
+        """Alias helper for default test ConfigError instance."""
+        return errors.ConfigError("key", "value", "expect", {"foo": "bar"})
+
+    def test_is_depo_error(self) -> None:
+        """ConfigError is a DepoError subclass."""
+        assert isinstance(self._default_err(), errors.DepoError)
+
+    def test_severity_is_critical(self) -> None:
+        """ConfigError reports CRITICAL severity."""
+        assert self._default_err().severity == errors.Severity.CRITICAL
+
+    def test_status_inherits_500(self) -> None:
+        """ConfigError carries the inherited, inert 500 status."""
+        assert self._default_err().status == 500
+
+    def test_stashes_key_and_value(self) -> None:
+        """The offending key and value are kept on the instance."""
+        assert errors.ConfigError("log_level", "BANANA").key == "log_level"
+        assert errors.ConfigError("log_level", "BANANA").value == "BANANA"
+
+    def test_message_names_key_and_value(self) -> None:
+        """With no expected set, the message names just key and value."""
+        msg = errors.ConfigError("log_level", "BANANA").message
+        assert msg == "Invalid config for 'log_level': 'BANANA'."
+
+    def test_message_lists_expected(self) -> None:
+        """Given expected values, the message appends them."""
+        assert (
+            errors.ConfigError("log_level", "BANANA", ["DEBUG", "WARNING"]).message
+            == "Invalid config for 'log_level': 'BANANA'. Expected: DEBUG, WARNING."
+        )
 
 
 # == Server Domain ==
