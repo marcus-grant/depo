@@ -21,6 +21,7 @@ from depo.repo.sqlite import SqliteRepository, init_db
 from depo.service.ingest import IngestService
 from depo.service.orchestrator import IngestOrchestrator
 from depo.storage.filesystem import FilesystemStorage
+from depo.util.errors import Severity
 
 
 def app_factory(config: DepoConfig) -> FastAPI:
@@ -67,10 +68,10 @@ def app_factory(config: DepoConfig) -> FastAPI:
     return app  # Return FastAPI app
 
 
-def configure_logging(level: str) -> None:
+def configure_logging(level: Severity) -> None:
     """Set the depo logger to the named level with a text handler"""
     logger = logging.getLogger("depo")
-    logger.setLevel(level.upper())
+    logger.setLevel(level)
     if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
         handler = logging.StreamHandler()
         fmt = "%(levelname)s %(name)s: %(message)s"

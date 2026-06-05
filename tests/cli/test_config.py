@@ -7,6 +7,8 @@ Created: 2026-02-06
 License: Apache-2.0
 """
 
+# TODO: A ton of these can be refactored to use make_config factory
+
 import os
 from pathlib import Path
 
@@ -20,6 +22,7 @@ from depo.cli.config import (
     _default_store_dir,
     load_config,
 )
+from depo.util.errors import ConfigError, Severity
 
 
 def _clear_depo_env(monkeypatch):
@@ -69,7 +72,7 @@ class TestDepoConfig:
             ("port", int, False, 8765),
             ("max_size_bytes", int, False, 10_485_760),
             ("max_url_len", int, False, 2048),
-            ("log_level", str, False, "WARNING"),
+            ("log_level", Severity, False, Severity.WARNING),
         ],
     )
     def test_simple_fields(self, name, typ, required, default):
@@ -145,7 +148,7 @@ class TestLoadConfigToml:
         _write_toml(tmp_path / "xdg/depo/config.toml", log_level="DEBUG")
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
         monkeypatch.chdir(tmp_path)
-        assert load_config().log_level == "DEBUG"
+        assert load_config().log_level == Severity.DEBUG
 
 
 class TestLoadConfigEnv:
@@ -197,7 +200,28 @@ class TestLoadConfigEnv:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
         monkeypatch.chdir(tmp_path)
         monkeypatch.setenv("DEPO_LOG_LEVEL", "DEBUG")
-        assert load_config().log_level == "DEBUG"
+        assert load_config().log_level == Severity.DEBUG
+
+    def test_env_log_level_case_insensitive(self, monkeypatch, tmp_path):
+        """A lowercase DEPO_LOG_LEVEL still resolves to a Severity member."""
+        # same setup as test_env_log_level, DEPO_LOG_LEVEL=debug
+        # assert load_config().log_level == Severity.DEBUG
+        self._clear_depo_env(monkeypatch)
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("DEPO_LOG_LEVEL", "deBug")
+        assert load_config().log_level == Severity.DEBUG
+
+    def test_env_log_level_invalid_raises(self, monkeypatch, tmp_path):
+        """An unknown DEPO_LOG_LEVEL raises ConfigError."""
+        # same setup, DEPO_LOG_LEVEL=BANANA
+        # with pytest.raises(ConfigError): load_config()
+        self._clear_depo_env(monkeypatch)
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("DEPO_LOG_LEVEL", "BANANA")
+        with pytest.raises(ConfigError):
+            load_config()
 
 
 class TestLoadConfigFlag:

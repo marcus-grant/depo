@@ -15,6 +15,8 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from depo.util.errors import ConfigError, Severity
+
 _XDG_DATA_HOME = "XDG_DATA_HOME"
 
 
@@ -46,7 +48,7 @@ class DepoConfig:
     max_size_bytes: int = 10_485_760
     max_url_len: int = 2048
     # Logging/ErrorHandling
-    log_level: str = "WARNING"
+    log_level: Severity = Severity.WARNING
 
 
 def _xdg_config_home() -> Path:
@@ -73,6 +75,12 @@ def _coerce(overrides: dict) -> dict:
             out[k] = int(v)
         elif k in path_fields:
             out[k] = Path(v).expanduser()
+        elif k == "log_level":  # Special case, needs to be a Severity enum member
+            try:
+                out[k] = Severity[str(v).upper()]
+            except KeyError:
+                err = ConfigError("log_level", v, expected=Severity.__members__)
+                raise err from None
         else:
             out[k] = v
     return out
