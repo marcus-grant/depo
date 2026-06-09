@@ -20,10 +20,9 @@ from fastapi.testclient import TestClient
 
 from depo.model.item import LinkItem, PicItem, TextItem
 from depo.repo.sqlite import SqliteRepository, init_db
-from depo.service.ingest import IngestService
 from depo.service.orchestrator import IngestOrchestrator
 from depo.storage.filesystem import FilesystemStorage
-from tests.factories import gen_image, make_client
+from tests.factories import gen_image, make_client, make_ingest_service
 from tests.factories.db import insert_link_item, insert_pic_item, insert_text_item
 
 
@@ -82,7 +81,7 @@ def t_orch_env(
     (orchestrator, repo, store) for ingest integration
     tests that need to inspect side effects.
     """
-    service = IngestService()
+    service = make_ingest_service()
     orch = IngestOrchestrator(service, t_repo, t_store)
     return (orch, t_repo, t_store)
 

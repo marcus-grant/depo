@@ -19,9 +19,11 @@ from bs4 import BeautifulSoup as BSoup
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
+from depo.cli import defaults
 from depo.cli.config import DepoConfig
 from depo.model.enums import ContentFormat, ItemKind, Visibility
 from depo.model.item import LinkItem, PicItem, TextItem
+from depo.service.ingest import IngestService
 from depo.service.orchestrator import PersistResult
 from depo.web.app import app_factory
 from depo.web.templates import get_templates
@@ -63,6 +65,17 @@ def make_config(p: Path, **overrides: Any) -> DepoConfig:
     """
     base = {"db_path": p / "data" / "depo.db", "store_root": p / "store"}
     return DepoConfig(**{**base, **overrides})
+
+
+def make_ingest_service(**overrides: int) -> IngestService:
+    """Build an IngestService with default limits, overridable per test."""
+    params: dict[str, int] = {
+        "min_code_length": defaults.MIN_CODE_LEN,
+        "max_size_bytes": defaults.MAX_SIZE_BYTES,
+        "max_url_len": defaults.MAX_URL_LEN,
+    }
+    params.update(overrides)
+    return IngestService(**params)
 
 
 def make_client(p: Path) -> TestClient:
