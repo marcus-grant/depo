@@ -7,7 +7,6 @@ Created: 2026-02-09
 License: Apache-2.0
 """
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -39,7 +38,6 @@ class TestHealthCheck:
         assert resp.text == "ok"
 
 
-@pytest.mark.skip(reason="config not yet wired into IngestService")
 class TestConfigWiring:
     """Resolved config governs the live upload path (gating tests)."""
 
@@ -55,8 +53,8 @@ class TestConfigWiring:
         resp = client.post("/upload?url=http://example.com")
         assert resp.status_code == 413
 
-    def test_min_code_length_governs(self, tmp_path):
+    def test_min_code_len_governs(self, tmp_path):
         """A raised min_code_length yields a code of exactly that length."""
-        client = TestClient(app_factory(make_config(tmp_path, min_code_length=12)))
+        client = TestClient(app_factory(make_config(tmp_path, min_code_len=12)))
         resp = client.post("/upload", files={"file": ("t.txt", b"hello world")})
         assert len(resp.headers["X-Depo-Code"]) == 12

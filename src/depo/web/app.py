@@ -44,7 +44,11 @@ def app_factory(config: DepoConfig) -> FastAPI:
     init_db(conn)  # NOTE: Thread pooling/write queing in repo is not ready yet
     repo = SqliteRepository(conn)
     store = FilesystemStorage(root=app.state.config.store_root)
-    service = IngestService()
+    service = IngestService(
+        min_code_len=app.state.config.min_code_len,
+        max_size_bytes=app.state.config.max_size_bytes,
+        max_url_len=app.state.config.max_url_len,
+    )
 
     # Store server's repo, store & orchestrator instances
     app.state.repo, app.state.store = repo, store

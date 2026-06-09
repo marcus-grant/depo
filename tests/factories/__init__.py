@@ -70,7 +70,7 @@ def make_config(p: Path, **overrides: Any) -> DepoConfig:
 def make_ingest_service(**overrides: int) -> IngestService:
     """Build an IngestService with default limits, overridable per test."""
     params: dict[str, int] = {
-        "min_code_length": defaults.MIN_CODE_LEN,
+        "min_code_len": defaults.MIN_CODE_LEN,
         "max_size_bytes": defaults.MAX_SIZE_BYTES,
         "max_url_len": defaults.MAX_URL_LEN,
     }

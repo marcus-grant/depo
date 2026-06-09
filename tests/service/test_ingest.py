@@ -35,10 +35,10 @@ class TestIngestServiceInit:
     def test_accepts_valid_configs(self, min_len, max_size, max_url):
         """Accepts min_code_length & max_size_bytes as config"""
         result = IngestService(
-            min_code_length=min_len, max_size_bytes=max_size, max_url_len=max_url
+            min_code_len=min_len, max_size_bytes=max_size, max_url_len=max_url
         )
         assert isinstance(result, IngestService)
-        assert result.min_code_length == min_len
+        assert result.min_code_len == min_len
         assert result.max_size_bytes == max_size
         assert result.max_url_len == max_url
 
@@ -220,7 +220,7 @@ class TestIngestServiceAssembly:
 
     def test_writeplan_has_code_min_len_from_config(self):
         """Returns WritePlan with code_min_len from IngestService config."""
-        plan = make_ingest_service(min_code_length=12).build_plan(
+        plan = make_ingest_service(min_code_len=12).build_plan(
             payload_bytes=b"hello",
             requested_format=ContentFormat.PLAINTEXT,
         )

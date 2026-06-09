@@ -7,6 +7,7 @@ and metadata extraction into a WritePlan.
 
 Author: Marcus Grant
 Date: 2026-01-23
+Revised: [2026-06-09]
 License: Apache-2.0
 """
 
@@ -33,7 +34,7 @@ class IngestService:
     def __init__(
         self,
         *,
-        min_code_length: int = 8,
+        min_code_len: int,
         max_size_bytes: int = DEFAULT_MAX_SIZE_BYTES,
         max_url_len: int = DEFAULT_MAX_URL_LEN,
     ) -> None:
@@ -43,7 +44,7 @@ class IngestService:
             min_code_length: Minimum short code length.
             max_size_bytes: Maximum allowed upload size.
         """
-        self.min_code_length = min_code_length
+        self.min_code_len = min_code_len
         self.max_size_bytes = max_size_bytes
         self.max_url_len = max_url_len
 
@@ -116,7 +117,7 @@ class IngestService:
         # Assemble final write plan
         return WritePlan(
             hash_full=hash_full_b32(data),
-            code_min_len=self.min_code_length,
+            code_min_len=self.min_code_len,
             payload_kind=payload_kind,
             size_b=size,
             upload_at=int(time.time()),
