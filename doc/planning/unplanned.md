@@ -1,5 +1,26 @@
 # Unplanned Future Features/Architecture
 
+## Deferred: Preflight error domain
+
+Introduce a `PreflightError(DepoError)` base class for startup-time
+failures that occur before the server serves any request: invalid
+config, DB missing or corrupt, unreachable file store. Reparent
+`ConfigError` under it. Refine `ConfigError`'s signature with a
+free-form `reason`/`hint` field for problems that are not a bad value
+against a known set (malformed int, unreadable TOML), and thread
+config-source provenance so messages can name the origin (env var,
+TOML path, flag). post-MVP.
+
+## Deferred: Narrow per-consumer config slices
+
+`app_factory` currently unpacks `DepoConfig` fields explicitly when
+constructing inner-layer components (e.g. `IngestService`). If
+per-component arg lists grow painful, introduce narrow frozen
+dataclasses or Protocols carrying only the fields each component
+needs, adapted from `DepoConfig` at the composition root. Do not
+inject `DepoConfig` directly into inner layers; that violates the
+inward-only dependency rule. post-MVP.
+
 ## Future: Repository Architecture
 
 The current SQLite implementation lives in a single module (`repo/sqlite.py`).
