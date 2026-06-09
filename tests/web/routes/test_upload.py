@@ -277,6 +277,20 @@ class TestApiUploadError:
         assert resp.status_code == 413
 
 
+@pytest.mark.skip(
+    reason="Wired in: Fix: Render browser_error on non-HTMX form fallback DepoError"
+)
+class TestFormFallbackError:
+    """Non-HTMX form POST renders full-page browser_error on domain errors."""
+
+    def test_empty_content_renders_page_error(self, t_client):
+        """Empty non-HTMX form POST renders full-page HTML error at 400."""
+        resp = t_client.post("/upload", data={"content": "", "format": ""})
+        assert resp.status_code == 400
+        assert "text/html" in resp.headers["content-type"]
+        assert "BEGIN: errors/page.html#content" in resp.text
+
+
 class TestParseUpload:
     """Tests for parse_upload()."""
 
