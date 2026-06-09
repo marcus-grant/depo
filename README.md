@@ -16,13 +16,7 @@ Start here:
 
 ## Project status
 
-Pre-alpha, parked.
-Bootstrap is complete; the project compiles, the config module
-is implemented and tested, but no daemon behavior has been built
-yet.
-Focus has shifted to the ecosystem pieces that will consume this
-daemon before continuing here.
-See `doc/TODO.md` for the resumption work plan.
+This project is in active development.
 
 - **v0.0.1 (MVP)** focuses on a correct, minimal foundation
 - **v1.0** adds aliases, editing, invitations, and public-sharing readiness

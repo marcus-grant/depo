@@ -15,13 +15,9 @@ from pathlib import Path
 import pytest
 from tests.helpers.assertions import assert_field
 
-from depo.cli.config import (
-    _XDG_DATA_HOME,
-    DepoConfig,
-    _default_db_path,
-    _default_store_dir,
-    load_config,
-)
+from depo.cli import defaults
+from depo.cli.config import DepoConfig, load_config
+from depo.cli.defaults import _XDG_DATA_HOME, default_db_path, default_store_dir
 from depo.util.errors import ConfigError, Severity
 
 
@@ -47,19 +43,19 @@ class TestDefaultPaths:
 
     def test_store_dir_xdg(self, monkeypatch, tmp_path):
         monkeypatch.setenv(_XDG_DATA_HOME, str(tmp_path))
-        assert _default_store_dir() == tmp_path / "depo" / "store"
+        assert default_store_dir() == tmp_path / "depo" / "store"
 
     def test_store_dir_fallback(self, monkeypatch):
         monkeypatch.delenv(_XDG_DATA_HOME, raising=False)
-        assert _default_store_dir() == Path.cwd() / "store"
+        assert default_store_dir() == Path.cwd() / "store"
 
     def test_db_path_xdg(self, monkeypatch, tmp_path):
         monkeypatch.setenv(_XDG_DATA_HOME, str(tmp_path))
-        assert _default_db_path() == tmp_path / "depo" / "depo.db"
+        assert default_db_path() == tmp_path / "depo" / "depo.db"
 
     def test_db_path_fallback(self, monkeypatch):
         monkeypatch.delenv(_XDG_DATA_HOME, raising=False)
-        assert _default_db_path() == Path.cwd() / "depo.db"
+        assert default_db_path() == Path.cwd() / "depo.db"
 
 
 class TestDepoConfig:
@@ -70,8 +66,9 @@ class TestDepoConfig:
         [
             ("host", str, False, "127.0.0.1"),
             ("port", int, False, 8765),
-            ("max_size_bytes", int, False, 10_485_760),
-            ("max_url_len", int, False, 2048),
+            ("max_size_bytes", int, False, defaults.MAX_SIZE_BYTES),
+            ("max_url_len", int, False, defaults.MAX_URL_LEN),
+            ("min_code_len", int, False, defaults.MIN_CODE_LEN),
             ("log_level", Severity, False, Severity.WARNING),
         ],
     )
@@ -97,8 +94,8 @@ class TestDepoConfig:
         cfg = DepoConfig(host="0.0.0.0", port=3000)
         assert cfg.host == "0.0.0.0"
         assert cfg.port == 3000
-        assert cfg.max_size_bytes == 10_485_760
-        assert cfg.max_url_len == 2048
+        assert cfg.max_size_bytes == defaults.MAX_SIZE_BYTES
+        assert cfg.max_url_len == defaults.MAX_URL_LEN
 
 
 class TestLoadConfigToml:
@@ -113,7 +110,7 @@ class TestLoadConfigToml:
         cfg = load_config()
         assert cfg.host == "0.0.0.0"
         assert cfg.port == 9000
-        assert cfg.max_size_bytes == 10_485_760
+        assert cfg.max_size_bytes == defaults.MAX_SIZE_BYTES
 
     def test_local_toml_overrides_xdg(self, monkeypatch, tmp_path):
         _clear_depo_env(monkeypatch)
@@ -140,7 +137,7 @@ class TestLoadConfigToml:
         cfg = load_config()
         assert cfg.host == "10.0.0.1"
         assert cfg.port == 8765
-        assert cfg.max_url_len == 2048
+        assert cfg.max_url_len == defaults.MAX_URL_LEN
 
     def test_toml_log_level(self, monkeypatch, tmp_path):
         """log_level resolves from a TOML config file."""
@@ -204,8 +201,6 @@ class TestLoadConfigEnv:
 
     def test_env_log_level_case_insensitive(self, monkeypatch, tmp_path):
         """A lowercase DEPO_LOG_LEVEL still resolves to a Severity member."""
-        # same setup as test_env_log_level, DEPO_LOG_LEVEL=debug
-        # assert load_config().log_level == Severity.DEBUG
         self._clear_depo_env(monkeypatch)
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
         monkeypatch.chdir(tmp_path)
@@ -214,8 +209,6 @@ class TestLoadConfigEnv:
 
     def test_env_log_level_invalid_raises(self, monkeypatch, tmp_path):
         """An unknown DEPO_LOG_LEVEL raises ConfigError."""
-        # same setup, DEPO_LOG_LEVEL=BANANA
-        # with pytest.raises(ConfigError): load_config()
         self._clear_depo_env(monkeypatch)
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
         monkeypatch.chdir(tmp_path)
