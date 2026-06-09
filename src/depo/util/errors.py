@@ -6,6 +6,7 @@ Created: 2026-03-10
 License: Apache-2.0
 """
 
+from collections.abc import Iterable
 from enum import IntEnum
 from typing import Literal
 
@@ -25,6 +26,7 @@ class Severity(IntEnum):
 # == Base ==
 
 
+# TODO: Consider adding another base class layer between web and others like config
 class DepoError(Exception):
     """Root exception for all depo errors."""
 
@@ -43,6 +45,40 @@ class DepoError(Exception):
         super().__init__(self.message)
         self.status = status if status is not None else self.__class__.status
         self.ctx = context
+
+
+# == Preflight Domain ==
+
+
+class ConfigError(DepoError):
+    """
+    Configuration resolution or validation failure.
+
+    Raised while building DepoConfig before the app serves any
+    request, so it surfaces at startup or on the CLI, never
+    through an HTTP response; the inherited 500 status is inert.
+    Builds an admin-facing message naming the offending key, its
+    bad value, and the accepted values, so the operator can fix
+    the config from the message alone.
+    """
+
+    severity = Severity.CRITICAL
+
+    def __init__(
+        self,
+        key: str,
+        value: object,
+        expected: Iterable[str] | str | None = None,
+        context: dict | None = None,
+    ) -> None:
+        """Build a config message from the key, bad value, and expected input."""
+        self.key = key
+        self.value = value
+        message = f"Invalid config for '{key}': '{value}'."
+        if expected is not None:
+            choices = expected if isinstance(expected, str) else ", ".join(expected)
+            message += f" Expected: {choices}."
+        super().__init__(message, context)
 
 
 # == Server Domain ==

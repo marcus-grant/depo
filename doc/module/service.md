@@ -42,7 +42,7 @@ class ContentClassification:
 
 Image metadata extraction. Soft dependency on Pillow.
 
-### Function
+### media.py - Function
 
 ```python
 get_image_info(data: bytes) -> ImageInfo
@@ -74,9 +74,9 @@ class IngestService:
     def __init__(
         self,
         *,
-        min_code_length: int = 8,
-        max_size_bytes: int = 2**20,
-        max_url_len: int = 2048,
+        min_code_len: int,
+        max_size_bytes: int,
+        max_url_len: int,
     ) -> None: ...
 
     def build_plan(

@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 import pytest
-from tests.factories import gen_image
+from tests.factories import gen_image, make_ingest_service
 
 from depo.model.enums import ContentFormat, ItemKind, PayloadKind
 from depo.service.ingest import IngestService
@@ -35,10 +35,10 @@ class TestIngestServiceInit:
     def test_accepts_valid_configs(self, min_len, max_size, max_url):
         """Accepts min_code_length & max_size_bytes as config"""
         result = IngestService(
-            min_code_length=min_len, max_size_bytes=max_size, max_url_len=max_url
+            min_code_len=min_len, max_size_bytes=max_size, max_url_len=max_url
         )
         assert isinstance(result, IngestService)
-        assert result.min_code_length == min_len
+        assert result.min_code_len == min_len
         assert result.max_size_bytes == max_size
         assert result.max_url_len == max_url
 
@@ -48,7 +48,7 @@ class TestIngestServiceValidation:
 
     def test_if_invalid_payload_source(self):
         """Raises PayloadSourceError if neither or both payload_{bytes,path} given."""
-        ingest = IngestService()
+        ingest = make_ingest_service()
         with pytest.raises(PayloadSourceError, match=r"payload_bytes.*payload_path"):
             ingest.build_plan()
         with pytest.raises(PayloadSourceError, match=r"payload_bytes.*payload_path"):
@@ -58,19 +58,19 @@ class TestIngestServiceValidation:
         """Raises PayloadTooLargeError if max_size_bytes is exceeded by payload_path"""
         big_file = tmp_path / "big.txt"
         big_file.write_bytes(b"x" * 1001)
-        ingest = IngestService(max_size_bytes=1000)
+        ingest = make_ingest_service(max_size_bytes=1000)
         with pytest.raises(PayloadTooLargeError, match=r"1001.*1000"):
             ingest.build_plan(payload_path=big_file)
 
     def test_if_payload_bytes_max_size_exceeded(self):
         """Raises PayloadTooLargeError if max_size_bytes is exceeded by payload_bytes"""
-        ingest = IngestService(max_size_bytes=1000)
+        ingest = make_ingest_service(max_size_bytes=1000)
         with pytest.raises(PayloadTooLargeError, match=r"1001.*1000"):
             ingest.build_plan(payload_bytes=(b"\xff" * 1001))
 
     def test_if_payload_empty(self, tmp_path):
         """Raises PayloadEmptyError if max_size_bytes is exceeded by payload_bytes"""
-        ingest = IngestService(max_size_bytes=1000)
+        ingest = make_ingest_service(max_size_bytes=1000)
         empty_file = tmp_path / "empty.txt"
         empty_file.write_bytes(b"")
         with pytest.raises(PayloadEmptyError):
@@ -87,12 +87,16 @@ class TestIngestServiceHashing:
         """Returns WritePlan with hash_full same as hash_full_b32"""
         # With bytes
         kwargs = {"payload_bytes": data, "requested_format": ContentFormat.PLAINTEXT}
-        assert IngestService().build_plan(**kwargs).hash_full == hash_full_b32(data)
+        assert make_ingest_service().build_plan(**kwargs).hash_full == hash_full_b32(
+            data
+        )
         # With file
         f = tmp_path / "file.txt"
         f.write_bytes(data)
         kwargs = {"payload_path": f, "requested_format": ContentFormat.PLAINTEXT}
-        assert IngestService().build_plan(**kwargs).hash_full == hash_full_b32(data)
+        assert make_ingest_service().build_plan(**kwargs).hash_full == hash_full_b32(
+            data
+        )
 
 
 class TestIngestServiceClassify:
@@ -101,7 +105,7 @@ class TestIngestServiceClassify:
     def test_writeplan_has_kind_and_format_from_classify(self):
         """Returns WritePlan with kind and format from classify."""
         # requested_format bypasses content inspection
-        plan = IngestService().build_plan(
+        plan = make_ingest_service().build_plan(
             payload_bytes=b"anything",
             requested_format=ContentFormat.MARKDOWN,
         )
@@ -110,7 +114,7 @@ class TestIngestServiceClassify:
 
     def test_classify_uses_filename_hint(self):
         """Passes filename to classify for extension-based detection."""
-        plan = IngestService().build_plan(
+        plan = make_ingest_service().build_plan(
             payload_bytes=b"no magic bytes here",
             filename="notes.json",
         )
@@ -118,7 +122,7 @@ class TestIngestServiceClassify:
 
     def test_classify_uses_declared_mime_hint(self):
         """Passes declared_mime to classify."""
-        plan = IngestService().build_plan(
+        plan = make_ingest_service().build_plan(
             payload_bytes=b"no magic bytes here",
             declared_mime="application/yaml",
         )
@@ -127,14 +131,18 @@ class TestIngestServiceClassify:
     def test_raises_if_classify_fails(self):
         """Raises ValueError if content cannot be classified."""
         with pytest.raises(ClassificationError, match=r"(?i)(classify|unsupport)"):
-            IngestService().build_plan(payload_bytes=b"\xff\xfe\xfd", filename="no-ext")
+            make_ingest_service().build_plan(
+                payload_bytes=b"\xff\xfe\xfd", filename="no-ext"
+            )
 
 
 class TestIngestServiceImage:
     """Tests IngestService.build_plan image medatata integration"""
 
     def test_writeplan_with_image_info_for_pic_kind(self):
-        plan = IngestService().build_plan(payload_bytes=gen_image("PNG", 320, 240))
+        plan = make_ingest_service().build_plan(
+            payload_bytes=gen_image("PNG", 320, 240)
+        )
         assert plan.kind == ItemKind.PICTURE
         assert plan.format == ContentFormat.PNG
         assert plan.width == 320
@@ -143,8 +151,8 @@ class TestIngestServiceImage:
     def test_writeplan_without_image_info_for_text_kind(self):
         """Returns WritePlan without width, or height for non ItemKind.PICTURE"""
         kwargs = {"payload_bytes": b"\x00", "requested_format": ContentFormat.PLAINTEXT}
-        assert IngestService().build_plan(**kwargs).width is None
-        assert IngestService().build_plan(**kwargs).height is None
+        assert make_ingest_service().build_plan(**kwargs).width is None
+        assert make_ingest_service().build_plan(**kwargs).height is None
 
     def test_raises_if_image_data_corrupt(self):
         """Raises ValueError if image metadata extraction fails"""
@@ -152,7 +160,7 @@ class TestIngestServiceImage:
         with pytest.raises(
             ImageDecodeError
         ):  # Prefer JPEGEXIF magic bytes, expect EXIF
-            IngestService().build_plan(payload_bytes=b"\xff\xd8\xff\xe1")
+            make_ingest_service().build_plan(payload_bytes=b"\xff\xd8\xff\xe1")
 
 
 class TestIngestServiceLink:
@@ -160,7 +168,7 @@ class TestIngestServiceLink:
 
     def test_writeplan_fields_for_url_payload(self):
         """URL payload_bytes classes as LINK with BYTES payload_kind & right hash"""
-        plan = IngestService().build_plan(payload_bytes=b"http://a.eu")
+        plan = make_ingest_service().build_plan(payload_bytes=b"http://a.eu")
         assert plan.kind == ItemKind.LINK
         assert plan.payload_kind == PayloadKind.BYTES
         assert plan.hash_full == hash_full_b32(bytes("http://a.eu", encoding="utf-8"))
@@ -168,7 +176,7 @@ class TestIngestServiceLink:
     def test_raises_if_url_exceeds_max_url_len(self):
         """Raises PayloadTooLargeError if classified URL payload exceeds max_url_len."""
         with pytest.raises(PayloadTooLargeError, match=r"URL.*11.*4"):
-            IngestService(max_url_len=4).build_plan(payload_bytes=b"http://a.eu")
+            make_ingest_service(max_url_len=4).build_plan(payload_bytes=b"http://a.eu")
 
 
 class TestIngestServiceAssembly:
@@ -176,7 +184,7 @@ class TestIngestServiceAssembly:
 
     def test_writeplan_has_payload_kind_bytes(self):
         """Returns WritePlan with payload_kind=BYTES for payload_bytes input."""
-        plan = IngestService().build_plan(
+        plan = make_ingest_service().build_plan(
             payload_bytes=b"hello",
             requested_format=ContentFormat.PLAINTEXT,
         )
@@ -186,7 +194,7 @@ class TestIngestServiceAssembly:
         """Returns WritePlan with payload_kind=FILE for payload_path input."""
         f = tmp_path / "test.txt"
         f.write_bytes(b"hello")
-        plan = IngestService().build_plan(
+        plan = make_ingest_service().build_plan(
             payload_path=f,
             requested_format=ContentFormat.PLAINTEXT,
         )
@@ -194,7 +202,7 @@ class TestIngestServiceAssembly:
 
     def test_writeplan_has_size_b(self):
         """Returns WritePlan with size_b from len(data)."""
-        plan = IngestService().build_plan(
+        plan = make_ingest_service().build_plan(
             payload_bytes=b"Hello, World!",
             requested_format=ContentFormat.PLAINTEXT,
         )
@@ -203,7 +211,7 @@ class TestIngestServiceAssembly:
     def test_writeplan_has_upload_at(self):
         """Returns WritePlan with upload_at as current timestamp."""
         before = int(time.time())
-        plan = IngestService().build_plan(
+        plan = make_ingest_service().build_plan(
             payload_bytes=b"hello",
             requested_format=ContentFormat.PLAINTEXT,
         )
@@ -212,7 +220,7 @@ class TestIngestServiceAssembly:
 
     def test_writeplan_has_code_min_len_from_config(self):
         """Returns WritePlan with code_min_len from IngestService config."""
-        plan = IngestService(min_code_length=12).build_plan(
+        plan = make_ingest_service(min_code_len=12).build_plan(
             payload_bytes=b"hello",
             requested_format=ContentFormat.PLAINTEXT,
         )
@@ -222,7 +230,7 @@ class TestIngestServiceAssembly:
     def test_writeplan_has_payload_bytes_from_bytes(self):
         """WritePlan.payload_bytes populated from payload_bytes input."""
         data = b"hello world"
-        plan = IngestService().build_plan(
+        plan = make_ingest_service().build_plan(
             payload_bytes=data,
             requested_format=ContentFormat.PLAINTEXT,
         )
@@ -233,7 +241,7 @@ class TestIngestServiceAssembly:
         f = tmp_path / "test.txt"
         data = b"hello world"
         f.write_bytes(data)
-        plan = IngestService().build_plan(
+        plan = make_ingest_service().build_plan(
             payload_path=f,
             requested_format=ContentFormat.PLAINTEXT,
         )

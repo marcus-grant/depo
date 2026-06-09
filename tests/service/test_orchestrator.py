@@ -10,13 +10,13 @@ License: Apache-2.0
 from dataclasses import FrozenInstanceError
 
 import pytest
+from tests.factories import make_ingest_service
 from tests.factories.models import make_link_item, make_pic_item, make_text_item
 from tests.factories.payloads import gen_image
 from tests.helpers.assertions import assert_field
 
 from depo.model.enums import ContentFormat
 from depo.model.item import LinkItem, PicItem, TextItem
-from depo.service.ingest import IngestService
 from depo.service.orchestrator import IngestOrchestrator, PersistResult
 from depo.util.shortcode import hash_full_b32
 
@@ -61,7 +61,7 @@ class TestIngestOrchestratorInit:
 
     def test_stores_all_members(self, t_repo, t_store):
         """Stores IngestOrchestrator expected members"""
-        service = IngestService()
+        service = make_ingest_service()
         orchestrator = IngestOrchestrator(service, t_repo, t_store)
         assert orchestrator._service is service
         assert orchestrator._repo is t_repo

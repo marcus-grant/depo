@@ -15,21 +15,8 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-_XDG_DATA_HOME = "XDG_DATA_HOME"
-
-
-def _default_store_dir() -> Path:
-    """Return XDG_DATA_HOME/depo if set, else ./store for containerized deploys."""
-    if xdg := os.environ.get(_XDG_DATA_HOME):
-        return Path(xdg) / "depo" / "store"
-    return Path.cwd() / "store"
-
-
-def _default_db_path() -> Path:
-    """Return default database path. XDG_DATA_HOME/depo/depo.db or ./depo.db."""
-    if xdg := os.environ.get(_XDG_DATA_HOME):
-        return Path(xdg) / "depo" / "depo.db"
-    return Path.cwd() / "depo.db"
+from depo.cli import defaults
+from depo.util.errors import ConfigError, Severity
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -37,16 +24,17 @@ class DepoConfig:
     """Immutable application configuration."""
 
     # Paths / Dirs
-    store_root: Path = field(default_factory=_default_store_dir)
-    db_path: Path = field(default_factory=_default_db_path)
+    store_root: Path = field(default_factory=defaults.default_store_dir)
+    db_path: Path = field(default_factory=defaults.default_db_path)
     # Network
-    host: str = "127.0.0.1"
-    port: int = 8765
+    host: str = defaults.HOST
+    port: int = defaults.PORT
     # Limits/thresholds
-    max_size_bytes: int = 10_485_760
-    max_url_len: int = 2048
+    max_size_bytes: int = defaults.MAX_SIZE_BYTES
+    max_url_len: int = defaults.MAX_URL_LEN
+    min_code_len: int = defaults.MIN_CODE_LEN
     # Logging/ErrorHandling
-    log_level: str = "WARNING"
+    log_level: Severity = defaults.LOG_LEVEL
 
 
 def _xdg_config_home() -> Path:
@@ -65,7 +53,7 @@ def _load_toml(path: Path) -> dict:
 
 def _coerce(overrides: dict) -> dict:
     """Coerce string values from env/TOML to expected types."""
-    int_fields = {"port", "max_size_bytes", "max_url_len"}
+    int_fields = {"port", "max_size_bytes", "max_url_len", "min_code_len"}
     path_fields = {"db_path", "store_root"}
     out = {}
     for k, v in overrides.items():
@@ -73,6 +61,12 @@ def _coerce(overrides: dict) -> dict:
             out[k] = int(v)
         elif k in path_fields:
             out[k] = Path(v).expanduser()
+        elif k == "log_level":  # Special case, needs to be a Severity enum member
+            try:
+                out[k] = Severity[str(v).upper()]
+            except KeyError:
+                err = ConfigError("log_level", v, expected=Severity.__members__)
+                raise err from None
         else:
             out[k] = v
     return out

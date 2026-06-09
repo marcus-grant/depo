@@ -382,6 +382,21 @@ checker can't prove the union satisfies the signature. Contain the
 `type: ignore` in one place — the glue function that owns both sides
 of the boundary. Tests bracket correctness from both ends.
 
+## Error Handling Patterns
+
+### Pattern: Error Skeleton First
+
+Establish three things before the error taxonomy grows:
+a single base error type carrying status and severity,
+one boundary that classifies only unexpected errors
+(never the catch path for expected ones),
+and one named builder per response surface (api, htmx, browser).
+The taxonomy of leaf errors always grows later and that is fine;
+the skeleton is what keeps the growth cheap.
+Retrofitting these onto a codebase that started without them is the expensive path:
+the same cross-cutting change has to be made at every layer at once,
+which is how partial migrations and silently deferred branches creep in.
+
 ## Principles
 
 - **Data structures are the spec**
@@ -398,3 +413,9 @@ of the boundary. Tests bracket correctness from both ends.
   - When the type checker fights you, the model is wrong. Investigate, don't suppress.
   - Only when python's type system can't express the design does it need to be bent.
   - Otherwise, let it guide you to better abstractions.
+- **Error skeleton before taxonomy**
+  - Base error type, one boundary for the unexpected, one builder per surface.
+  - Grow leaves into it.
+- **A deferral is not done until recorded**
+  - Closing work updates the deferral's tracking line in the same change.
+  - Refactors that resolve a deferral as a side effect still update the record.

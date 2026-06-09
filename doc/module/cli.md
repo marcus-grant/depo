@@ -15,12 +15,39 @@ class DepoConfig:
     store_root: Path
     host: str           # default: "127.0.0.1"
     port: int           # default: 8765
-    max_size_bytes: int # default: 10_485_760
+    min_code_len: int   # default: 8
+    max_size_bytes: int # default: 2**26 (64 MiB)
     max_url_len: int    # default: 2048
-    log_level: str      # default: "WARNING"
+    log_level: Severity # default: Severity.WARNING
 ```
 
 Frozen dataclass. Immutable after resolution.
+
+## defaults.py
+
+Default value production for DepoConfig, separate from config.py's
+resolution logic.
+
+### Constants
+
+| Name | Default |
+|------|---------|
+| HOST | "127.0.0.1" |
+| PORT | 8765 |
+| MIN_CODE_LEN | 8 |
+| MAX_SIZE_BYTES | 2**26 (64 MiB) |
+| MAX_URL_LEN | 2048 |
+| LOG_LEVEL | Severity.WARNING |
+
+### Functions
+
+```python
+default_store_dir() -> Path
+default_db_path() -> Path
+```
+
+Resolve under `XDG_DATA_HOME/depo` when set,
+else cwd-relative for containerized deploys.
 
 ### Function
 
