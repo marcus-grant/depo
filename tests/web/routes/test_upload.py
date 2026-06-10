@@ -5,6 +5,7 @@ Covers POST /upload dispatch, GET /upload page render,
 HTMX partial responses, API uploads, and request parsing.
 Author: Marcus Grant
 Created: 2026-02-23
+Revised: [2026-06-09]
 License: Apache-2.0
 """
 
@@ -18,7 +19,11 @@ from starlette.datastructures import Headers
 
 from depo.model.enums import ContentFormat
 from depo.model.formats import ItemKind
-from depo.util.errors import PayloadEmptyError, PayloadSourceError
+from depo.util.errors import (
+    PayloadEmptyError,
+    PayloadSourceError,
+    UnsupportedFormatError,
+)
 from depo.util.shortcode import _CROCKFORD32
 from depo.web.routes.upload import _parse_form_upload, _parse_upload, _upload_response
 from tests.factories import HEADER_HTMX, gen_image, make_persist_result
@@ -380,6 +385,11 @@ class TestParseFormUpload:
         assert (await self._test_fn("hello", ""))["requested_format"] is None
         assert (await self._test_fn("hello", "txt"))["requested_format"] == cf_txt
         assert (await self._test_fn("hello", "md"))["requested_format"] == cf_md
+
+    async def test_bad_format_token_raises(self):
+        """A bad format token on non-empty content raises UnsupportedFormatError."""
+        with pytest.raises(UnsupportedFormatError):
+            await self._test_fn("hello", "bogus")
 
     async def test_declared_mime_is_plaintext(self):
         """Form content always declares text/plain mime."""

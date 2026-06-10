@@ -17,13 +17,10 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from depo.model.enums import ContentFormat
+from depo.model.formats import format_for_extension
 from depo.model.item import LinkItem
 from depo.service.orchestrator import IngestOrchestrator, PersistResult
-from depo.util.errors import (
-    DepoError,
-    PayloadEmptyError,
-    PayloadSourceError,
-)
+from depo.util import errors
 from depo.web.deps import get_orchestrator
 from depo.web.error import api_error, htmx_error
 from depo.web.templates import get_templates, is_htmx
@@ -74,7 +71,7 @@ async def hx_upload(
             status_code=200,
             context={"code": result.item.code, "created": result.created},
         )
-    except DepoError as e:
+    except errors.DepoError as e:
         return htmx_error(request, e)
 
 
@@ -86,11 +83,16 @@ async def api_upload(
     fmt: str | None = Query(None, alias="format"),
 ) -> PlainTextResponse:
     """API upload: multipart, raw body, or URL param."""
-    req_fmt_str = fmt or req.headers.get("x-depo-format")
-    req_fmt = ContentFormat(req_fmt_str) if req_fmt_str else None
     try:
+        req_fmt_str = fmt or req.headers.get("x-depo-format")
+        if req_fmt_str:
+            req_fmt = format_for_extension(req_fmt_str)
+            if req_fmt is None:
+                raise errors.UnsupportedFormatError(req_fmt_str)
+        else:
+            req_fmt = None
         result = await _ingest_upload(file, url, req, orch, req_fmt=req_fmt)
-    except DepoError as e:
+    except errors.DepoError as e:
         return api_error(e)
     return _upload_response(result)
 
@@ -139,7 +141,7 @@ async def _parse_upload(
     if url is not None:
         kwargs = {"payload_bytes": url.encode("utf-8"), "declared_mime": None}
         return UploadRawBodyParams(**kwargs)
-    raise PayloadSourceError(sources=["file", "url", "request"])
+    raise errors.PayloadSourceError(sources=["file", "url", "request"])
 
 
 async def _parse_form_upload(
@@ -150,20 +152,27 @@ async def _parse_form_upload(
     content = str(form.get("content", "")).strip()
     file = form.get("file")
     fmt = str(form.get("format", ""))
+    if fmt:
+        _resolved = format_for_extension(fmt)
+        if _resolved is None:
+            raise errors.UnsupportedFormatError(fmt)
+        requested_format: ContentFormat | None = _resolved
+    else:
+        requested_format = None
     if isinstance(file, StarletteUploadFile) and (data := await file.read()):
         return UploadFormParams(
             payload_bytes=data,
             declared_mime=file.content_type or "application/octet-stream",
             filename=file.filename,
-            requested_format=ContentFormat(fmt) if fmt else None,
+            requested_format=requested_format,
         )
     if not content:
-        raise PayloadEmptyError
+        raise errors.PayloadEmptyError
     return UploadFormParams(
         payload_bytes=content.encode("utf-8"),
         declared_mime="text/plain",
         filename=None,
-        requested_format=ContentFormat(fmt) if fmt else None,
+        requested_format=requested_format,
     )
 
 
