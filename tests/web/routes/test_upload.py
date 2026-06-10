@@ -282,9 +282,6 @@ class TestApiUploadError:
         assert resp.status_code == 422
 
 
-@pytest.mark.skip(
-    reason="Wired in: Fix: Render browser_error on non-HTMX form fallback DepoError"
-)
 class TestFormFallbackError:
     """Non-HTMX form POST renders full-page browser_error on domain errors."""
 
@@ -292,6 +289,21 @@ class TestFormFallbackError:
         """Empty non-HTMX form POST renders full-page HTML error at 400."""
         resp = t_client.post("/upload", data={"content": "", "format": ""})
         assert resp.status_code == 400
+        assert "text/html" in resp.headers["content-type"]
+        assert "BEGIN: errors/page.html#content" in resp.text
+
+    def test_oversized_renders_page_error(self, t_client):
+        """Oversized non-HTMX form POST renders full-page HTML error at 413."""
+        payload = "x" * (defaults.MAX_SIZE_BYTES + 1)
+        resp = t_client.post("/upload", data={"content": payload, "format": ""})
+        assert resp.status_code == 413
+        assert "text/html" in resp.headers["content-type"]
+        assert "BEGIN: errors/page.html#content" in resp.text
+
+    def test_bad_format_renders_page_error(self, t_client):
+        """Bad format token on nonHTMX form POST renders fullpage HTML error @ 422"""
+        resp = t_client.post("/upload", data={"content": "hello", "format": "bogus"})
+        assert resp.status_code == 422
         assert "text/html" in resp.headers["content-type"]
         assert "BEGIN: errors/page.html#content" in resp.text
 

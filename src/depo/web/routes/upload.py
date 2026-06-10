@@ -22,7 +22,7 @@ from depo.model.item import LinkItem
 from depo.service.orchestrator import IngestOrchestrator, PersistResult
 from depo.util import errors
 from depo.web.deps import get_orchestrator
-from depo.web.error import api_error, htmx_error
+from depo.web.error import api_error, browser_error, htmx_error
 from depo.web.templates import get_templates, is_htmx
 
 upload_router = APIRouter()
@@ -44,15 +44,15 @@ async def upload(
 ) -> Response:
     """Dispatcher for uploads by content negotiation.
     Delegates to hx_upload for HTMX requests, api_upload for API requests."""
+    url_encoded_head = "application/x-www-form-urlencoded"
     if is_htmx(req):
         return await hx_upload(req, orch)
-    # TODO: bare form fallback — no error handling, no template response.
-    # Proper non-HTMX form POST handling deferred to error handling PR.
-    if req.headers.get("content-type", "").startswith(
-        "application/x-www-form-urlencoded"
-    ):
-        params = await _parse_form_upload(req)
-        result = orch.ingest(**dict(params))  # type: ignore
+    if req.headers.get("content-type", "").startswith(url_encoded_head):
+        try:
+            params = await _parse_form_upload(req)
+            result = orch.ingest(**dict(params))  # type: ignore
+        except errors.DepoError as e:
+            return browser_error(req, e)
         return RedirectResponse(f"/{result.item.code}/info", status_code=303)
     return await api_upload(req, orch=orch, url=url, file=file, fmt=fmt)
 
