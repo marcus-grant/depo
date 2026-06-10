@@ -342,3 +342,16 @@ class TestDelete:
     def test_delete_nonexistent_is_noop(self, t_repo):
         """Deleting nonexistent hash doesn't raise."""
         t_repo.delete("DOESNOTEXIST12345678")
+
+
+class TestUserPersistence:
+    """End-to-end gating test for user persistence round-trip."""
+
+    # should round-trip an inserted User by id and by email,
+    # asserting both fetches return a User equal to the inserted one.
+    # Skipped until the user repo CRUD unit lands.
+
+    @pytest.mark.skip(reason="Gating test; unskip after user CRUD lands")
+    def test_user_round_trips_by_id_and_email(self, t_repo):
+        """Insert a User and fetch it by both id and email."""
+        ...
