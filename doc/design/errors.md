@@ -116,13 +116,8 @@ Propagation stays on so test capture and parent handlers still see records.
 
 ## Deferred
 
-Browser error templates for the non-404 4xx codes (400, 409, 413, 422)
-
-The non-HTMX form fallback in `hx_upload`'s dispatcher has no `except DepoError`.
-Expected domain errors on that path currently reach the boundary and
-badly classify as 500 instead of their true 4xx status.
-Needs first-class error handling, tracked in planning.
-
-Remaining error-handling work is tracked in planning:
-structured logging observability in `v0.2`,
-`StorageError` and `FormatMismatchError` in unplanned.
+Remaining error-handling work is tracked in planning: structured logging
+observability in `v0.2`, `StorageError` and `FormatMismatchError` in
+unplanned. `FormatMismatchError` is unrelated to unsupported-token coercion
+(landed in `fix/form-error-surface`); it concerns declared-vs-inferred
+format conflicts post-classification.
