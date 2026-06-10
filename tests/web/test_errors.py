@@ -10,6 +10,7 @@ License: Apache-2.0
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
+from depo.cli import defaults
 from tests.factories import HEADER_HTMX
 
 
@@ -68,9 +69,7 @@ class TestHtmxErrorPartial:
 
     def _oversize_resp(self, c: TestClient):
         """POST oversized upload with HTMX headers, return response."""
-        from depo.service.ingest import DEFAULT_MAX_SIZE_BYTES
-
-        data = {"content": "x" * (DEFAULT_MAX_SIZE_BYTES + 1), "format": ""}
+        data = {"content": "x" * (defaults.MAX_SIZE_BYTES + 1), "format": ""}
         return c.post("/upload", data=data, headers=HEADER_HTMX)
 
     def test_empty_upload_returns_partial(self, t_client: TestClient):

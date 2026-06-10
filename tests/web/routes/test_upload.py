@@ -5,6 +5,7 @@ Covers POST /upload dispatch, GET /upload page render,
 HTMX partial responses, API uploads, and request parsing.
 Author: Marcus Grant
 Created: 2026-02-23
+Revised: [2026-06-09]
 License: Apache-2.0
 """
 
@@ -16,9 +17,10 @@ from bs4 import BeautifulSoup
 from fastapi import UploadFile
 from starlette.datastructures import Headers
 
+from depo.cli import defaults
 from depo.model.enums import ContentFormat
 from depo.model.formats import ItemKind
-from depo.util.errors import PayloadEmptyError, PayloadSourceError
+from depo.util import errors
 from depo.util.shortcode import _CROCKFORD32
 from depo.web.routes.upload import _parse_form_upload, _parse_upload, _upload_response
 from tests.factories import HEADER_HTMX, gen_image, make_persist_result
@@ -270,11 +272,40 @@ class TestApiUploadError:
 
     def test_oversized_returns_413(self, t_client):
         """API upload exceeding max size returns 413."""
-        from depo.service.ingest import DEFAULT_MAX_SIZE_BYTES
-
-        payload = b"x" * (DEFAULT_MAX_SIZE_BYTES + 1)
+        payload = b"x" * (defaults.MAX_SIZE_BYTES + 1)
         resp = t_client.post("/upload", files={"file": ("big.txt", payload)})
         assert resp.status_code == 413
+
+    def test_bad_format_token_returns_422(self, t_client):
+        """API upload with unknown format token returns 422."""
+        resp = t_client.post("/upload", content=b"hello", params={"format": "???"})
+        assert resp.status_code == 422
+
+
+class TestFormFallbackError:
+    """Non-HTMX form POST renders full-page browser_error on domain errors."""
+
+    def test_empty_content_renders_page_error(self, t_client):
+        """Empty non-HTMX form POST renders full-page HTML error at 400."""
+        resp = t_client.post("/upload", data={"content": "", "format": ""})
+        assert resp.status_code == 400
+        assert "text/html" in resp.headers["content-type"]
+        assert "BEGIN: errors/page.html#content" in resp.text
+
+    def test_oversized_renders_page_error(self, t_client):
+        """Oversized non-HTMX form POST renders full-page HTML error at 413."""
+        payload = "x" * (defaults.MAX_SIZE_BYTES + 1)
+        resp = t_client.post("/upload", data={"content": payload, "format": ""})
+        assert resp.status_code == 413
+        assert "text/html" in resp.headers["content-type"]
+        assert "BEGIN: errors/page.html#content" in resp.text
+
+    def test_bad_format_renders_page_error(self, t_client):
+        """Bad format token on nonHTMX form POST renders fullpage HTML error @ 422"""
+        resp = t_client.post("/upload", data={"content": "hello", "format": "bogus"})
+        assert resp.status_code == 422
+        assert "text/html" in resp.headers["content-type"]
+        assert "BEGIN: errors/page.html#content" in resp.text
 
 
 class TestParseUpload:
@@ -314,7 +345,7 @@ class TestParseUpload:
     @pytest.mark.asyncio
     async def test_no_input_raises(self):
         """No file, no url, no body raises ValueError."""
-        with pytest.raises(PayloadSourceError, match="file.*url.*request"):
+        with pytest.raises(errors.PayloadSourceError, match="file.*url.*request"):
             await _parse_upload(file=None, url=None, request=None)
 
     def test_missing_dependency_returns_error(self, t_htmx, monkeypatch):
@@ -367,6 +398,11 @@ class TestParseFormUpload:
         assert (await self._test_fn("hello", "txt"))["requested_format"] == cf_txt
         assert (await self._test_fn("hello", "md"))["requested_format"] == cf_md
 
+    async def test_bad_format_token_raises(self):
+        """A bad format token on non-empty content raises UnsupportedFormatError."""
+        with pytest.raises(errors.UnsupportedFormatError):
+            await self._test_fn("hello", "bogus")
+
     async def test_declared_mime_is_plaintext(self):
         """Form content always declares text/plain mime."""
         result = await self._test_fn("hello", "")
@@ -375,7 +411,7 @@ class TestParseFormUpload:
     @pytest.mark.parametrize("content", ["", "   "], ids=["empty", "whitespace"])
     async def test_empty_content_raises(self, content):
         """Empty or whitespace-only textarea raises ValueError."""
-        with pytest.raises(PayloadEmptyError):
+        with pytest.raises(errors.PayloadEmptyError):
             await self._test_fn(content, "")
 
     async def test_file_extracts_fields(self):
@@ -392,7 +428,7 @@ class TestParseFormUpload:
 
     async def test_empty_file_raises(self):
         """Empty file raises ValueError."""
-        with pytest.raises(PayloadEmptyError):
+        with pytest.raises(errors.PayloadEmptyError):
             await self._file_fn(data=b"")
 
 

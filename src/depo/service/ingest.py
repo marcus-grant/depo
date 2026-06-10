@@ -14,15 +14,13 @@ License: Apache-2.0
 import time
 from pathlib import Path
 
+from depo.cli import defaults
 from depo.model.enums import ContentFormat, ItemKind, PayloadKind
 from depo.model.write_plan import WritePlan
 from depo.service.classify import classify
 from depo.service.media import get_image_info
 from depo.util.errors import PayloadEmptyError, PayloadSourceError, PayloadTooLargeError
 from depo.util.shortcode import hash_full_b32
-
-DEFAULT_MAX_SIZE_BYTES = 2**26  # 64 MiB
-DEFAULT_MAX_URL_LEN = 2048
 
 
 # TODO: Create config loader infrastructure and centralized defaults
@@ -35,8 +33,8 @@ class IngestService:
         self,
         *,
         min_code_len: int,
-        max_size_bytes: int = DEFAULT_MAX_SIZE_BYTES,
-        max_url_len: int = DEFAULT_MAX_URL_LEN,
+        max_size_bytes: int = defaults.MAX_SIZE_BYTES,
+        max_url_len: int = defaults.MAX_URL_LEN,
     ) -> None:
         """Initialize with configuration.
 
