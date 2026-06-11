@@ -109,6 +109,16 @@ class TestInitDb:
         """FK constraints are enabled after init."""
         assert t_db.execute("PRAGMA foreign_keys").fetchone()[0] == 1
 
+    def test_wal_journal_mode(self, tmp_path):
+        """WAL journal mode is active after init."""
+        with sqlite3.connect(tmp_path / "test.db") as cn:
+            init_db(cn)
+            assert cn.execute("PRAGMA journal_mode").fetchone()[0].lower() == "wal"
+
+    def test_busy_timeout_set(self, t_db):
+        """Busy timeout is non-zero after init."""
+        assert t_db.execute("PRAGMA busy_timeout").fetchone()[0] > 0
+
 
 class TestRowMappers:
     """Tests for row mapper functions."""

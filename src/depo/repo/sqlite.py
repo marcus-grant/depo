@@ -21,9 +21,12 @@ def init_db(conn: sqlite3.Connection) -> None:
     Args:
         conn: SQLite connection to initialize.
     """
-    conn.execute("PRAGMA foreign_keys = ON")
     schema = resources.files("depo.repo").joinpath("schema.sql").read_text()
     conn.executescript(schema)
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode = WAL")  # WAL mode
+    conn.execute("PRAGMA synchronous = NORMAL")  # Sync = better performance in WAL
+    conn.execute("PRAGMA busy_timeout = 5000")  # Wait milsec if database is locked
 
 
 def _row_to_text_item(row: sqlite3.Row) -> TextItem:
