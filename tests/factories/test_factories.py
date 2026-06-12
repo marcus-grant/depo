@@ -10,7 +10,9 @@ License: Apache-2.0
 
 from pathlib import Path
 
+from depo.model.user import User
 from tests.factories import make_config
+from tests.factories.models import make_user
 
 
 class TestMakeConfig:
@@ -20,3 +22,15 @@ class TestMakeConfig:
         """An applied keyword override lands on the returned config."""
         assert make_config(tmp_path, max_size_bytes=1).max_size_bytes == 1
         assert make_config(tmp_path, log_level="INFO").log_level == "INFO"
+
+
+class TestMakeUser:
+    """Tests for the make_user factory."""
+
+    def test_returns_user(self):
+        """make_user() returns a User instance."""
+        assert isinstance(make_user(), User)
+
+    def test_overrides_apply(self):
+        """Keyword overrides replace default field values."""
+        assert make_user(id=99).id == 99

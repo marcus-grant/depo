@@ -9,6 +9,7 @@ License: Apache-2.0
 from dataclasses import FrozenInstanceError, is_dataclass
 
 import pytest
+from tests.factories.models import make_user
 from tests.helpers import assert_field
 
 from depo.model.user import User
@@ -25,12 +26,6 @@ _USER_PARAMS = [
 class TestUser:
     """Tests for the User dataclass."""
 
-    def _make_user(self, **kwargs) -> User:
-        """Helper to create a User with overridable defaults."""
-        base = {"id": 123, "email": "guy@example.com", "name": "GuyMann"}
-        base |= {"pw_hash": "hashed-pass", "created_at": 1234567890}
-        return User(**{**base, **kwargs})
-
     def test_instance_dataclass(self):
         """User is a dataclass."""
         assert is_dataclass(User)
@@ -43,12 +38,12 @@ class TestUser:
     def test_frozen(self):
         """User instances are immutable, ie can't change a member from instances"""
         with pytest.raises(FrozenInstanceError):
-            (self._make_user()).id = 999999  # type: ignore
+            (make_user()).id = 999999  # type: ignore
 
     def test_instantiate(self):
         """User can be constructed with all required fields."""
-        assert self._make_user(id=42).id == 42
-        assert self._make_user(email="e@mail.se").email == "e@mail.se"
-        assert self._make_user(name="Bob").name == "Bob"
-        assert self._make_user(pw_hash="pass_hash").pw_hash == "pass_hash"
-        assert self._make_user(created_at=0).created_at == 0
+        assert make_user(id=42).id == 42
+        assert make_user(email="e@mail.se").email == "e@mail.se"
+        assert make_user(name="Bob").name == "Bob"
+        assert make_user(pw_hash="pass_hash").pw_hash == "pass_hash"
+        assert make_user(created_at=0).created_at == 0
