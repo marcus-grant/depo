@@ -20,7 +20,12 @@ from depo.repo.sqlite import (
     init_db,
 )
 from depo.util.errors import CodeCollisionError
-from tests.factories.db import insert_link_item, insert_pic_item, insert_text_item
+from tests.factories.db import (
+    insert_link_item,
+    insert_pic_item,
+    insert_text_item,
+    insert_user,
+)
 from tests.factories.models import make_write_plan
 from tests.helpers import assert_column
 
@@ -118,6 +123,18 @@ class TestInitDb:
     def test_busy_timeout_set(self, t_db):
         """Busy timeout is non-zero after init."""
         assert t_db.execute("PRAGMA busy_timeout").fetchone()[0] > 0
+
+    def test_superuser_row_seeded(self, t_db):
+        """Superuser row with id=0 exists in users after init."""
+        q = "SELECT * FROM users WHERE id = 0;"
+        assert t_db.execute(q).fetchone() is not None
+
+    def test_items_uid_fk_enforced(self, t_db):
+        """items.uid foreign key rejects unknown uid."""
+        q = "INSERT INTO items (hash_full, code, kind, size_b, uid, upload_at) "
+        q += "VALUES ('AAAABBBBCCCCDDDDEEEEFFFGG', 'AAAAB', 'txt', 100, 9999, 0)"
+        with pytest.raises(sqlite3.IntegrityError):
+            t_db.execute(q)
 
 
 class TestRowMappers:
@@ -248,8 +265,9 @@ class TestResolveCode:
 class TestInsert:
     """Tests for SqliteRepository.insert()."""
 
-    def test_inserts_text_item(self, t_repo):
+    def test_inserts_text_item(self, t_repo, t_db):
         """Inserts TextItem and returns it"""
+        insert_user(t_db, id=69)
         plan = make_write_plan(format="md")  # Assemble WritePlan to Insert with
         result = t_repo.insert(plan, uid=69, perm=Visibility.PRIVATE)  # Act
         assert isinstance(result, TextItem)  # Assert correct results
@@ -282,8 +300,9 @@ class TestInsert:
         assert result.height == 600
         assert result == t_repo.get_by_full_hash(plan.hash_full)
 
-    def test_inserts_link_item(self, t_repo):
+    def test_inserts_link_item(self, t_repo, t_db):
         """Inserts LinkItem and returns it"""
+        insert_user(t_db, id=42)
         kwargs = {"kind": ItemKind.LINK, "payload_bytes": b"http://a.eu"}
         plan = make_write_plan(**kwargs)
         result = t_repo.insert(plan, uid=42, perm=Visibility.UNLISTED)
