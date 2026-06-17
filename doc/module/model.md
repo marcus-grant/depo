@@ -29,6 +29,24 @@ Frozen dataclasses with `kw_only=True`.
 >**NOTE**: `mime` is not stored.
 >MIME is derived from `format` at serve time via `model/formats.py`.
 
+## user.py
+
+Frozen dataclass with `kw_only=True`. Represents an authenticated system user.
+
+**User:** id, email, name, pw_hash, created_at
+
+- `id`: surrogate integer primary key, assigned by the database
+- `email`: unique, used as login identifier
+- `name`: unique display name
+- `pw_hash`: `PHC`-style `scrypt`` hash string
+  - sentinel value `UNSET` until `ft/credentials`
+    - sets a real hash via the `set-password` command
+- `created_at`: Unix epoch integer, consistent with Item timestamp fields
+
+> **NOTE:** `pw_hash` is stored directly on `User` for MVP. A post-MVP item
+> tracks moving it to a dedicated `credentials` table to keep the user model
+> hash-free and support multiple auth methods per user.
+
 ## write_plan.py
 
 Frozen DTO for ingest-to-repository handoff.

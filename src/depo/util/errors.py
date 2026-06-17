@@ -3,6 +3,7 @@
 Central error types for depo.
 Author: Marcus Grant
 Created: 2026-03-10
+Revised: [2026-06-16]
 License: Apache-2.0
 """
 
@@ -183,6 +184,40 @@ class CodeCollisionError(RepoError):
         super().__init__(message, context, status or self.status)
         self.code = code
         self.hash_full = hash_full
+
+
+class InsertFailedError(RepoError):
+    """Raised when an insert operation fails to return a row id."""
+
+    severity = Severity.ERROR
+    message = "Insert operation failed to return a row id."
+
+
+class UniqueViolationError(RepoError):
+    """Raised when an insert violates a unique constraint."""
+
+    severity = Severity.WARNING
+    message = "A record with that value already exists."
+
+    def __init__(
+        self,
+        field: str,
+        value: str,
+        domain: str | None = None,
+        context: dict | None = None,
+    ):
+        """
+        Args:
+            field: The field that caused the violation (e.g. 'email', 'name').
+            value: The conflicting value.
+            domain: The domain entity (e.g. 'User', 'Item').
+        """
+        noun = domain or "record"
+        message = f"A {noun} with {field} '{value}' already exists."
+        super().__init__(message, context)
+        self.field = field
+        self.value = value
+        self.domain = domain
 
 
 # == Validation Domain ==

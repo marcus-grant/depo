@@ -8,6 +8,7 @@ License: Apache-2.0
 
 from depo.model.enums import ContentFormat, ItemKind, PayloadKind, Visibility
 from depo.model.item import Item, LinkItem, PicItem, TextItem
+from depo.model.user import User
 from depo.model.write_plan import WritePlan
 
 _HASH_SFX = "0123456789ABCDEFGHJKMNP"
@@ -15,7 +16,7 @@ _HASH_SFX = "0123456789ABCDEFGHJKMNP"
 _ITEM_DEFAULTS = dict(
     kind=ItemKind.TEXT,
     size_b=100,
-    uid=1,
+    uid=0,
     perm=Visibility.PUBLIC,
     upload_at=1234567890,
     origin_at=None,
@@ -77,3 +78,11 @@ def make_write_plan(**overrides) -> WritePlan:
         height=None,
     )
     return WritePlan(**(defaults | overrides))  # type: ignore
+
+
+def make_user(**overrides) -> User:
+    """Factory to create a User with overridable defaults. Defaults fields below:
+    id=123, email=guy@test.se, name=GuyMann, pw_hash=pw_hash, created_at=1234567890"""
+    base = {"id": 123, "email": "guy@example.com", "name": "GuyMann"}
+    base |= {"pw_hash": "hashed-pass", "created_at": 1234567890}
+    return User(**{**base, **overrides})

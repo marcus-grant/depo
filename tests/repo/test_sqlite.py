@@ -3,6 +3,7 @@
 Tests for SqliteRepository.
 Author: Marcus Grant
 Date: 2026-01-26
+Revisions: [2026-06-16]
 License: Apache-2.0
 """
 
@@ -12,6 +13,7 @@ import pytest
 
 from depo.model.enums import ContentFormat, ItemKind, Visibility
 from depo.model.item import LinkItem, PicItem, TextItem
+from depo.model.user import User
 from depo.repo.sqlite import (
     SqliteRepository,
     _row_to_link_item,
@@ -19,9 +21,14 @@ from depo.repo.sqlite import (
     _row_to_text_item,
     init_db,
 )
-from depo.util.errors import CodeCollisionError
-from tests.factories.db import insert_link_item, insert_pic_item, insert_text_item
-from tests.factories.models import make_write_plan
+from depo.util import errors
+from tests.factories.db import (
+    insert_link_item,
+    insert_pic_item,
+    insert_text_item,
+    insert_user,
+)
+from tests.factories.models import make_user, make_write_plan
 from tests.helpers import assert_column
 
 
@@ -108,6 +115,36 @@ class TestInitDb:
     def test_foreign_keys_enabled(self, t_db):
         """FK constraints are enabled after init."""
         assert t_db.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+
+    def test_wal_journal_mode(self, tmp_path):
+        """WAL journal mode is active after init."""
+        with sqlite3.connect(tmp_path / "test.db") as cn:
+            init_db(cn)
+            assert cn.execute("PRAGMA journal_mode").fetchone()[0].lower() == "wal"
+
+    def test_busy_timeout_set(self, t_db):
+        """Busy timeout is non-zero after init."""
+        assert t_db.execute("PRAGMA busy_timeout").fetchone()[0] > 0
+
+    def test_superuser_row_seeded(self, t_db):
+        """Superuser row with id=0 exists in users after init."""
+        q = "SELECT * FROM users WHERE id = 0;"
+        assert t_db.execute(q).fetchone() is not None
+
+    def test_items_uid_fk_enforced(self, t_db):
+        """items.uid foreign key rejects unknown uid."""
+        q = "INSERT INTO items (hash_full, code, kind, size_b, uid, upload_at) "
+        q += "VALUES ('AAAABBBBCCCCDDDDEEEEFFFGG', 'AAAAB', 'txt', 100, 9999, 0)"
+        with pytest.raises(sqlite3.IntegrityError):
+            t_db.execute(q)
+
+    def test_init_db_safe_after_open_transaction(self, t_conn):
+        """init_db succeeds when called with an open implicit transaction."""
+        init_db(t_conn)
+        q = "INSERT INTO users (id, email, name, pw_hash, created_at) "
+        q += "VALUES (1, 'a@b.com', 'Test', 'x', 0)"
+        t_conn.execute(q)
+        init_db(t_conn)
 
 
 class TestRowMappers:
@@ -238,8 +275,9 @@ class TestResolveCode:
 class TestInsert:
     """Tests for SqliteRepository.insert()."""
 
-    def test_inserts_text_item(self, t_repo):
+    def test_inserts_text_item(self, t_repo, t_db):
         """Inserts TextItem and returns it"""
+        insert_user(t_db, id=69)
         plan = make_write_plan(format="md")  # Assemble WritePlan to Insert with
         result = t_repo.insert(plan, uid=69, perm=Visibility.PRIVATE)  # Act
         assert isinstance(result, TextItem)  # Assert correct results
@@ -272,8 +310,9 @@ class TestInsert:
         assert result.height == 600
         assert result == t_repo.get_by_full_hash(plan.hash_full)
 
-    def test_inserts_link_item(self, t_repo):
+    def test_inserts_link_item(self, t_repo, t_db):
         """Inserts LinkItem and returns it"""
+        insert_user(t_db, id=42)
         kwargs = {"kind": ItemKind.LINK, "payload_bytes": b"http://a.eu"}
         plan = make_write_plan(**kwargs)
         result = t_repo.insert(plan, uid=42, perm=Visibility.UNLISTED)
@@ -292,7 +331,7 @@ class TestInsert:
         plan1 = make_write_plan(**kwargs)
         plan2 = make_write_plan(**kwargs)
         t_repo.insert(plan1)
-        with pytest.raises(CodeCollisionError) as exc_info:
+        with pytest.raises(errors.CodeCollisionError) as exc_info:
             t_repo.insert(plan2)
         e = exc_info.value
         assert plan2.hash_full in str(e)
@@ -342,3 +381,92 @@ class TestDelete:
     def test_delete_nonexistent_is_noop(self, t_repo):
         """Deleting nonexistent hash doesn't raise."""
         t_repo.delete("DOESNOTEXIST12345678")
+
+
+class TestUserCrud:
+    """Tests for SqliteRepository user CRUD methods."""
+
+    def _seeded_user(self, t_repo, **overrides) -> User:
+        """Insert and return a user with overridable defaults."""
+        user = make_user(id=1, **overrides)
+        return t_repo.insert_user(user)
+
+    def test_insert_returns_user(self, t_repo):
+        """insert_user returns a User equal to the inserted one."""
+        user = make_user(id=1)
+        result = t_repo.insert_user(user)
+        assert result == user
+
+    def test_get_user_by_id(self, t_repo):
+        """get_user returns the correct User by id."""
+        user = self._seeded_user(t_repo)
+        result = t_repo.get_user(1)
+        assert result == user
+
+    def test_get_user_by_email(self, t_repo):
+        """get_user_by_email returns the correct User by email."""
+        user = self._seeded_user(t_repo, email="me@myself.com")
+        result = t_repo.get_user_by_email("me@myself.com")
+        assert result == user
+
+    def test_get_user_by_email_not_found(self, t_repo):
+        """get_user_by_email raises NotFoundError when email absent."""
+        with pytest.raises(errors.NotFoundError):
+            t_repo.get_user_by_email("not@exist.net")
+
+    def test_unique_email_violation(self, t_repo):
+        """Inserting duplicate email raises an integrity error."""
+        u1, u2 = make_user(id=1, name="Alice"), make_user(id=2, name="Bob")
+        t_repo.insert_user(u1)
+        with pytest.raises(errors.UniqueViolationError) as exc_info:
+            t_repo.insert_user(u2)
+        assert exc_info.value.domain == "User"
+        assert exc_info.value.field == "email"
+        assert exc_info.value.value == "guy@example.com"
+
+    def test_unique_name_violation(self, t_repo):
+        """Inserting duplicate name raises an integrity error."""
+        u1, u2 = make_user(id=1, email="a@t.se"), make_user(id=2, email="b@t.se")
+        t_repo.insert_user(u1)
+        with pytest.raises(errors.UniqueViolationError) as exc_info:
+            t_repo.insert_user(u2)
+        assert exc_info.value.domain == "User"
+        assert exc_info.value.field == "name"
+        assert exc_info.value.value == "GuyMann"
+
+    def test_get_user_not_found(self, t_repo):
+        """get_user raises NotFoundError when uid absent."""
+        with pytest.raises(errors.NotFoundError) as exc_info:
+            t_repo.get_user(9999)
+        assert exc_info.value.id == "9999"
+        assert exc_info.value.resource == "User"
+
+    def test_update_pw_hash(self, t_repo):
+        """update_user_pw_hash changes the stored pw_hash for an existing user."""
+        self._seeded_user(t_repo)
+        t_repo.update_user_pw_hash(1, "new_hash_foobar")
+        assert t_repo.get_user(1).pw_hash == "new_hash_foobar"
+
+    def test_update_pw_hash_not_found(self, t_repo):
+        """update_user_pw_hash raises NotFoundError for unknown uid."""
+        with pytest.raises(errors.NotFoundError) as exc_info:
+            t_repo.update_user_pw_hash(9999, "irrelevant_hash")
+        assert exc_info.value.id == "9999"
+        assert exc_info.value.resource == "User"
+
+
+class TestUserPersistence:
+    """End-to-end gating test for user persistence round-trip."""
+
+    # should round-trip an inserted User by id and by email,
+    # asserting both fetches return a User equal to the inserted one.
+    # Skipped until the user repo CRUD unit lands.
+
+    def test_user_round_trips_by_id_and_email(self, t_repo):
+        """Insert a User and fetch it by both id and email."""
+        user = make_user(id=1, email="marcus@test.se")
+        t_repo.insert_user(user)
+        u_by_id = t_repo.get_user(1)
+        u_by_mail = t_repo.get_user_by_email("marcus@test.se")
+        assert u_by_id == user
+        assert u_by_mail == user

@@ -22,7 +22,9 @@ DepoError (500)
 │   ├── NotFoundError (404)
 │   │   ├── ExtensionMismatchError (404)
 │   │   └── LinkRawNotSupportedError (404)
-│   └── CodeCollisionError (409)
+│   ├── CodeCollisionError (409)
+│   ├── InsertFailedError (500)
+│   └── UniqueViolationError (500)
 ├── ValidationError (400)
 │   ├── PayloadTooLargeError (413)
 │   ├── PayloadEmptyError (400)
@@ -50,6 +52,8 @@ with explicit decisions at a few nodes:
 - `RepoError` and `MissingDependencyError` are WARNING
 - `NotFoundError`, `ValidationError`, `ClassificationError` are INFO
 - `UnknownClassificationError` is ERROR
+- `InsertFailedError` is ERROR (driver-level fault, not a domain condition)
+- `UniqueViolationError` is WARNING (expected user-facing condition)
 
 All other subclasses inherit from their nearest base.
 A gap test in `tests/util/test_errors.py` enumerates every concrete subclass and

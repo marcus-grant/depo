@@ -3,6 +3,7 @@
 Tests for centralized error types in util/errors.py.
 Author: Marcus Grant
 Created: 2026-03-10
+Revised: [2026-06-16]
 License: Apache-2.0
 """
 
@@ -31,6 +32,8 @@ class TestErrorSeverity:
         errors.MissingDependencyError: errors.Severity.WARNING,
         errors.RepoError: errors.Severity.WARNING,
         errors.NotFoundError: errors.Severity.INFO,
+        errors.InsertFailedError: errors.Severity.ERROR,
+        errors.UniqueViolationError: errors.Severity.WARNING,
         errors.ExtensionMismatchError: errors.Severity.INFO,
         errors.LinkRawNotSupportedError: errors.Severity.INFO,
         errors.CodeCollisionError: errors.Severity.WARNING,
@@ -220,6 +223,38 @@ class TestNotFoundError:
         assert e.id == "01234567"
         assert e.resource == "Tag"
         assert str(e) == "Tag with ID 01234567 not found."
+
+
+class TestInsertFailedError:
+    """Tests for InsertFailedError."""
+
+    def test_defaults(self):
+        """Inherits RepoError, severity ERROR."""
+        assert issubclass(errors.InsertFailedError, errors.RepoError)
+        assert errors.InsertFailedError.severity == errors.Severity.ERROR
+
+
+class TestUniqueViolationError:
+    """Tests for UniqueViolationError."""
+
+    def test_defaults(self):
+        """Inherits RepoError, severity WARNING."""
+        assert issubclass(errors.UniqueViolationError, errors.RepoError)
+        assert errors.UniqueViolationError.severity == errors.Severity.WARNING
+
+    def test_with_field_and_value(self):
+        """Constructor stores field and value; message reflects them."""
+        e = errors.UniqueViolationError(field="email", value="a@b.com")
+        assert e.field == "email"
+        assert e.value == "a@b.com"
+        assert e.domain is None
+        assert str(e) == "A record with email 'a@b.com' already exists."
+
+    def test_with_domain(self):
+        """Domain is included in message when provided."""
+        e = errors.UniqueViolationError(field="email", value="a@b.com", domain="User")
+        assert e.domain == "User"
+        assert str(e) == "A User with email 'a@b.com' already exists."
 
 
 # == Validation Domain ==

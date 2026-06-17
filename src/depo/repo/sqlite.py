@@ -3,6 +3,7 @@
 SQLite implementation of item repository.
 Author: Marcus Grant
 Date: 2026-01-26
+Revisions: [2026-06-16]
 License: Apache-2.0
 """
 
@@ -11,8 +12,9 @@ from importlib import resources
 
 from depo.model.enums import ContentFormat, ItemKind, Visibility
 from depo.model.item import LinkItem, PicItem, TextItem
+from depo.model.user import User
 from depo.model.write_plan import WritePlan
-from depo.util.errors import CodeCollisionError
+from depo.util import errors
 
 
 def init_db(conn: sqlite3.Connection) -> None:
@@ -21,9 +23,13 @@ def init_db(conn: sqlite3.Connection) -> None:
     Args:
         conn: SQLite connection to initialize.
     """
-    conn.execute("PRAGMA foreign_keys = ON")
     schema = resources.files("depo.repo").joinpath("schema.sql").read_text()
     conn.executescript(schema)
+    conn.commit()  # Ensure schema is applied before any other operations
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode = WAL")  # WAL mode
+    conn.execute("PRAGMA synchronous = NORMAL")  # Sync = better performance in WAL
+    conn.execute("PRAGMA busy_timeout = 5000")  # Wait milsec if database is locked
 
 
 def _row_to_text_item(row: sqlite3.Row) -> TextItem:
@@ -70,6 +76,17 @@ def _row_to_link_item(row: sqlite3.Row) -> LinkItem:
         origin_at=row["origin_at"],
         perm=Visibility(row["perm"]),
         url=row["url"],
+    )
+
+
+def _row_to_user(row: sqlite3.Row) -> User:
+    """Map a users row to a User domain object."""
+    return User(
+        id=row["id"],
+        email=row["email"],
+        name=row["name"],
+        pw_hash=row["pw_hash"],
+        created_at=row["created_at"],
     )
 
 
@@ -263,7 +280,9 @@ class SqliteRepository:
                 )
             except sqlite3.IntegrityError as e:
                 if "UNIQUE" in e.args[0]:
-                    raise CodeCollisionError(code=code, hash_full=plan.hash_full) from e
+                    raise errors.CodeCollisionError(
+                        code=code, hash_full=plan.hash_full
+                    ) from e
 
             # Next handle the subtype table insertion based on ItemKind
             if plan.kind == ItemKind.TEXT:
@@ -318,3 +337,46 @@ class SqliteRepository:
             No-op if item doesn't exist (idempotent for rollback).
         """
         self._conn.execute("DELETE FROM items WHERE hash_full = ?", (hash_full,))
+
+    def insert_user(self, user: User) -> User:
+        """Insert a User row and return the persisted User with db-assigned id."""
+        q = "INSERT INTO users (email, name, pw_hash, created_at) VALUES (?, ?, ?, ?)"
+        values = (user.email, user.name, user.pw_hash, user.created_at)
+        try:
+            cursor = self._conn.execute(q, values)
+        except sqlite3.IntegrityError as e:
+            field = str(e).split("users.")[1] if "users." in str(e) else "unknown"
+            value = getattr(user, field, "unknown")
+            kwargs = {"field": field, "value": value, "domain": "User"}
+            raise errors.UniqueViolationError(**kwargs) from e
+        if cursor.lastrowid is None:
+            raise errors.InsertFailedError()
+        return User(
+            id=cursor.lastrowid,
+            email=user.email,
+            name=user.name,
+            pw_hash=user.pw_hash,
+            created_at=user.created_at,
+        )
+
+    def get_user(self, uid: int) -> User:
+        """Fetch a User by id, raising NotFoundError if absent."""
+        row = self._conn.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+        if row is None:
+            raise errors.NotFoundError(str(uid), "User")
+        return _row_to_user(row)
+
+    def get_user_by_email(self, email: str) -> User:
+        """Fetch a User by email, raising NotFoundError if absent."""
+        query = "SELECT * FROM users WHERE email = ?"
+        row = self._conn.execute(query, (email,)).fetchone()
+        if row is None:
+            raise errors.NotFoundError(email, "User")
+        return _row_to_user(row)
+
+    def update_user_pw_hash(self, uid: int, pw_hash: str) -> None:
+        """Update pw_hash for an existing user, raising NotFoundError if absent."""
+        query = "UPDATE users SET pw_hash = ? WHERE id = ?"
+        cursor = self._conn.execute(query, (pw_hash, uid))
+        if cursor.rowcount == 0:
+            raise errors.NotFoundError(str(uid), "User")

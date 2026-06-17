@@ -30,126 +30,6 @@ service, repo, and storage. Dedupe by content hash.
 
 Ordered by dependency. Each heading is roughly one PR.
 
-### Users table and model (Branch: `ft/users-table`)
-
-*Problem: there is no user identity in the system. `items.uid` is an
-integer referencing nothing and auth has no table to authenticate
-against. Add a `users` table, a `User` domain model, and user repo CRUD,
-with `items.uid` gaining a foreign key to `users(id)`. Out of scope:
-password hashing and the provisioning command (owned by
-`ft/credentials`); login and session infrastructure (`ft/login-session`);
-the `/upload` gate (`ft/upload-gate`); `perm`/visibility enforcement
-(post-MVP, column already present and defaulting to PUBLIC).*
-
-#### Setup and gating test
-
-- [ ] Branch `ft/users-table` from main.
-- [ ] Add a skipped integration test to `tests/repo/test_sqlite.py`
-      (new `TestUserPersistence` class) asserting the end state: a `User`
-      inserted via the repo round-trips, fetch-by-id and fetch-by-email
-      each return a `User` equal to the inserted one. `@pytest.mark.skip`
-      until the last unit.
-  - [ ] Commit: `Tst: Add skipped gating test for user persistence round-trip`
-
-#### TDD implementation
-
-**Enable WAL journal mode and busy timeout**
-(`tests/repo/test_sqlite.py`)
-
-- [ ] Red: test asserting `PRAGMA journal_mode` resolves to `wal` after
-      `init_db`, and that `busy_timeout` is set on the connection (so a
-      separate-process writer, the `set-password` command in
-      `ft/credentials`, can commit without `database is locked`).
-- [ ] In `init_db` (`src/depo/repo/sqlite.py`) add `PRAGMA journal_mode =
-      WAL`, `PRAGMA busy_timeout = <ms>`, and `PRAGMA synchronous =
-      NORMAL` beside the existing `PRAGMA foreign_keys = ON`.
-      `journal_mode` persists in the DB file; `busy_timeout` is
-      per-connection, set on every `init_db` call (server and CLI alike).
-      Out of scope: thread-safety of the web app's shared connection
-      (the `app.py` thread-pooling/write-queuing note is a separate
-      deferred concern; WAL does not address it).
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Ft: Enable WAL journal mode and busy timeout`
-
-**Add the User domain model**
-
-**Add the User domain model**
-(`tests/model/test_user.py`)
-
-- [ ] Red: add field-spec tests mirroring `TestItem` (`test_instance_dataclass`,
-      parametrized `test_fields` over `id`, `email`, `name`, `pw_hash`,
-      `created_at`, `test_frozen`, `test_instantiate`).
-- [ ] Add `src/depo/model/user.py`: frozen `kw_only` `User` dataclass,
-      all fields required, no optionals.
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Ft: Add User domain model`
-
-**Add the make_user factory**
-(`tests/model/test_user.py`)
-
-- [ ] Red: add a test asserting `make_user()` returns a valid `User` and
-      that overrides apply.
-- [ ] Add `make_user(**overrides) -> User` to `tests/factories/models.py`
-      alongside the existing model factories.
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Tst: Add make_user factory`
-
-**Add the users table and items.uid foreign key**
-(`tests/repo/test_sqlite.py`)
-
-- [ ] Red: add a test asserting the FK is enforced, inserting an item with
-      an unknown uid raises under `PRAGMA foreign_keys = ON`; and a test
-      asserting the seeded superuser row exists after `init_db`.
-- [ ] Edit `src/depo/repo/schema.sql`: add the `users` table above `items`
-      (`id INTEGER PRIMARY KEY`, `email TEXT NOT NULL UNIQUE`, `name TEXT
-      NOT NULL UNIQUE`, `pw_hash TEXT NOT NULL`, `created_at INTEGER NOT
-      NULL`); add `REFERENCES users(id)` to `items.uid`; seed the reserved
-      superuser row with an idempotent `INSERT OR IGNORE` carrying a
-      non-verifying `pw_hash` sentinel (no hashing exists until
-      `ft/credentials`; the superuser stays un-loginable until that PR
-      sets a real password) so the `uid` default has a referent.
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Ft: Add users table and items.uid foreign key`
-
-**Add user repo CRUD**
-(`tests/repo/test_sqlite.py`)
-
-- [ ] Red: add tests for insert, fetch-by-id, fetch-by-email, and unique
-      violations on `email` and `name`; add an `insert_user` DB helper
-      delegating to `make_user`.
-- [ ] Add `_row_to_user`, `insert_user`, `get_user`, and
-      `get_user_by_email` to `src/depo/repo/sqlite.py`, following the
-      existing `_row_to_*` and insert idioms.
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Ft: Add user repo CRUD`
-
-**Add user password-hash update**
-(`tests/repo/test_sqlite.py`)
-
-- [ ] Red: test asserting `update_user_pw_hash(uid, new_hash)` changes
-      the stored `pw_hash` for an existing user (fetch confirms the new
-      value) and that an unknown uid raises `NotFoundError`.
-- [ ] Add `update_user_pw_hash(uid, new_hash)` to
-      `src/depo/repo/sqlite.py` following the existing write idioms: a
-      single `UPDATE users SET pw_hash = ? WHERE id = ?`, raising
-      `NotFoundError` when no row is affected.
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Ft: Add user password-hash update`
-
-#### Integration and documentation
-
-- [ ] Unskip the `TestUserPersistence` gating test; confirm it passes.
-- [ ] Update `doc/module/model.md` (User model) and `doc/module/repo.md`
-      (user CRUD, `update_user_pw_hash`, and the WAL / busy_timeout /
-      synchronous connection config); note the `items.uid` foreign key
-      wherever the schema is documented.
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Doc: ...`
-
-#### PR
-
-- [ ] gh pr create --title "Ft: Users table and model" --body "..."
-
 ### Password credentials and provisioning (Branch: `ft/credentials`)
 
 *Problem: users have a `pw_hash` column but nothing produces or
@@ -569,6 +449,13 @@ Ensure all hierarchy works in pure grayscale; color remains semantic only.
 - Shell (`header/main/footer`) should remain stable across HTMX swaps.
 - Swaps should target interior regions only;
   - avoid global reflow by keeping consistent container widths/padding in `base.html`.
+
+### Pre-MVP housecleaning
+
+- Rename `tests/factories/db.py::insert_user` to `seed_user` to resolve
+  naming overlap with `SqliteRepository.insert_user`
+- Split `src/depo/repo/sqlite.py` into per-concern submodules (items,
+  users, schema) once the auth sequence lands
 
 ### Manual Testing
 

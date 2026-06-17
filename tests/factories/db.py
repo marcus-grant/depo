@@ -13,7 +13,23 @@ License: Apache-2.0
 import sqlite3
 
 from depo.model.item import LinkItem, PicItem, TextItem
-from tests.factories.models import make_link_item, make_pic_item, make_text_item
+from depo.model.user import User
+from tests.factories.models import (
+    make_link_item,
+    make_pic_item,
+    make_text_item,
+    make_user,
+)
+
+
+def insert_user(conn: sqlite3.Connection, **overrides) -> User:
+    """Insert a User via raw SQL and return the domain object."""
+    user = make_user(**overrides)
+    q = "INSERT INTO users (id, email, name, pw_hash, created_at)"
+    q += "VALUES (?, ?, ?, ?, ?)"
+    vals = (user.id, user.email, user.name, user.pw_hash, user.created_at)
+    conn.execute(q, vals)
+    return user
 
 
 def insert_text_item(conn: sqlite3.Connection, **overrides) -> TextItem:
