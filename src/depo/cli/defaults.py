@@ -24,7 +24,7 @@ _XDG_DATA_HOME = "XDG_DATA_HOME"
 
 # SCRYPT crypto params
 
-SCRYPT_N = 2**14
+SCRYPT_N = 2**16
 SCRYPT_R = 8
 SCRYPT_P = 1
 

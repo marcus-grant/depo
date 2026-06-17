@@ -40,6 +40,6 @@ class TestScryptDefaults:
 
     def test_scrypt_constants(self):
         """SCRYPT_N, SCRYPT_R, SCRYPT_P have correct default values."""
-        assert defaults.SCRYPT_N == 2**14
+        assert defaults.SCRYPT_N == 2**16
         assert defaults.SCRYPT_R == 8
         assert defaults.SCRYPT_P == 1
