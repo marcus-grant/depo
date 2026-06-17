@@ -441,6 +441,19 @@ class TestUserCrud:
         assert exc_info.value.id == "9999"
         assert exc_info.value.resource == "User"
 
+    def test_update_pw_hash(self, t_repo):
+        """update_user_pw_hash changes the stored pw_hash for an existing user."""
+        self._seeded_user(t_repo)
+        t_repo.update_user_pw_hash(1, "new_hash_foobar")
+        assert t_repo.get_user(1).pw_hash == "new_hash_foobar"
+
+    def test_update_pw_hash_not_found(self, t_repo):
+        """update_user_pw_hash raises NotFoundError for unknown uid."""
+        with pytest.raises(errors.NotFoundError) as exc_info:
+            t_repo.update_user_pw_hash(9999, "irrelevant_hash")
+        assert exc_info.value.id == "9999"
+        assert exc_info.value.resource == "User"
+
 
 class TestUserPersistence:
     """End-to-end gating test for user persistence round-trip."""
@@ -449,7 +462,11 @@ class TestUserPersistence:
     # asserting both fetches return a User equal to the inserted one.
     # Skipped until the user repo CRUD unit lands.
 
-    @pytest.mark.skip(reason="Gating test; unskip after user CRUD lands")
     def test_user_round_trips_by_id_and_email(self, t_repo):
         """Insert a User and fetch it by both id and email."""
-        ...
+        user = make_user(id=1, email="marcus@test.se")
+        t_repo.insert_user(user)
+        u_by_id = t_repo.get_user(1)
+        u_by_mail = t_repo.get_user_by_email("marcus@test.se")
+        assert u_by_id == user
+        assert u_by_mail == user

@@ -373,3 +373,10 @@ class SqliteRepository:
         if row is None:
             raise errors.NotFoundError(email, "User")
         return _row_to_user(row)
+
+    def update_user_pw_hash(self, uid: int, pw_hash: str) -> None:
+        """Update pw_hash for an existing user, raising NotFoundError if absent."""
+        query = "UPDATE users SET pw_hash = ? WHERE id = ?"
+        cursor = self._conn.execute(query, (pw_hash, uid))
+        if cursor.rowcount == 0:
+            raise errors.NotFoundError(str(uid), "User")
