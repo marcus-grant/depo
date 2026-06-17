@@ -70,6 +70,9 @@ class TestDepoConfig:
             ("max_url_len", int, False, defaults.MAX_URL_LEN),
             ("min_code_len", int, False, defaults.MIN_CODE_LEN),
             ("log_level", Severity, False, Severity.WARNING),
+            ("scrypt_n", int, False, defaults.SCRYPT_N),
+            ("scrypt_r", int, False, defaults.SCRYPT_R),
+            ("scrypt_p", int, False, defaults.SCRYPT_P),
         ],
     )
     def test_simple_fields(self, name, typ, required, default):
@@ -215,6 +218,19 @@ class TestLoadConfigEnv:
         monkeypatch.setenv("DEPO_LOG_LEVEL", "BANANA")
         with pytest.raises(ConfigError):
             load_config()
+
+    def test_env_scrypt_int_coercion(self, monkeypatch, tmp_path):
+        """DEPO_SCRYPT_N/R/P env vars coerce to int on DepoConfig."""
+        self._clear_depo_env(monkeypatch)
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("DEPO_SCRYPT_N", "4096")
+        monkeypatch.setenv("DEPO_SCRYPT_R", "4")
+        monkeypatch.setenv("DEPO_SCRYPT_P", "2")
+        cfg = load_config()
+        assert cfg.scrypt_n == 4096
+        assert cfg.scrypt_r == 4
+        assert cfg.scrypt_p == 2
 
 
 class TestLoadConfigFlag:

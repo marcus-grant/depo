@@ -35,6 +35,10 @@ class DepoConfig:
     min_code_len: int = defaults.MIN_CODE_LEN
     # Logging/ErrorHandling
     log_level: Severity = defaults.LOG_LEVEL
+    # Scrypt cost parameters
+    scrypt_n: int = defaults.SCRYPT_N
+    scrypt_r: int = defaults.SCRYPT_R
+    scrypt_p: int = defaults.SCRYPT_P
 
 
 def _xdg_config_home() -> Path:
@@ -54,6 +58,7 @@ def _load_toml(path: Path) -> dict:
 def _coerce(overrides: dict) -> dict:
     """Coerce string values from env/TOML to expected types."""
     int_fields = {"port", "max_size_bytes", "max_url_len", "min_code_len"}
+    int_fields |= {"scrypt_n", "scrypt_r", "scrypt_p"}
     path_fields = {"db_path", "store_root"}
     out = {}
     for k, v in overrides.items():

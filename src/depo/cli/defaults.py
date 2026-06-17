@@ -22,6 +22,12 @@ LOG_LEVEL = Severity.WARNING
 
 _XDG_DATA_HOME = "XDG_DATA_HOME"
 
+# SCRYPT crypto params
+
+SCRYPT_N = 2**14
+SCRYPT_R = 8
+SCRYPT_P = 1
+
 
 def default_store_dir() -> Path:
     """Return XDG_DATA_HOME/depo/store if set, else ./store for containerized deploys"""
