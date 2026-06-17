@@ -4,68 +4,71 @@ Persistence logic for items.
 Depends on model/.
 No framework dependencies.
 
-## errors.py
+## Errors
 
-Repository-specific exceptions.
+Repository errors are defined in `util/errors.py`. Relevant types:
 
-### CodeCollisionError
-
-```python
-class RepoError(Exception):
-    """Base class for repository errors."""
-
-class CodeCollisionError(RepoError):
-    """Insert attempted with duplicate code. Indicates application bug."""
-    def __init__(self, code: str):
-        self.code = code
-```
-
-Raised when `insert()` violates the unique code constraint.
-This should never happen if `resolve_code()` is correct—existence indicates a bug.
+- `NotFoundError`: raised when a fetch by id or email finds no row
+- `CodeCollisionError`: raised when insert violates unique code constraint
+- `InsertFailedError`: raised when an insert returns no row id (driver fault)
+- `UniqueViolationError`: raised when insert violates a unique column constraint
 
 ## schema.sql
 
 SQLite schema definition.
 
 ```sql
-CREATE TABLE items (
+CREATE TABLE IF NOT EXISTS users (
+    id          INTEGER PRIMARY KEY,
+    email       TEXT NOT NULL UNIQUE,
+    name        TEXT NOT NULL UNIQUE,
+    pw_hash     TEXT NOT NULL,
+    created_at  INTEGER NOT NULL
+);
+
+INSERT OR IGNORE INTO users (id, email, name, pw_hash, created_at)
+VALUES (0, 'superuser@localhost', 'Superuser', 'UNSET', 0);
+
+CREATE TABLE IF NOT EXISTS items (
     hash_full   TEXT PRIMARY KEY,
     code        TEXT UNIQUE NOT NULL,
     kind        TEXT NOT NULL,
     size_b      INTEGER NOT NULL,
-    uid         INTEGER NOT NULL DEFAULT 0,
+    uid         INTEGER NOT NULL DEFAULT 0 REFERENCES users(id),
     perm        TEXT NOT NULL DEFAULT 'pub',
     upload_at   INTEGER NOT NULL,
     origin_at   INTEGER
 );
 
-CREATE TABLE text_items (
+CREATE TABLE IF NOT EXISTS text_items (
     hash_full   TEXT PRIMARY KEY REFERENCES items(hash_full) ON DELETE CASCADE,
     format      TEXT NOT NULL
 );
 
-CREATE TABLE pic_items (
+CREATE TABLE IF NOT EXISTS pic_items (
     hash_full   TEXT PRIMARY KEY REFERENCES items(hash_full) ON DELETE CASCADE,
     format      TEXT NOT NULL,
     width       INTEGER NOT NULL,
     height      INTEGER NOT NULL
 );
 
-CREATE TABLE link_items (
+CREATE TABLE IF NOT EXISTS link_items (
     hash_full   TEXT PRIMARY KEY REFERENCES items(hash_full) ON DELETE CASCADE,
     url         TEXT NOT NULL
 );
 
-CREATE INDEX idx_items_uid ON items(uid);
-CREATE INDEX idx_items_kind ON items(kind);
-CREATE INDEX idx_items_upload ON items(upload_at);
+CREATE INDEX IF NOT EXISTS idx_items_uid ON items(uid);
+CREATE INDEX IF NOT EXISTS idx_items_kind ON items(kind);
+CREATE INDEX IF NOT EXISTS idx_items_upload ON items(upload_at);
 ```
 
 ### Schema notes
 
 - `hash_full` is true identity (content-addressed, immutable)
 - `code` is URL identifier (unique, 8-24 chars)
-- `uid` has no FK constraint until User table exists
+- `users` must be defined before `items` due to the FK on `items.uid`
+- `uid` defaults to 0, referencing the seeded superuser row
+- Superuser (id=0) is seeded via `INSERT OR IGNORE`; safe to run repeatedly
 - Subtype tables share PK with items table (1:1 relationship)
   - There is exactly one of LinkItem, TextItem, PicItem per Item
   - Item is exactly one of its subtypes
@@ -83,13 +86,25 @@ def init_db(conn: sqlite3.Connection) -> None:
     Args:
         conn: SQLite connection to initialize.
     """
-    conn.execute("PRAGMA foreign_keys = ON")
     schema = resources.files("depo.repo").joinpath("schema.sql").read_text()
     conn.executescript(schema)
+    conn.commit()
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA synchronous = NORMAL")
+    conn.execute("PRAGMA busy_timeout = 5000")
 ```
 
->**NOTE:** PRAGMA foreign_keys enables foreign key behaviors;
->needed for `ON DELETE CASCADE` behavior when deleting item sub-types.
+- `foreign_keys`: enables FK enforcement and `ON DELETE CASCADE` behavior
+- `journal_mode = WAL`: persistent, stored in the DB file; allows concurrent
+  reads and writes from separate processes (required for the `set-password`
+  CLI command running alongside the server)
+- `synchronous = NORMAL`: per-connection; safe durability tradeoff under WAL
+- `busy_timeout = 5000`: per-connection; waits up to 5000ms before raising
+  on a locked database instead of failing immediately
+- All PRAGMAs are set after `executescript` and `commit` to avoid the
+  "safety level may not be changed inside a transaction" error that arises
+  when DML in the schema leaves an implicit transaction open
 
 ### SqliteRepository
 
@@ -150,6 +165,47 @@ class SqliteRepository:
       """
       ...
 ```
+
+### User CRUD
+
+```python
+def insert_user(self, user: User) -> User:
+    """
+    Insert a new user row and return the persisted User with db-assigned id.
+    Raises:
+        InsertFailedError: If the database does not return a row id.
+        UniqueViolationError: If email or name already exists.
+    """
+    ...
+
+def get_user(self, uid: int) -> User:
+    """
+    Fetch a User by id.
+    Raises:
+        NotFoundError: If no user with that id exists.
+    """
+    ...
+
+def get_user_by_email(self, email: str) -> User:
+    """
+    Fetch a User by email.
+    Raises:
+        NotFoundError: If no user with that email exists.
+    """
+    ...
+
+def update_user_pw_hash(self, uid: int, pw_hash: str) -> None:
+    """
+    Update the pw_hash for an existing user.
+    Raises:
+        NotFoundError: If no user with that id exists.
+    """
+    ...
+```
+
+`_row_to_user(row: sqlite3.Row) -> User` maps a users table row to a
+`User` domain object, following the same pattern as `_row_to_text_item`
+and siblings.
 
 ### Row mappers
 
