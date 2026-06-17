@@ -458,10 +458,6 @@ class TestUserCrud:
 class TestUserPersistence:
     """End-to-end gating test for user persistence round-trip."""
 
-    # should round-trip an inserted User by id and by email,
-    # asserting both fetches return a User equal to the inserted one.
-    # Skipped until the user repo CRUD unit lands.
-
     def test_user_round_trips_by_id_and_email(self, t_repo):
         """Insert a User and fetch it by both id and email."""
         user = make_user(id=1, email="marcus@test.se")

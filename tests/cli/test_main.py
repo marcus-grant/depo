@@ -4,6 +4,7 @@ Tests for CLI commands.
 
 Author: Marcus Grant
 Created: 2026-02-09
+Revised [2026-06-17]
 License: Apache-2.0
 """
 
@@ -11,6 +12,7 @@ from dataclasses import fields
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from click.testing import CliRunner
 from tests.factories import make_config
 
@@ -82,3 +84,35 @@ class TestServe:
             result = _invoke("serve", tmp_path=tmp_path)
         assert result.exit_code == 0
         mock_run.assert_called_once()
+
+
+@pytest.mark.skip(reason="create-user not implemented until final ft/credentials unit")
+class TestCreateUser:
+    """Gating e2e: create-user provisions a verifiable password hash."""
+
+    def test_creates_user_with_verifying_hash(self, tmp_path):
+        import sqlite3
+
+        from depo.util.password import verify_password  # type: ignore[import]
+
+        from depo.repo.sqlite import SqliteRepository, init_db
+
+        pw = "s3cr3tpassword"
+        cfg = make_config(tmp_path)
+        runner = CliRunner()
+        _invoke("init", tmp_path=tmp_path)
+        result = runner.invoke(
+            cli,
+            ["create-user", "--email", "newuser@example.com", "--name", "NewUser"],
+            obj={"config": cfg},
+            input=f"{pw}\n{pw}\n",
+            env={"COLUMNS": "300"},
+        )
+        assert result.exit_code == 0
+        conn = sqlite3.connect(str(cfg.db_path))
+        init_db(conn)
+        repo = SqliteRepository(conn)
+        user = repo.get_user_by_email("newuser@example.com")
+        assert user is not None
+        assert verify_password(pw, user.pw_hash)
+        assert not verify_password("wrongpassword", user.pw_hash)
