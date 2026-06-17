@@ -86,8 +86,48 @@ class TestServe:
         mock_run.assert_called_once()
 
 
-@pytest.mark.skip(reason="create-user not implemented until final ft/credentials unit")
 class TestCreateUser:
     """Gating e2e: create-user provisions a verifiable password hash."""
 
-    # def test_creates_user_with_verifying_hash(self, tmp_path): ...
+    def _invoke_create_user(self, tmppath: Path, email: str, name: str, password: str):
+        runner = CliRunner()
+        return runner.invoke(
+            cli,
+            ["create-user", "--email", email, "--name", name],
+            obj={"config": make_config(tmppath)},
+            input=f"{password}\n{password}\n",
+            env={"COLUMNS": "300"},
+        )
+
+    @pytest.mark.skip(
+        reason="create-user not implemented until final ft/credentials unit"
+    )
+    def test_creates_user_with_verifying_hash(self, tmp_path):
+        _ = tmp_path
+        pass
+
+    def test_duplicate_email_errors(self, tmp_path):
+        """Errors cleanly when a user with the same email already exists."""
+        _invoke("init", tmp_path=tmp_path)
+        self._invoke_create_user(tmp_path, "dupe@example.com", "UserOne", "password")
+        args = tmp_path, "dupe@example.com", "UserTwo", "password"
+        result = self._invoke_create_user(*args)
+        assert result.exit_code != 0
+        assert "dupe@example.com" in result.output
+
+    def test_duplicate_name_errors(self, tmp_path):
+        """Errors cleanly when a user with the same name already exists."""
+        _invoke("init", tmp_path=tmp_path)
+        args = (tmp_path, "user1@example.com", "SharedName", "password")
+        self._invoke_create_user(*args)
+        args = tmp_path, "user2@example.com", "SharedName", "password"
+        result = self._invoke_create_user(*args)
+        assert result.exit_code != 0
+        assert "SharedName" in result.output
+
+    def test_password_not_echoed(self, tmp_path):
+        """Password input is not echoed to output."""
+        _invoke("init", tmp_path=tmp_path)
+        args = tmp_path, "user@example.com", "User", "s3cr3tpassword"
+        result = self._invoke_create_user(*args)
+        assert "s3cr3tpassword" not in result.output

@@ -4,10 +4,12 @@ CLI entry point using Click.
 
 Author: Marcus Grant
 Created: 2026-02-09
+Revised: [2026-06-17]
 License: Apache-2.0
 """
 
 import sqlite3
+import time
 from dataclasses import fields
 
 import click
@@ -15,7 +17,10 @@ from rich.console import Console
 from rich.table import Table
 
 from depo.cli.config import DepoConfig, load_config
-from depo.repo.sqlite import init_db
+from depo.model.user import User
+from depo.repo.sqlite import SqliteRepository, init_db
+from depo.util.errors import UniqueViolationError
+from depo.util.password import hash_password
 from depo.web.app import app_factory
 
 
@@ -70,3 +75,27 @@ def config_show(ctx: click.Context) -> None:
         table.add_row(f.name, str(getattr(cfg, f.name)))
     console = Console()
     console.print(table)
+
+
+@cli.command("create-user")
+@click.option("--email", required=True, prompt=True)
+@click.option("--name", required=True, prompt=True)
+@click.password_option()
+@click.pass_context
+def create_user(ctx: click.Context, email: str, name: str, password: str) -> None:
+    """Provision a new user with a hashed password."""
+    cfg: DepoConfig = ctx.obj["config"]
+    conn = sqlite3.connect(str(cfg.db_path))
+    init_db(conn)
+    repo = SqliteRepository(conn)
+    kwargs = {"n": cfg.scrypt_n, "r": cfg.scrypt_r, "p": cfg.scrypt_p}
+    pw_hash = hash_password(password, **kwargs)
+    T = int(time.time())
+    user = User(id=0, email=email, name=name, pw_hash=pw_hash, created_at=T)
+    try:
+        repo.insert_user(user)
+        conn.commit()
+    except UniqueViolationError as e:
+        raise click.ClickException(f"{e.value} is already taken") from e
+    finally:
+        conn.close()
