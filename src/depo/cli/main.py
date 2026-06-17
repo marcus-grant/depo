@@ -99,3 +99,33 @@ def create_user(ctx: click.Context, email: str, name: str, password: str) -> Non
         raise click.ClickException(f"{e.value} is already taken") from e
     finally:
         conn.close()
+
+
+@cli.command("set-password")
+@click.option("--target", required=True, prompt=True, help="Email or numeric user id.")
+@click.password_option()
+@click.pass_context
+def set_password(ctx: click.Context, target: str, password: str) -> None:
+    """Update an existing user's password."""
+    cfg: DepoConfig = ctx.obj["config"]
+    conn = sqlite3.connect(str(cfg.db_path))
+    init_db(conn)
+    repo = SqliteRepository(conn)
+    try:
+        if target.isdigit():
+            uid = int(target)
+        else:
+            user = repo.get_user_by_email(target)
+            if user is None:
+                raise click.ClickException(f"No user found for {target}")
+            uid = user.id
+        kwargs = {"n": cfg.scrypt_n, "r": cfg.scrypt_r, "p": cfg.scrypt_p}
+        pw_hash = hash_password(password, **kwargs)
+        repo.update_user_pw_hash(uid, pw_hash)
+        conn.commit()
+    except click.ClickException:
+        raise
+    except Exception as e:
+        raise click.ClickException(str(e)) from e
+    finally:
+        conn.close()

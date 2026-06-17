@@ -8,6 +8,7 @@ Revised [2026-06-17]
 License: Apache-2.0
 """
 
+import sqlite3
 from dataclasses import fields
 from pathlib import Path
 from unittest.mock import patch
@@ -18,12 +19,36 @@ from tests.factories import make_config
 
 from depo.cli.config import DepoConfig
 from depo.cli.main import cli
+from depo.repo.sqlite import SqliteRepository, init_db
+from depo.util.password import verify_password
 
 
 def _invoke(*args, tmp_path: Path | None = None):
     cfg = make_config(tmp_path) if tmp_path else DepoConfig()
     runner = CliRunner()
     return runner.invoke(cli, list(args), obj={"config": cfg}, env={"COLUMNS": "300"})  # type: ignore
+
+
+def _invoke_create_user(tmppath: Path, email: str, name: str, password: str):
+    runner = CliRunner()
+    return runner.invoke(
+        cli,
+        ["create-user", "--email", email, "--name", name],
+        obj={"config": make_config(tmppath)},
+        input=f"{password}\n{password}\n",
+        env={"COLUMNS": "300"},
+    )
+
+
+def _invoke_set_password(tmp_path, target: str, password: str):
+    runner = CliRunner()
+    return runner.invoke(
+        cli,
+        ["set-password", "--target", target],
+        obj={"config": make_config(tmp_path)},
+        input=f"{password}\n{password}\n",
+        env={"COLUMNS": "300"},
+    )
 
 
 class TestInit:
@@ -89,16 +114,6 @@ class TestServe:
 class TestCreateUser:
     """Gating e2e: create-user provisions a verifiable password hash."""
 
-    def _invoke_create_user(self, tmppath: Path, email: str, name: str, password: str):
-        runner = CliRunner()
-        return runner.invoke(
-            cli,
-            ["create-user", "--email", email, "--name", name],
-            obj={"config": make_config(tmppath)},
-            input=f"{password}\n{password}\n",
-            env={"COLUMNS": "300"},
-        )
-
     @pytest.mark.skip(
         reason="create-user not implemented until final ft/credentials unit"
     )
@@ -109,9 +124,9 @@ class TestCreateUser:
     def test_duplicate_email_errors(self, tmp_path):
         """Errors cleanly when a user with the same email already exists."""
         _invoke("init", tmp_path=tmp_path)
-        self._invoke_create_user(tmp_path, "dupe@example.com", "UserOne", "password")
+        _invoke_create_user(tmp_path, "dupe@example.com", "UserOne", "password")
         args = tmp_path, "dupe@example.com", "UserTwo", "password"
-        result = self._invoke_create_user(*args)
+        result = _invoke_create_user(*args)
         assert result.exit_code != 0
         assert "dupe@example.com" in result.output
 
@@ -119,9 +134,9 @@ class TestCreateUser:
         """Errors cleanly when a user with the same name already exists."""
         _invoke("init", tmp_path=tmp_path)
         args = (tmp_path, "user1@example.com", "SharedName", "password")
-        self._invoke_create_user(*args)
+        _invoke_create_user(*args)
         args = tmp_path, "user2@example.com", "SharedName", "password"
-        result = self._invoke_create_user(*args)
+        result = _invoke_create_user(*args)
         assert result.exit_code != 0
         assert "SharedName" in result.output
 
@@ -129,5 +144,51 @@ class TestCreateUser:
         """Password input is not echoed to output."""
         _invoke("init", tmp_path=tmp_path)
         args = tmp_path, "user@example.com", "User", "s3cr3tpassword"
-        result = self._invoke_create_user(*args)
+        result = _invoke_create_user(*args)
         assert "s3cr3tpassword" not in result.output
+
+
+class TestSetPassword:
+    """Tests for the set-password admin command."""
+
+    def test_changes_password_by_email(self, tmp_path):
+        """New password verifies; old password no longer does."""
+        _invoke("init", tmp_path=tmp_path)
+        args = (tmp_path, "user@example.com", "User", "oldpassword")
+        _invoke_create_user(*args)
+        _invoke_set_password(tmp_path, "user@example.com", "newpassword")
+        conn = sqlite3.connect(str(make_config(tmp_path).db_path))
+        init_db(conn)
+        user = SqliteRepository(conn).get_user_by_email("user@example.com")
+        assert user is not None
+        assert verify_password("newpassword", user.pw_hash)
+        assert not verify_password("oldpassword", user.pw_hash)
+
+    def test_changes_password_by_id(self, tmp_path):
+        """Accepts a numeric user id in place of email."""
+        _invoke("init", tmp_path=tmp_path)
+        _invoke_create_user(tmp_path, "user@example.com", "User", "oldpassword")
+        conn = sqlite3.connect(str(make_config(tmp_path).db_path))
+        init_db(conn)
+        user = SqliteRepository(conn).get_user_by_email("user@example.com")
+        assert user is not None
+        conn.close()
+        _invoke_set_password(tmp_path, str(user.id), "newpassword")
+        conn = sqlite3.connect(str(make_config(tmp_path).db_path))
+        init_db(conn)
+        user = SqliteRepository(conn).get_user_by_email("user@example.com")
+        assert user is not None
+        assert verify_password("newpassword", user.pw_hash)
+
+    def test_errors_on_unknown_user(self, tmp_path):
+        """Errors cleanly when the target user does not exist."""
+        _invoke("init", tmp_path=tmp_path)
+        result = _invoke_set_password(tmp_path, "ghost@example.com", "password")
+        assert result.exit_code != 0
+
+    def test_password_not_echoed(self, tmp_path):
+        """New password input is not echoed to output."""
+        _invoke("init", tmp_path=tmp_path)
+        _invoke_create_user(tmp_path, "user@example.com", "User", "oldpassword")
+        result = _invoke_set_password(tmp_path, "user@example.com", "s3cr3tnew")
+        assert "s3cr3tnew" not in result.output
