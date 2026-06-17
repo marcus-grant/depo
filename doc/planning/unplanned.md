@@ -99,6 +99,13 @@ repo/
 Factory function selects implementation based on config.
 Orchestrator depends on Protocol, concrete impl injected at startup.
 
+Functions requiring changes when backend abstraction lands:
+`init_db`, `_row_to_text_item`, `_row_to_pic_item`, `_row_to_link_item`,
+`_row_to_user`, `SqliteRepository.insert`, `get_by_code`, `get_by_full_hash`,
+`resolve_code`, `delete`, `insert_user`, `get_user`, `get_user_by_email`,
+`update_user_pw_hash`. Also: `web/app.py` and `cli/main.py` repo construction
+sites, and `tests/fixtures/__init__.py` fixture wiring.
+
 ## Visual and presentation layer
 
 - /render endpoint: clean presentation view for payload content;
@@ -110,6 +117,13 @@ Orchestrator depends on Protocol, concrete impl injected at startup.
   globally across all interactive elements
 - Spacing token cleanup: single vertical rhythm scale; audit all
   padding/margin values
+
+## Adopt humanread for formatting
+
+Introduce `humanread` as an external dependency for human-readable output.
+Time formatting needed near MVP (item timestamps, created_at).
+Size formatting needed soon after (item sizes, upload limit display).
+Blocks on the library existing. Consumed at the presentation edge only.
 
 ## Future Considerations (Post–v1.0)
 
