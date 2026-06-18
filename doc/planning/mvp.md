@@ -30,107 +30,6 @@ service, repo, and storage. Dedupe by content hash.
 
 Ordered by dependency. Each heading is roughly one PR.
 
-### Password credentials and provisioning (Branch: `ft/credentials`)
-
-*Problem: users have a `pw_hash` column but nothing produces or
-verifies a hash, and manual provisioning via raw SQL cannot compute
-one. Add a stdlib credentials module (scrypt hashing, constant-time
-verify) and a click create-user command that writes a row with a
-valid hash. Depends on `ft/users-table`. Out of scope: login route
-and sessions (`ft/login-session`); the `/upload` gate
-(`ft/upload-gate`); email-based provisioning flows (post-MVP).
-Assumes `ref/canonical-config` has landed: scalar defaults live in
-`cli/defaults.py` and `DepoConfig` sources from them.*
-
-#### Setup and gating test
-
-- [ ] Branch `ft/credentials` from `ft/users-table`.
-- [ ] Add a skipped integration test to `tests/cli/test_main.py` (new
-      `TestCreateUser` class) asserting the end state: invoking the
-      create-user command with email, name, and password writes a
-      `users` row whose stored `pw_hash` verifies against the password
-      and rejects a wrong one. `@pytest.mark.skip` until the last unit.
-  - [ ] Commit: `Tst: Add skipped gating test for user provisioning`
-
-#### TDD implementation
-
-**Hash and verify passwords with stdlib scrypt**
-(`tests/util/test_password.py`)
-
-- [ ] Red: tests asserting `hash_password(pw, *, n, r, p)` returns a
-      self-describing PHC-style string (algorithm, params, salt_hex,
-      digest_hex), `verify_password(pw, stored)` is true for the right
-      password and false for a wrong one, two hashes of the same
-      password differ (random salt), and a tampered field fails verify.
-- [ ] Add `src/depo/util/password.py`: `hash_password` using
-      `hashlib.scrypt` with an `os.urandom` salt, hex-encoded
-      (`bytes.hex`) into a PHC-style string; `verify_password` parsing
-      it (`bytes.fromhex`), recomputing, and comparing with
-      `hmac.compare_digest`. Stdlib only, no new dependency. Do not
-      reuse the Crockford codec (encode-only, built for shortcodes).
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Ft: Add scrypt password hashing and verification`
-
-**Add scrypt cost parameters to config**
-(`tests/cli/test_defaults.py`, `tests/cli/test_config.py`)
-
-- [ ] Red: test asserting `DepoConfig` exposes scrypt cost fields with
-      sane defaults sourced from `cli/defaults.py`, and a resolution
-      test that an overridden value (env or TOML) coerces to int onto
-      the config, mirroring the existing override tests.
-- [ ] Add `DEFAULT_SCRYPT_N` (2**14), `DEFAULT_SCRYPT_R` (8),
-      `DEFAULT_SCRYPT_P` (1) to `cli/defaults.py`; add
-      `scrypt_n`/`scrypt_r`/`scrypt_p` fields to `DepoConfig` sourcing
-      them; add the three names to the `_coerce` `int_fields` set.
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Ft: Add scrypt cost parameters to config`
-
-**Add the create-user click command**
-(`tests/cli/test_main.py`)
-
-- [ ] Red: tests asserting the command creates a user with a verifying
-      hash, errors on duplicate email or name (surfacing the repo
-      unique violation), and reads the password without echoing it.
-- [ ] Add a `create-user` command on the `cli` group in
-      `src/depo/cli/main.py` taking email and name as options and the
-      password via a hidden prompt (`click.password_option` or
-      `prompt=..., hide_input=True`); hash via `hash_password` with
-      cost params from the resolved config, write the row via
-      `insert_user`.
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Ft: Add create-user admin command`
-
-**Add the set-password admin command**
-(`tests/cli/test_main.py`)
-
-- [ ] Red: tests asserting the command changes an existing user's
-      password (the new password verifies via `verify_password`, the old
-      no longer does), accepts either an email or a numeric id and
-      resolves an email through `get_user_by_email` to a uid, errors
-      cleanly if the user does not exist, and reads the new password via
-      a hidden prompt without echoing it.
-- [ ] Add a `set-password` command on the `cli` group in
-      `src/depo/cli/main.py`: resolve the target to a uid (numeric id used
-      directly; email looked up via `get_user_by_email`), hash the new
-      password via `hash_password` with cost params from the resolved
-      config, and write via `update_user_pw_hash`. Surface a clean CLI
-      error (not a traceback) when the user is not found.
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Ft: Add set-password admin command`
-
-#### Integration and documentation
-
-- [ ] Unskip the `TestCreateUser` gating test; confirm it passes.
-- [ ] Update `doc/module/util.md` (password module) and
-      `doc/module/cli.md` (create-user and set-password commands); note
-      the scrypt cost params wherever config fields are documented.
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Doc: ...`
-
-#### PR
-
-- [ ] gh pr create --title "Ft: Password credentials and provisioning" --body "..."
-
 ### Login and session (Branch: `ft/login-session`)
 
 *Problem: users can be created and their passwords verified, but no
@@ -456,6 +355,14 @@ Ensure all hierarchy works in pure grayscale; color remains semantic only.
   naming overlap with `SqliteRepository.insert_user`
 - Split `src/depo/repo/sqlite.py` into per-concern submodules (items,
   users, schema) once the auth sequence lands
+- Standardize scrypt cost params in password tests to minimum values
+  (n=2, r=1, p=1); some tests still use n=2**14 making the suite slow
+- Revisit scrypt N=2**16 choice against a timing benchmark on target
+  hardware; OWASP floor is 2**17, current value is a split-the-difference
+  estimate without a measured baseline
+- Replace empirical maxmem formula (256*n*r*p + 1MiB) in password.py
+  with a principled bound once OpenSSL's internal buffer requirement is
+  confirmed
 
 ### Manual Testing
 

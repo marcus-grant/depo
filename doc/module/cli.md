@@ -19,6 +19,9 @@ class DepoConfig:
     max_size_bytes: int # default: 2**26 (64 MiB)
     max_url_len: int    # default: 2048
     log_level: Severity # default: Severity.WARNING
+    scrypt_n: int       # default: 2**16
+    scrypt_r: int       # default: 8
+    scrypt_p: int       # default: 1
 ```
 
 Frozen dataclass. Immutable after resolution.
@@ -38,6 +41,9 @@ resolution logic.
 | MAX_SIZE_BYTES | 2**26 (64 MiB) |
 | MAX_URL_LEN | 2048 |
 | LOG_LEVEL | Severity.WARNING |
+| SCRYPT_N | 2**16 |
+| SCRYPT_R | 8 |
+| SCRYPT_P | 1 |
 
 ### Functions
 
@@ -73,6 +79,8 @@ Click CLI entry point.
 | `depo init` | Create dirs + apply DB schema |
 | `depo serve` | Start uvicorn with app factory |
 | `depo config show` | Display resolved config fields |
+| `depo create-user` | Provision a new user with a hashed password |
+| `depo set-password` | Update an existing user's password by email or id |
 
 Config resolved at group level via `ctx.obj`.
 `serve` calls `uvicorn.run(app, host, port)`.
