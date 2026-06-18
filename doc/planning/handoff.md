@@ -33,6 +33,7 @@ During the session:
 - Verify project layout with a command before specifying file edits
   or test placements. Plan from the tree, not from memory
 - Track tasks, deferrals, and doc items as they arise
+- Really consider the styling/conventions of the prompts sent and codebase
 - Commit messages in code fences, never mixed with other content
 
 Before ending a session:
@@ -125,7 +126,6 @@ note where it's documented and keep the entry here as a reminder.
 - Always discuss plan changes before executing. Debate freely but never
   silently expand scope without checking in.
 - One thing at a time. Present one question, one decision, one task.
-- Don't modify files the user is actively editing. Provide snippets instead.
 - Stubs and guidance, not implementations. Provide file stubs with signatures,
   docstrings, and test specs. Only generate full implementations when
   explicitly asked or when it's clearly busywork.
@@ -135,14 +135,6 @@ note where it's documented and keep the entry here as a reminder.
 - Hardcoded test assertions over dynamic ones to prevent false positives.
 - Test stubs must include module docstring, imports, and spec comments.
 - Don't re-ask for context already provided in conversation. Track what's been shared.
-- Pico styles `footer` element directly. Use compound selector
-  (e.g. `footer.site-footer`) to beat its specificity.
-- SVG data URI dither patterns need `background-size` scaling
-  for high-DPI. 1px bits are sub-pixel on retina screens.
-- Shadow `z-index: -1` pseudo-elements fall behind page background
-  unless an ancestor (not the parent) establishes a stacking context.
-- System mono font stacks are sufficient for retro aesthetic —
-  visual identity comes from structural choices, not typeface.
 - Replacing static asset stubs may require users to clear browser
   cache. Note in release docs.
 - Catch DepoError broadly in route handlers — covers all typed exceptions
@@ -154,7 +146,7 @@ note where it's documented and keep the entry here as a reminder.
   `get("class")` returns list or None, never crash on missing class.
 - Pico styles `article` as a card. Prefer `section` for record
   inspection views.
-- Em-dashes are forbidden in all docs and code comments.
+- Em-dashes are forbidden in all docs and code comments prefer ASCII 128bit chars.
 - Verify project layout with `cc`/bash before specifying file edits or
   test placements. Plan from the tree, not from memory.
 - `util` cannot import `model`. Util-layer enums such as error `Severity`
@@ -189,6 +181,8 @@ Commit prefixes by primary work type:
 - `Pln:` - planning decisions documented
 - `Ref:` - refactoring
 - `Fix:` - bug fixes
+- `Chr:`- Chore tasks
+- `Chk:` - Checkpoints for when work must be preserved and resumed
 
 Commits should usually stay under 300 LOC. If not, the work probably
 needs better division. Commit bodies use nested `-` lists with no line

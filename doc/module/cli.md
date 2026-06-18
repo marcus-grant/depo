@@ -79,6 +79,8 @@ Click CLI entry point.
 | `depo init` | Create dirs + apply DB schema |
 | `depo serve` | Start uvicorn with app factory |
 | `depo config show` | Display resolved config fields |
+| `depo create-user` | Provision a new user with a hashed password |
+| `depo set-password` | Update an existing user's password by email or id |
 
 Config resolved at group level via `ctx.obj`.
 `serve` calls `uvicorn.run(app, host, port)`.
