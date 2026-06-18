@@ -28,6 +28,10 @@ SCRYPT_N = 2**16
 SCRYPT_R = 8
 SCRYPT_P = 1
 
+# Session Secrets
+SESSION_SECRET = ""  # Force-fail sentinel, override in production to be safe or fail
+SESSION_HTTPS_ONLY = False  # Default False, easier local development, override in prod
+
 
 def default_store_dir() -> Path:
     """Return XDG_DATA_HOME/depo/store if set, else ./store for containerized deploys"""

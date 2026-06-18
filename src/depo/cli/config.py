@@ -39,6 +39,9 @@ class DepoConfig:
     scrypt_n: int = defaults.SCRYPT_N
     scrypt_r: int = defaults.SCRYPT_R
     scrypt_p: int = defaults.SCRYPT_P
+    # Session secrets
+    session_secret: str = defaults.SESSION_SECRET
+    session_https_only: bool = defaults.SESSION_HTTPS_ONLY
 
 
 def _xdg_config_home() -> Path:
@@ -59,13 +62,27 @@ def _coerce(overrides: dict) -> dict:
     """Coerce string values from env/TOML to expected types."""
     int_fields = {"port", "max_size_bytes", "max_url_len", "min_code_len"}
     int_fields |= {"scrypt_n", "scrypt_r", "scrypt_p"}
+    bool_fields = {"session_https_only"}
     path_fields = {"db_path", "store_root"}
     out = {}
     for k, v in overrides.items():
         if k in int_fields:
             out[k] = int(v)
+
+        elif k in bool_fields:
+            if isinstance(v, bool):  # If already a bool (e.g. from TOML)
+                out[k] = v  # Use as-is, no coercion needed
+                continue  # Exit early for this key
+            cast = {"true": True, "false": False}
+            try:  # Try to coerce string to bool, case-insensitive
+                out[k] = cast[str(v).lower()]
+            except KeyError:
+                err = ConfigError(k, v, expected=["true", "false"])
+                raise err from None
+
         elif k in path_fields:
             out[k] = Path(v).expanduser()
+
         elif k == "log_level":  # Special case, needs to be a Severity enum member
             try:
                 out[k] = Severity[str(v).upper()]

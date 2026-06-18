@@ -73,6 +73,8 @@ class TestDepoConfig:
             ("scrypt_n", int, False, defaults.SCRYPT_N),
             ("scrypt_r", int, False, defaults.SCRYPT_R),
             ("scrypt_p", int, False, defaults.SCRYPT_P),
+            ("session_secret", str, False, defaults.SESSION_SECRET),
+            ("session_https_only", bool, False, defaults.SESSION_HTTPS_ONLY),
         ],
     )
     def test_simple_fields(self, name, typ, required, default):
@@ -231,6 +233,36 @@ class TestLoadConfigEnv:
         assert cfg.scrypt_n == 4096
         assert cfg.scrypt_r == 4
         assert cfg.scrypt_p == 2
+
+    def test_env_session_https_only_true(self, monkeypatch, tmp_path):
+        """DEPO_SESSION_HTTPS_ONLY truthy string coerces to True."""
+        self._clear_depo_env(monkeypatch)
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("DEPO_SESSION_HTTPS_ONLY", "true")
+        assert load_config().session_https_only is True
+
+    def test_env_session_https_only_false(self, monkeypatch, tmp_path):
+        """A falsy string coerces to False, not the bool('false')=True trap."""
+        self._clear_depo_env(monkeypatch)
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("DEPO_SESSION_HTTPS_ONLY", "false")
+        assert load_config().session_https_only is False
+
+    def test_env_session_https_only_invalid_raises(self, monkeypatch, tmp_path):
+        """An unrecognized value raises ConfigError."""
+        # should clear env, point XDG at empty, chdir tmp
+        # should setenv DEPO_SESSION_HTTPS_ONLY to "banana"
+        # should assert load_config() raises ConfigError
+        self._clear_depo_env(monkeypatch)
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("DEPO_SESSION_HTTPS_ONLY", "fooBAR")
+        with pytest.raises(ConfigError) as e:
+            load_config()
+        assert e.value.key == "session_https_only"
+        assert e.value.value == "fooBAR"
 
 
 class TestLoadConfigFlag:

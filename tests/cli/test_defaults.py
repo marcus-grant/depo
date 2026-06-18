@@ -43,3 +43,12 @@ class TestScryptDefaults:
         assert defaults.SCRYPT_N == 2**16
         assert defaults.SCRYPT_R == 8
         assert defaults.SCRYPT_P == 1
+
+
+class TestSessionDefaults:
+    """Session signing defaults exist with safe values."""
+
+    def test_session_constants(self):
+        """SESSION_SECRET is the empty force-fail sentinel, SESSION_HTTPS_ONLY=False."""
+        assert defaults.SESSION_SECRET == ""
+        assert defaults.SESSION_HTTPS_ONLY is False
