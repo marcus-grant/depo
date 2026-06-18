@@ -37,3 +37,19 @@ Raises `PayloadTooLargeError` if size exceeds maximum.
 validate_payload(payload_bytes: bytes | None, payload_path: Path | None) -> None
 validate_size(size: int, max_size: int) -> None
 ```
+
+## password.py
+
+Password hashing and verification using stdlib scrypt.
+No external dependencies.
+
+```python
+hash_password(pw: str, *, n: int, r: int, p: int) -> str
+verify_password(pw: str, stored: str) -> bool
+```
+
+`hash_password` salts with `os.urandom`, derives via `hashlib.scrypt`,
+and returns a PHC-style string: `scrypt$n=...,r=...,p=...$salt_hex$digest_hex`.
+`verify_password` parses the stored string, recomputes the digest, and
+compares with `hmac.compare_digest`. Returns `False` on malformed input.
+Cost parameters come from config (`scrypt_n`, `scrypt_r`, `scrypt_p`).
