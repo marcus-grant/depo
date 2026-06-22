@@ -129,6 +129,7 @@ def load_config(*, config_path: Path | None = None) -> DepoConfig:
 
     Raises:
         FileNotFoundError: If config_path provided but missing.
+        ConfigError: If session_secret is missing/empty or if any value fails coercion.
     """
     overrides: dict = {}
 
@@ -145,4 +146,10 @@ def load_config(*, config_path: Path | None = None) -> DepoConfig:
     # Env vars layer on top of everything
     overrides.update(_env_overrides())
 
-    return DepoConfig(**_coerce(overrides))
+    # Ensure session_secret is present and non-empty after all overrides
+    # NOTE: This is critical for security
+    cfg = DepoConfig(**_coerce(overrides))
+    if not cfg.session_secret.strip():
+        expected = "non-empty string"
+        raise ConfigError("session_secret", cfg.session_secret, expected=expected)
+    return cfg

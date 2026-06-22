@@ -142,6 +142,7 @@ class TestLoadConfigToml:
         _clear_depo_env(monkeypatch)
         toml_cfgs = {"host": "0.0.0.0", "port": 9000}
         _write_toml(tmp_path / "xdg/depo/config.toml", **toml_cfgs)
+        monkeypatch.setenv("DEPO_SESSION_SECRET", "test-secret")
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
         monkeypatch.chdir(tmp_path)
         cfg = load_config()
@@ -156,6 +157,7 @@ class TestLoadConfigToml:
         (xdg_cfg / "depo").mkdir(parents=True)
         (xdg_cfg / "depo" / "config.toml").write_text("port = 9000\n")
         monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg_cfg))
+        monkeypatch.setenv("DEPO_SESSION_SECRET", "test-secret")
         # Local says port 7000
         workdir = tmp_path / "project"
         workdir.mkdir()
@@ -166,6 +168,7 @@ class TestLoadConfigToml:
 
     def test_partial_toml_preserves_defaults(self, monkeypatch, tmp_path):
         _clear_depo_env(monkeypatch)
+        monkeypatch.setenv("DEPO_SESSION_SECRET", "test-secret")
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
         workdir = tmp_path / "proj"
         workdir.mkdir()
@@ -180,6 +183,7 @@ class TestLoadConfigToml:
         """log_level resolves from a TOML config file."""
         _clear_depo_env(monkeypatch)
         _write_toml(tmp_path / "xdg/depo/config.toml", log_level="DEBUG")
+        monkeypatch.setenv("DEPO_SESSION_SECRET", "test-secret")
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
         monkeypatch.chdir(tmp_path)
         assert load_config().log_level == Severity.DEBUG
@@ -192,6 +196,7 @@ class TestLoadConfigEnv:
     def _isolate_env(self, monkeypatch, tmp_path):
         """Clear DEPO_* env.vars, point XDG_CONFIG_HOME to tmp_path and chdir to it"""
         _clear_depo_env(monkeypatch)
+        monkeypatch.setenv("DEPO_SESSION_SECRET", "test-secret")
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
         monkeypatch.chdir(tmp_path)
 
@@ -253,6 +258,13 @@ class TestLoadConfigEnv:
         with pytest.raises(ConfigError):
             load_config()
 
+    def test_empty_session_secret_raises(self, monkeypatch):
+        """An empty or missing SESSION_SECRET raises ConfigError at resolution."""
+        _set_depo_env(monkeypatch, session_secret="")
+        with pytest.raises(ConfigError) as e:
+            load_config()
+        assert e.value.key == "session_secret"
+
 
 class TestLoadConfigFlag:
     """Tests for config_path parameter (--config flag)."""
@@ -260,6 +272,7 @@ class TestLoadConfigFlag:
     def test_config_path_overrides_toml_chain(self, monkeypatch, tmp_path):
         _clear_depo_env(monkeypatch)
         _write_toml(tmp_path / "xdg/depo/config.toml", port=9000)
+        monkeypatch.setenv("DEPO_SESSION_SECRET", "test-secret")
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
         monkeypatch.chdir(tmp_path)
         explicit = tmp_path / "custom.toml"
@@ -278,6 +291,7 @@ class TestLoadConfigFlag:
         _clear_depo_env(monkeypatch)
         explicit = tmp_path / "custom.toml"
         _write_toml(explicit, port=1234)
+        monkeypatch.setenv("DEPO_SESSION_SECRET", "test-secret")
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
         monkeypatch.chdir(tmp_path)
         monkeypatch.setenv("DEPO_HOST", "10.0.0.5")
