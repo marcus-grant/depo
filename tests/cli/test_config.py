@@ -21,10 +21,17 @@ from depo.cli.defaults import _XDG_DATA_HOME, default_db_path, default_store_dir
 from depo.util.errors import ConfigError, Severity
 
 
-def _clear_depo_env(monkeypatch):
+def _clear_depo_env(monkeypatch) -> None:
     for key in list(os.environ):
         if key.startswith("DEPO_"):
             monkeypatch.delenv(key)
+
+
+def _set_depo_env(monkeypatch, **kwargs) -> None:
+    """Set DEPO_* env vars from kwargs, names uppercased and prefixed.
+    basically: setenv "DEPO_${kwargs:key}"="${kwargs[value]}" """
+    for key, val in kwargs.items():
+        monkeypatch.setenv(f"DEPO_{key.upper()}", str(val))
 
 
 def _write_toml(path: Path, **kwargs) -> None:
@@ -156,109 +163,73 @@ class TestLoadConfigToml:
 class TestLoadConfigEnv:
     """Tests for DEPO_* environment variable overrides."""
 
-    def _clear_depo_env(self, monkeypatch):
-        for key in list(os.environ):
-            if key.startswith("DEPO_"):
-                monkeypatch.delenv(key)
+    @pytest.fixture(autouse=True)
+    def _isolate_env(self, monkeypatch, tmp_path):
+        """Clear DEPO_* env.vars, point XDG_CONFIG_HOME to tmp_path and chdir to it"""
+        _clear_depo_env(monkeypatch)
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        monkeypatch.chdir(tmp_path)
 
     def test_env_overrides_toml(self, monkeypatch, tmp_path):
-        self._clear_depo_env(monkeypatch)
-        workdir = tmp_path / "proj"
-        workdir.mkdir()
-        _write_toml(workdir / "depo.toml", port=7000)
-        monkeypatch.chdir(workdir)
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
-        monkeypatch.setenv("DEPO_PORT", "5555")
-        cfg = load_config()
-        assert cfg.port == 5555
+        """Env.vars overrides any TOML config of respective config key-value pair"""
+        _write_toml(tmp_path / "depo.toml", port=7000)
+        _set_depo_env(monkeypatch, PORT="5555")
+        assert load_config().port == 5555
 
-    def test_env_host(self, monkeypatch, tmp_path):
-        self._clear_depo_env(monkeypatch)
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
-        monkeypatch.chdir(tmp_path)
-        monkeypatch.setenv("DEPO_HOST", "192.168.1.1")
-        cfg = load_config()
-        assert cfg.host == "192.168.1.1"
+    def test_env_host(self, monkeypatch):
+        """DEPO_HOST env var overrides the default host."""
+        _set_depo_env(monkeypatch, HOST="192.168.1.1")
+        assert load_config().host == "192.168.1.1"
 
-    def test_env_path_expansion(self, monkeypatch, tmp_path):
-        self._clear_depo_env(monkeypatch)
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
-        monkeypatch.chdir(tmp_path)
-        monkeypatch.setenv("DEPO_DB_PATH", "~/my-depo/data.db")
-        cfg = load_config()
-        assert cfg.db_path == Path.home() / "my-depo/data.db"
+    def test_env_path_tilda_expansion(self, monkeypatch):
+        """Path configs correctly coerces tildas to home path prefixes"""
+        _set_depo_env(monkeypatch, db_path="~/test.db")
+        assert load_config().db_path == Path.home() / "test.db"
 
-    def test_env_int_coercion(self, monkeypatch, tmp_path):
-        self._clear_depo_env(monkeypatch)
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
-        monkeypatch.chdir(tmp_path)
+    def test_env_int_coercion(self, monkeypatch):
+        """Int values are correctly cast from string config values"""
         monkeypatch.setenv("DEPO_MAX_SIZE_BYTES", "5242880")
-        cfg = load_config()
-        assert cfg.max_size_bytes == 5_242_880
+        assert load_config().max_size_bytes == 5_242_880
 
-    def test_env_log_level(self, monkeypatch, tmp_path):
+    def test_env_log_level(self, monkeypatch):
         """DEPO_LOG_LEVEL overrides the default log_level."""
-        self._clear_depo_env(monkeypatch)
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-        monkeypatch.chdir(tmp_path)
-        monkeypatch.setenv("DEPO_LOG_LEVEL", "DEBUG")
+        _set_depo_env(monkeypatch, log_level="DEBUG")
         assert load_config().log_level == Severity.DEBUG
 
-    def test_env_log_level_case_insensitive(self, monkeypatch, tmp_path):
+    def test_env_log_level_case_insensitive(self, monkeypatch):
         """A lowercase DEPO_LOG_LEVEL still resolves to a Severity member."""
-        self._clear_depo_env(monkeypatch)
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-        monkeypatch.chdir(tmp_path)
-        monkeypatch.setenv("DEPO_LOG_LEVEL", "deBug")
+        _set_depo_env(monkeypatch, LOG_level="deBug")
         assert load_config().log_level == Severity.DEBUG
 
-    def test_env_log_level_invalid_raises(self, monkeypatch, tmp_path):
+    def test_env_log_level_invalid_raises(self, monkeypatch):
         """An unknown DEPO_LOG_LEVEL raises ConfigError."""
-        self._clear_depo_env(monkeypatch)
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-        monkeypatch.chdir(tmp_path)
-        monkeypatch.setenv("DEPO_LOG_LEVEL", "BANANA")
-        with pytest.raises(ConfigError):
+        _set_depo_env(monkeypatch, log_level="BANANA")
+        with pytest.raises(ConfigError) as e:
             load_config()
+        assert e.value.key == "log_level"
+        assert e.value.value == "BANANA"
 
-    def test_env_scrypt_int_coercion(self, monkeypatch, tmp_path):
+    def test_env_scrypt_int_coercion(self, monkeypatch):
         """DEPO_SCRYPT_N/R/P env vars coerce to int on DepoConfig."""
-        self._clear_depo_env(monkeypatch)
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
-        monkeypatch.chdir(tmp_path)
-        monkeypatch.setenv("DEPO_SCRYPT_N", "4096")
-        monkeypatch.setenv("DEPO_SCRYPT_R", "4")
-        monkeypatch.setenv("DEPO_SCRYPT_P", "2")
-        cfg = load_config()
-        assert cfg.scrypt_n == 4096
-        assert cfg.scrypt_r == 4
-        assert cfg.scrypt_p == 2
+        _set_depo_env(monkeypatch, SCRYPT_N=4096, SCRYPT_R=4, SCRYPT_P=2)
+        config = load_config()
+        assert config.scrypt_n == 4096
+        assert config.scrypt_r == 4
+        assert config.scrypt_p == 2
 
-    def test_env_session_https_only_true(self, monkeypatch, tmp_path):
+    def test_env_session_https_only_true(self, monkeypatch):
         """DEPO_SESSION_HTTPS_ONLY truthy string coerces to True."""
-        self._clear_depo_env(monkeypatch)
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
-        monkeypatch.chdir(tmp_path)
-        monkeypatch.setenv("DEPO_SESSION_HTTPS_ONLY", "true")
+        _set_depo_env(monkeypatch, SESSION_HTTPS_ONLY="true")
         assert load_config().session_https_only is True
 
-    def test_env_session_https_only_false(self, monkeypatch, tmp_path):
+    def test_env_session_https_only_false(self, monkeypatch):
         """A falsy string coerces to False, not the bool('false')=True trap."""
-        self._clear_depo_env(monkeypatch)
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
-        monkeypatch.chdir(tmp_path)
-        monkeypatch.setenv("DEPO_SESSION_HTTPS_ONLY", "false")
+        _set_depo_env(monkeypatch, SESSION_HTTPS_ONLY="false")
         assert load_config().session_https_only is False
 
     def test_env_session_https_only_invalid_raises(self, monkeypatch, tmp_path):
         """An unrecognized value raises ConfigError."""
-        # should clear env, point XDG at empty, chdir tmp
-        # should setenv DEPO_SESSION_HTTPS_ONLY to "banana"
-        # should assert load_config() raises ConfigError
-        self._clear_depo_env(monkeypatch)
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
-        monkeypatch.chdir(tmp_path)
-        monkeypatch.setenv("DEPO_SESSION_HTTPS_ONLY", "fooBAR")
+        _set_depo_env(monkeypatch, SESSION_HTTPS_ONLY="fooBAR")
         with pytest.raises(ConfigError) as e:
             load_config()
         assert e.value.key == "session_https_only"
@@ -268,13 +239,8 @@ class TestLoadConfigEnv:
 class TestLoadConfigFlag:
     """Tests for config_path parameter (--config flag)."""
 
-    def _clear_depo_env(self, monkeypatch):
-        for key in list(os.environ):
-            if key.startswith("DEPO_"):
-                monkeypatch.delenv(key)
-
     def test_config_path_overrides_toml_chain(self, monkeypatch, tmp_path):
-        self._clear_depo_env(monkeypatch)
+        _clear_depo_env(monkeypatch)
         _write_toml(tmp_path / "xdg/depo/config.toml", port=9000)
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
         monkeypatch.chdir(tmp_path)
@@ -284,14 +250,14 @@ class TestLoadConfigFlag:
         assert cfg.port == 1234
 
     def test_missing_config_path_raises(self, monkeypatch, tmp_path):
-        self._clear_depo_env(monkeypatch)
+        _clear_depo_env(monkeypatch)
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
         monkeypatch.chdir(tmp_path)
         with pytest.raises(FileNotFoundError):
             load_config(config_path=tmp_path / "nonexistent.toml")
 
     def test_env_layers_on_config_path(self, monkeypatch, tmp_path):
-        self._clear_depo_env(monkeypatch)
+        _clear_depo_env(monkeypatch)
         explicit = tmp_path / "custom.toml"
         _write_toml(explicit, port=1234)
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
