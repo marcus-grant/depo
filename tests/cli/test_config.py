@@ -32,6 +32,14 @@ def _set_depo_env(monkeypatch, **kwargs) -> None:
         monkeypatch.setenv(f"DEPO_{key.upper()}", str(val))
 
 
+def _isolate_config_env(monkeypatch, tmp_path) -> None:
+    """Clear DEPO_* vars, set a valid session secret, point XDG to tmp_path, chdir."""
+    _clear_depo_env(monkeypatch)
+    _set_depo_env(monkeypatch, session_secret="test-secret")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.chdir(tmp_path)
+
+
 def _write_toml(path: Path, **kwargs) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = []
@@ -138,54 +146,38 @@ class TestCoerceBool:
 class TestLoadConfigToml:
     """Tests for TOML file resolution chain."""
 
+    @pytest.fixture(autouse=True)
+    def _isolate_env(self, monkeypatch, tmp_path):
+        _isolate_config_env(monkeypatch, tmp_path)
+
     def test_xdg_config_overrides_defaults(self, monkeypatch, tmp_path):
-        _clear_depo_env(monkeypatch)
+        """XDG config.toml values override DepoConfig defaults."""
         toml_cfgs = {"host": "0.0.0.0", "port": 9000}
-        _write_toml(tmp_path / "xdg/depo/config.toml", **toml_cfgs)
-        monkeypatch.setenv("DEPO_SESSION_SECRET", "test-secret")
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
-        monkeypatch.chdir(tmp_path)
+        _write_toml(tmp_path / "depo/config.toml", **toml_cfgs)
         cfg = load_config()
         assert cfg.host == "0.0.0.0"
         assert cfg.port == 9000
         assert cfg.max_size_bytes == defaults.MAX_SIZE_BYTES
 
     def test_local_toml_overrides_xdg(self, monkeypatch, tmp_path):
-        _clear_depo_env(monkeypatch)
-        # XDG says port 9000
-        xdg_cfg = tmp_path / "xdg"
-        (xdg_cfg / "depo").mkdir(parents=True)
-        (xdg_cfg / "depo" / "config.toml").write_text("port = 9000\n")
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg_cfg))
-        monkeypatch.setenv("DEPO_SESSION_SECRET", "test-secret")
-        # Local says port 7000
+        """Local depo.toml port overrides the XDG config.toml port."""
+        _write_toml(tmp_path / "depo/config.toml", port=9000)
         workdir = tmp_path / "project"
         workdir.mkdir()
-        (workdir / "depo.toml").write_text("port = 7000\n")
+        _write_toml(workdir / "depo.toml", port=7000)
         monkeypatch.chdir(workdir)
-        cfg = load_config()
-        assert cfg.port == 7000
+        assert load_config().port == 7000
 
-    def test_partial_toml_preserves_defaults(self, monkeypatch, tmp_path):
-        _clear_depo_env(monkeypatch)
-        monkeypatch.setenv("DEPO_SESSION_SECRET", "test-secret")
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
-        workdir = tmp_path / "proj"
-        workdir.mkdir()
-        (workdir / "depo.toml").write_text('host = "10.0.0.1"\n')
-        monkeypatch.chdir(workdir)
-        cfg = load_config()
-        assert cfg.host == "10.0.0.1"
-        assert cfg.port == 8765
-        assert cfg.max_url_len == defaults.MAX_URL_LEN
+    def test_partial_toml_preserves_defaults(self, tmp_path):
+        """A partial TOML overrides only named fields, defaults fill the rest."""
+        _write_toml(tmp_path / "depo.toml", host="10.0.0.1")
+        assert load_config().host == "10.0.0.1"
+        assert load_config().port == defaults.PORT
+        assert load_config().max_url_len == defaults.MAX_URL_LEN
 
-    def test_toml_log_level(self, monkeypatch, tmp_path):
+    def test_toml_log_level(self, tmp_path):
         """log_level resolves from a TOML config file."""
-        _clear_depo_env(monkeypatch)
-        _write_toml(tmp_path / "xdg/depo/config.toml", log_level="DEBUG")
-        monkeypatch.setenv("DEPO_SESSION_SECRET", "test-secret")
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
-        monkeypatch.chdir(tmp_path)
+        _write_toml(tmp_path / "depo/config.toml", log_level="DEBUG")
         assert load_config().log_level == Severity.DEBUG
 
 
@@ -195,10 +187,7 @@ class TestLoadConfigEnv:
     @pytest.fixture(autouse=True)
     def _isolate_env(self, monkeypatch, tmp_path):
         """Clear DEPO_* env.vars, point XDG_CONFIG_HOME to tmp_path and chdir to it"""
-        _clear_depo_env(monkeypatch)
-        monkeypatch.setenv("DEPO_SESSION_SECRET", "test-secret")
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-        monkeypatch.chdir(tmp_path)
+        _isolate_config_env(monkeypatch, tmp_path)
 
     def test_env_overrides_toml(self, monkeypatch, tmp_path):
         """Env.vars overrides any TOML config of respective config key-value pair"""
@@ -269,32 +258,24 @@ class TestLoadConfigEnv:
 class TestLoadConfigFlag:
     """Tests for config_path parameter (--config flag)."""
 
-    def test_config_path_overrides_toml_chain(self, monkeypatch, tmp_path):
-        _clear_depo_env(monkeypatch)
-        _write_toml(tmp_path / "xdg/depo/config.toml", port=9000)
-        monkeypatch.setenv("DEPO_SESSION_SECRET", "test-secret")
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
-        monkeypatch.chdir(tmp_path)
-        explicit = tmp_path / "custom.toml"
-        _write_toml(explicit, port=1234)
-        cfg = load_config(config_path=explicit)
-        assert cfg.port == 1234
+    @pytest.fixture(autouse=True)
+    def _isolate_env(self, monkeypatch, tmp_path):
+        _isolate_config_env(monkeypatch, tmp_path)
 
-    def test_missing_config_path_raises(self, monkeypatch, tmp_path):
-        _clear_depo_env(monkeypatch)
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
-        monkeypatch.chdir(tmp_path)
+    def test_config_path_overrides_toml_chain(self, tmp_path):
+        """Explicit config_path overrides the TOML resolution chain."""
+        _write_toml(tmp_path / "depo/config.toml", port=9000)
+        _write_toml(tmp_path / "custom.toml", port=1234)
+        assert load_config(config_path=tmp_path / "custom.toml").port == 1234
+
+    def test_missing_config_path_raises(self, tmp_path):
         with pytest.raises(FileNotFoundError):
             load_config(config_path=tmp_path / "nonexistent.toml")
 
     def test_env_layers_on_config_path(self, monkeypatch, tmp_path):
-        _clear_depo_env(monkeypatch)
         explicit = tmp_path / "custom.toml"
         _write_toml(explicit, port=1234)
-        monkeypatch.setenv("DEPO_SESSION_SECRET", "test-secret")
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "empty"))
-        monkeypatch.chdir(tmp_path)
-        monkeypatch.setenv("DEPO_HOST", "10.0.0.5")
+        _set_depo_env(monkeypatch, host="10.0.0.5")
         cfg = load_config(config_path=explicit)
         assert cfg.port == 1234
         assert cfg.host == "10.0.0.5"
