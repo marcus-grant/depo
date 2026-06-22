@@ -7,8 +7,6 @@ Created: 2026-02-06
 License: Apache-2.0
 """
 
-# TODO: A ton of these can be refactored to use make_config factory
-
 import os
 from pathlib import Path
 
@@ -16,7 +14,7 @@ import pytest
 from tests.helpers.assertions import assert_field
 
 from depo.cli import defaults
-from depo.cli.config import DepoConfig, load_config
+from depo.cli.config import DepoConfig, _coerce_bool, load_config
 from depo.cli.defaults import _XDG_DATA_HOME, default_db_path, default_store_dir
 from depo.util.errors import ConfigError, Severity
 
@@ -108,6 +106,33 @@ class TestDepoConfig:
         assert cfg.port == 3000
         assert cfg.max_size_bytes == defaults.MAX_SIZE_BYTES
         assert cfg.max_url_len == defaults.MAX_URL_LEN
+
+
+class TestCoerceBool:
+    """Tests for the _coerce_bool helper function."""
+
+    def test_native_bool_passthrough(self):
+        """Native bools are returned unchanged."""
+        assert _coerce_bool(True, "test") is True
+        assert _coerce_bool(False, "test") is False
+
+    @pytest.mark.parametrize("val", ["true", "True", "TRUE", "1", "yes", "on", "1", 1])
+    def test_truthy_tokens(self, val):
+        """Recognized truthy tokens coerce to True, case-insensitive."""
+        assert _coerce_bool(val, "test") is True
+
+    @pytest.mark.parametrize("token", ["false", "False", "FALSE", "no", "off", "0", 0])
+    def test_falsy_tokens(self, token):
+        """Recognized falsy tokens coerce to False, case-insensitive."""
+        assert _coerce_bool(token, "test") is False
+
+    @pytest.mark.parametrize("val", ["banana", "truth", 42, -1, 99])
+    def test_invalid_raises(self, val):
+        """An unrecognized token raises ConfigError naming the key and bad value."""
+        with pytest.raises(ConfigError) as e:
+            _coerce_bool(val, "some_field")
+        assert e.value.key == "some_field"
+        assert e.value.value == val
 
 
 class TestLoadConfigToml:
@@ -217,23 +242,16 @@ class TestLoadConfigEnv:
         assert config.scrypt_r == 4
         assert config.scrypt_p == 2
 
-    def test_env_session_https_only_true(self, monkeypatch):
-        """DEPO_SESSION_HTTPS_ONLY truthy string coerces to True."""
-        _set_depo_env(monkeypatch, SESSION_HTTPS_ONLY="true")
+    def test_env_session_https_only_coerces(self, monkeypatch):
+        """Bool env var coerces and lands correctly on config."""
+        _set_depo_env(monkeypatch, SESSION_HTTPS_ONLY="yEs")
         assert load_config().session_https_only is True
 
-    def test_env_session_https_only_false(self, monkeypatch):
-        """A falsy string coerces to False, not the bool('false')=True trap."""
-        _set_depo_env(monkeypatch, SESSION_HTTPS_ONLY="false")
-        assert load_config().session_https_only is False
-
-    def test_env_session_https_only_invalid_raises(self, monkeypatch, tmp_path):
-        """An unrecognized value raises ConfigError."""
-        _set_depo_env(monkeypatch, SESSION_HTTPS_ONLY="fooBAR")
-        with pytest.raises(ConfigError) as e:
+    def test_env_session_https_only_invalid_propagates(self, monkeypatch):
+        """Invalid bool env var propagates ConfigError through load_config."""
+        _set_depo_env(monkeypatch, SESSION_HTTPS_ONLY="not_a_boolean")
+        with pytest.raises(ConfigError):
             load_config()
-        assert e.value.key == "session_https_only"
-        assert e.value.value == "fooBAR"
 
 
 class TestLoadConfigFlag:

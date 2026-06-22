@@ -58,6 +58,24 @@ def _load_toml(path: Path) -> dict:
     return {}
 
 
+_TRUTHY_VALS = {"true", "yes", "on", "1", 1}
+_FALSY_VALS = {"false", "no", "off", "0", 0}
+
+
+def _coerce_bool(val: bool | int | str, field: str) -> bool:
+    """Coerce a config value to bool. Raises ConfigError if invalid."""
+    normalized = val
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        normalized = val.strip().lower()
+    if normalized in _TRUTHY_VALS:
+        return True
+    if normalized in _FALSY_VALS:
+        return False
+    raise ConfigError(field, val, expected=str(_TRUTHY_VALS | _FALSY_VALS))
+
+
 def _coerce(overrides: dict) -> dict:
     """Coerce string values from env/TOML to expected types."""
     int_fields = {"port", "max_size_bytes", "max_url_len", "min_code_len"}
@@ -70,15 +88,7 @@ def _coerce(overrides: dict) -> dict:
             out[k] = int(v)
 
         elif k in bool_fields:
-            if isinstance(v, bool):  # If already a bool (e.g. from TOML)
-                out[k] = v  # Use as-is, no coercion needed
-                continue  # Exit early for this key
-            cast = {"true": True, "false": False}
-            try:  # Try to coerce string to bool, case-insensitive
-                out[k] = cast[str(v).lower()]
-            except KeyError:
-                err = ConfigError(k, v, expected=["true", "false"])
-                raise err from None
+            out[k] = _coerce_bool(v, k)
 
         elif k in path_fields:
             out[k] = Path(v).expanduser()
