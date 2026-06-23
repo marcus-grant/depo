@@ -23,6 +23,10 @@ class TestMakeConfig:
         assert make_config(tmp_path, max_size_bytes=1).max_size_bytes == 1
         assert make_config(tmp_path, log_level="INFO").log_level == "INFO"
 
+    def test_default_session_secret_present(self, tmp_path: Path) -> None:
+        """make_config provides a non-empty session_secret by default."""
+        assert make_config(tmp_path).session_secret != ""
+
 
 class TestMakeUser:
     """Tests for the make_user factory."""

@@ -63,7 +63,11 @@ def make_config(p: Path, **overrides: Any) -> DepoConfig:
     Keyword overrides replace any default field on the returned config.
     Used internally by make_client.
     """
-    base = {"db_path": p / "data" / "depo.db", "store_root": p / "store"}
+    base = {
+        "db_path": p / "data" / "depo.db",
+        "store_root": p / "store",
+        "session_secret": "test-session-secret",
+    }
     return DepoConfig(**{**base, **overrides})
 
 
