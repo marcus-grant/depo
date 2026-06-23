@@ -32,54 +32,51 @@ Ordered by dependency. Each heading is roughly one PR.
 
 ### Login and session (Branch: `ft/login-session`)
 
-*Problem: users can be created and their passwords verified, but no
-request is ever recognized as logged in. Add a stateless signed-cookie
-session, a login route that verifies credentials and starts a session, a
-logout that ends it, and a single seam that reads the current user id
-from a request. Branch from `ft/credentials`. Assumes `ref/canonical-config`
-has landed (scalar defaults in `cli/defaults.py`, `DepoConfig` sources
-from them, `_coerce` typed field sets) and that `ft/credentials` provides
-`verify_password` and `ft/users-table` provides `get_user_by_email`. Out
-of scope: the `/upload` gate and `require_auth` as a route dependency
-(`ft/upload-gate`, which consumes the `get_current_uid` seam this PR
-builds); CSRF tokens (v1, tracked); server-side session store and
-revocation (post-MVP, tracked); email login and password reset (post-MVP).*
+*Problem: users can be created and their passwords verified, and session
+config infrastructure is in place, but no request is ever recognized as
+logged in. Wire the signed-cookie SessionMiddleware, a login route that
+verifies credentials and starts a session, a logout route that ends it,
+and a seam that reads the current user id from a request. Branch from
+`ft/login-config`, which provides `session_secret`, `session_https_only`,
+and the non-empty secret validation. Requires `verify_password` from
+`ft/credentials` and `get_user_by_email` from `ft/users-table`, both
+already merged. Out of scope: the `/upload` gate and `require_auth` as a
+route dependency (`ft/upload-gate`, which consumes the `get_current_uid`
+seam this PR builds); CSRF tokens (v1, tracked); server-side session
+store and revocation (post-MVP, tracked); email login and password reset
+(post-MVP).*
 
 #### Setup and gating test
 
-- [ ] Branch `ft/login-session` from `ft/credentials`.
-- [ ] Add a skipped integration test to `tests/web/test_routes.py` (new
+- [x] Branch `ft/login-session` from `ft/credentials`.
+- [x] Add a skipped integration test to `tests/web/test_routes.py` (new
       `TestLoginSession` class) asserting the end state: POSTing valid
       credentials to `/login` establishes a session such that a subsequent
       request is recognized as that user; bad credentials are rejected and
       re-render the form; `/logout` clears the session so a following
       request is unauthenticated. `@pytest.mark.skip` until the last unit.
-  - [ ] Commit: `Tst: Add skipped gating test for login and session`
+  - [x] Commit: `Tst: Add skipped gating test for login and session`
 
 #### TDD implementation
 
-**Add the itsdangerous dependency and session config**
-(`tests/cli/test_defaults.py`, `tests/cli/test_config.py`, make_config tests)
+*Note: the session config unit originally planned here was split into a
+separate `ft/login-config` PR. That PR delivered `session_secret` and
+`session_https_only` config fields, `_coerce_bool` with strict token
+validation, empty-secret validation in `load_config`, `make_config`
+factory secret default, and all associated test infrastructure. The
+remaining work below assumes `ft/login-config` is merged.*
+
+- [x] Commit: `Ft: Add session config fields and bool coercion`
+- [x] Commit: `Ref: Extract _coerce_bool and DRY out bool coercion tests`
+- [x] Commit: `Ref: DRY out TestLoadConfigEnv boilerplate`
+- [x] Commit: `Ref: DRY out TestLoadConfigToml and TestLoadConfigFlag`
+- [x] Commit: `Ft: Add non-empty session_secret default to make_config`
+
+**Add the itsdangerous dependency**
 
 - [ ] Add `itsdangerous` to `pyproject.toml` dependencies (Starlette
       `SessionMiddleware` requires it for cookie signing); sync the env.
-- [ ] Red: tests asserting `DepoConfig` exposes `session_secret` and
-      `session_https_only` sourced from `cli/defaults.py`; overrides (env
-      or TOML) resolve onto the config; an empty or missing
-      `session_secret` hard-fails rather than signing with a known value;
-      `session_https_only` coerces to bool and defaults False.
-- [ ] Add `DEFAULT_SESSION_SECRET = ""` (empty force-fail sentinel) and
-      `DEFAULT_SESSION_HTTPS_ONLY = False` (plain-HTTP LAN selfhost is the
-      MVP deployment; secure-only cookies would never be sent) to
-      `cli/defaults.py`; add `session_secret: str` and
-      `session_https_only: bool` fields to `DepoConfig` sourcing them; add
-      them to `_coerce` (secret as string, https_only to the bool set);
-      validate `session_secret` non-empty at resolution.
-- [ ] Update `make_config` in `tests/factories` to supply a non-empty
-      `session_secret` default so fixtures built from it pass the
-      non-empty validation; add a test that the default is present.
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Ft: Add itsdangerous and session config`
+- [ ] Commit: `Chr: Add itsdangerous dependency`
 
 **Wire SessionMiddleware and the current-user seam**
 (`tests/web/test_app.py`, `tests/web/test_routes.py`)
@@ -141,11 +138,9 @@ revocation (post-MVP, tracked); email login and password reset (post-MVP).*
 - [ ] Update `doc/module/web.md` (session middleware, `get_current_uid`
       seam, login/logout routes), `doc/module/templates.md` (auth/login
       template), and add `/login` and `/logout` to the reserved-namespaces
-      list in `doc/design/routes.md`. Note the `session_secret` and
-      `session_https_only` config fields wherever config fields are
-      documented.
+      list in `doc/design/routes.md`.
 - [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Doc: ...`
+- [ ] Commit: `Doc: Update web and template docs for ft/login-session`
 
 #### PR
 
@@ -363,6 +358,14 @@ Ensure all hierarchy works in pure grayscale; color remains semantic only.
 - Replace empirical maxmem formula (256*n*r*p + 1MiB) in password.py
   with a principled bound once OpenSSL's internal buffer requirement is
   confirmed
+- Plan session secret management UX and dev/prod mode: a `DEPO_MODE`
+  config field (`dev`/`prod`), a `gen-secret` CLI command printing a
+  suitable random secret to stdout, and adjusted `load_config` behaviour
+  per mode (dev auto-generates an ephemeral secret with a warning; prod
+  keeps the hard-fail sentinel)
+- Write a deployment/ops doc covering required config for a running
+  instance: DEPO_SESSION_SECRET, WAL journal mode, store directory
+  setup, and recommended depo.toml fields
 
 ### Manual Testing
 
