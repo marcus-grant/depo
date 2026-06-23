@@ -22,6 +22,8 @@ class DepoConfig:
     scrypt_n: int       # default: 2**16
     scrypt_r: int       # default: 8
     scrypt_p: int       # default: 1
+    session_secret: str # default: "" (force-fail sentinel; must be set)
+    session_https_only: bool # default: False (plain-HTTP LAN deploy)
 ```
 
 Frozen dataclass. Immutable after resolution.
@@ -44,6 +46,8 @@ resolution logic.
 | SCRYPT_N | 2**16 |
 | SCRYPT_R | 8 |
 | SCRYPT_P | 1 |
+| SESSION_SECRET | "" (force-fail sentinel) |
+| SESSION_HTTPS_ONLY | False |
 
 ### Functions
 
@@ -64,8 +68,13 @@ load_config(*, config_path: Path | None = None) -> DepoConfig
 **Resolution order:**
 defaults → XDG config.toml → ./depo.toml → DEPO_* env → --config flag.
 
-Each layer overrides the previous.
-`_coerce()` handles int fields and `expanduser` from env/TOML strings.
+`_coerce()` handles int and bool fields and `expanduser` from env/TOML
+strings. Bool fields use `_coerce_bool`, which accepts truthy tokens
+(`true`, `yes`, `on`, `1`) and falsy tokens (`false`, `no`, `off`, `0`)
+case-insensitively, and raises `ConfigError` on unrecognized input.
+`session_secret` must be non-empty after resolution or `load_config`
+raises `ConfigError`; the `""` default is a deliberate sentinel that
+prevents the app booting without an operator-supplied secret.
 DB and store paths resolve independently.
 
 ## main.py
