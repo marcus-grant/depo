@@ -39,6 +39,9 @@ class DepoConfig:
     scrypt_n: int = defaults.SCRYPT_N
     scrypt_r: int = defaults.SCRYPT_R
     scrypt_p: int = defaults.SCRYPT_P
+    # Session secrets
+    session_secret: str = defaults.SESSION_SECRET
+    session_https_only: bool = defaults.SESSION_HTTPS_ONLY
 
 
 def _xdg_config_home() -> Path:
@@ -55,17 +58,41 @@ def _load_toml(path: Path) -> dict:
     return {}
 
 
+_TRUTHY_VALS = {"true", "yes", "on", "1", 1}
+_FALSY_VALS = {"false", "no", "off", "0", 0}
+
+
+def _coerce_bool(val: bool | int | str, field: str) -> bool:
+    """Coerce a config value to bool. Raises ConfigError if invalid."""
+    normalized = val
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        normalized = val.strip().lower()
+    if normalized in _TRUTHY_VALS:
+        return True
+    if normalized in _FALSY_VALS:
+        return False
+    raise ConfigError(field, val, expected=str(_TRUTHY_VALS | _FALSY_VALS))
+
+
 def _coerce(overrides: dict) -> dict:
     """Coerce string values from env/TOML to expected types."""
     int_fields = {"port", "max_size_bytes", "max_url_len", "min_code_len"}
     int_fields |= {"scrypt_n", "scrypt_r", "scrypt_p"}
+    bool_fields = {"session_https_only"}
     path_fields = {"db_path", "store_root"}
     out = {}
     for k, v in overrides.items():
         if k in int_fields:
             out[k] = int(v)
+
+        elif k in bool_fields:
+            out[k] = _coerce_bool(v, k)
+
         elif k in path_fields:
             out[k] = Path(v).expanduser()
+
         elif k == "log_level":  # Special case, needs to be a Severity enum member
             try:
                 out[k] = Severity[str(v).upper()]
@@ -102,6 +129,7 @@ def load_config(*, config_path: Path | None = None) -> DepoConfig:
 
     Raises:
         FileNotFoundError: If config_path provided but missing.
+        ConfigError: If session_secret is missing/empty or if any value fails coercion.
     """
     overrides: dict = {}
 
@@ -118,4 +146,10 @@ def load_config(*, config_path: Path | None = None) -> DepoConfig:
     # Env vars layer on top of everything
     overrides.update(_env_overrides())
 
-    return DepoConfig(**_coerce(overrides))
+    # Ensure session_secret is present and non-empty after all overrides
+    # NOTE: This is critical for security
+    cfg = DepoConfig(**_coerce(overrides))
+    if not cfg.session_secret.strip():
+        expected = "non-empty string"
+        raise ConfigError("session_secret", cfg.session_secret, expected=expected)
+    return cfg

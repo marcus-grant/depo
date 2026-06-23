@@ -8,6 +8,8 @@ Created: 2026-02-23
 License: Apache-2.0
 """
 
+import pytest
+
 
 class TestRouteRegistration:
     """Fixed-path routes are not swallowed by /{code} wildcard."""
@@ -55,3 +57,40 @@ class TestRootRedirect:
         resp = t_client.get(url="/", follow_redirects=False)
         assert resp.status_code == 302
         assert resp.headers.get("location") == "/upload"
+
+
+@pytest.mark.skip(reason="enabled at end of ft/login-session")
+class TestLoginSession:
+    """End-to-end login, session, and logout over HTTP.
+
+    Probes the session lifecycle via the t_client cookie jar; no
+    authenticated-only route exists until ft/upload-gate, so value-level
+    uid recognition is left to the get_current_uid seam unit test.
+    """
+
+    def test_valid_login_starts_session(self, t_client):
+        """POST /login with valid creds 302s and sets a session cookie."""
+        # should seed a user with a known password
+        # should POST email + password to /login with follow_redirects=False
+        # should get 302
+        # should find the session cookie present in the client jar
+        _ = t_client
+        ...
+
+    def test_bad_credentials_rejected(self, t_client):
+        """POST /login with a wrong password re-renders the form, no session."""
+        # should seed a user with a known password
+        # should POST email + wrong password to /login
+        # should re-render the login form (200, html, error surfaced in body)
+        # should set no session cookie
+        _ = t_client
+        ...
+
+    def test_logout_clears_session(self, t_client):
+        """GET /logout 302s and clears the session cookie."""
+        # should seed a user and log in
+        # should GET /logout with follow_redirects=False
+        # should get 302
+        # should find the session cookie cleared in the client jar
+        _ = t_client
+        ...
