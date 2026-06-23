@@ -4,13 +4,15 @@ Tests for the FastAPI app factory and health check.
 
 Author: Marcus Grant
 Created: 2026-02-09
+Revised: [2026-06-23]
 License: Apache-2.0
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from depo.web.app import app_factory
+from depo.web.deps import get_current_uid
 from tests.factories import make_config
 
 
@@ -58,3 +60,57 @@ class TestConfigWiring:
         client = TestClient(app_factory(make_config(tmp_path, min_code_len=12)))
         resp = client.post("/upload", files={"file": ("t.txt", b"hello world")})
         assert len(resp.headers["X-Depo-Code"]) == 12
+
+
+class TestSessionMiddleware:
+    """Tests that SessionMiddleware is wired and the current-user seam works."""
+
+    def _probe_request(self, path, probe_fn, **kwargs):
+        """Fire a GET /_probe/response against a full-stack app and return the response.
+        probe_fn receives the Request; its return value is serialized as JSON.
+        Extra kwargs are forwarded to the TestClient.get call, allowing callers
+        to pass cookies, headers, or other request parameters.
+        Use to test middleware and seam behavior against the real app stack
+        without hitting production routes.
+        """
+        app = app_factory(make_config(path))
+        app.add_api_route("/_probe/response", probe_fn, methods=["GET"])
+        client = TestClient(app)
+        if "cookies" in kwargs:
+            client.cookies.update(kwargs.pop("cookies"))
+        return client.get("/_probe/response", **kwargs)
+
+    def _uid_probe(self, request: Request):
+        return {"uid": get_current_uid(request)}  # should not raise
+
+    def test_session_available_in_handler(self, tmp_path):
+        """A handler can read and write request.session without error."""
+
+        def _session_probe(request: Request):
+            request.session["probe"] = "ok"
+            return {"probe": request.session["probe"]}
+
+        resp = self._probe_request(tmp_path, _session_probe)
+        assert resp.status_code == 200
+        assert resp.json()["probe"] == "ok"
+
+    def test_unauthenticated_request_has_no_uid(self, tmp_path):
+        """get_current_uid returns None for a request with no session uid."""
+        assert self._probe_request(tmp_path, self._uid_probe).json()["uid"] is None
+
+    def test_tampered_cookie_rejected(self, tmp_path):
+        """A forged or tampered session cookie resolves to no current user."""
+        bad_cookie = {"session": "bad_cookie"}
+        resp = self._probe_request(tmp_path, self._uid_probe, cookies=bad_cookie)
+        assert resp.json()["uid"] is None
+
+    def test_uid_round_trips_as_int(self, tmp_path):
+        """A uid written to the session is returned by get_current_uid as int."""
+
+        def _set_and_read_probe(request: Request):
+            request.session["uid"] = 42
+            return {"uid": get_current_uid(request)}
+
+        resp = self._probe_request(tmp_path, _set_and_read_probe)
+        assert resp.json()["uid"] == 42
+        assert isinstance(resp.json()["uid"], int)
