@@ -9,6 +9,9 @@ License: Apache-2.0
 """
 
 import pytest
+from bs4 import BeautifulSoup as BSoup
+
+from depo.util.errors import AuthenticationError
 
 
 class TestRouteRegistration:
@@ -57,6 +60,63 @@ class TestRootRedirect:
         resp = t_client.get(url="/", follow_redirects=False)
         assert resp.status_code == 302
         assert resp.headers.get("location") == "/upload"
+
+
+class TestLoginRoute:
+    """Tests for GET and POST /login."""
+
+    def _assert_login_form(self, resp):
+        """Assert the response is an HTML page containing a valid login form."""
+        assert "text/html" in resp.headers["content-type"]
+        form = BSoup(resp.text, "html.parser").select_one("form.login__form")
+        assert form is not None
+        assert str(form.get("method", "")).lower() == "post"
+        assert form.select_one("input[type='email']") is not None
+        assert form.select_one("input[type='password']") is not None
+        assert form.select_one("button[type='submit']") is not None
+
+    def _assert_login_rejected(self, resp):
+        """Assert the response is a rejected login: form re-rendered with a
+        generic error, 401 status, and no session established."""
+        self._assert_login_form(resp)
+        assert resp.status_code == 401
+        assert AuthenticationError.message in resp.text
+        assert '"login__error"' in resp.text
+        assert "session" not in resp.cookies
+
+    def test_get_login_renders_form(self, t_browser):
+        """GET /login returns 200 with the login form."""
+        resp = t_browser.get("/login")
+        self._assert_login_form(resp)
+        assert resp.status_code == 200
+        assert "session" not in resp.cookies
+
+    def test_get_login_authenticated_redirects(self, t_authed):
+        """GET /login while authenticated redirects to / instead of rendering."""
+        data = {"email": t_authed.user.email, "password": t_authed.password}
+        t_authed.client.post("/login", data=data, follow_redirects=False)
+        resp = t_authed.client.get("/login", follow_redirects=False)
+        assert resp.status_code == 302
+        assert resp.headers.get("location") == "/"
+
+    def test_post_valid_credentials_redirects(self, t_authed):
+        """POST /login with valid credentials 302s and sets session uid."""
+        data = {"email": t_authed.user.email, "password": t_authed.password}
+        resp = t_authed.client.post("/login", data=data, follow_redirects=False)
+        assert resp.status_code == 302
+        assert "session" in resp.cookies
+
+    def test_post_wrong_password_rerenders_form(self, t_authed):
+        """POST /login with wrong password re-renders the form with an error."""
+        data = {"email": t_authed.user.email, "password": "wrong-pass"}
+        resp = t_authed.client.post("/login", data=data, follow_redirects=False)
+        self._assert_login_rejected(resp)
+
+    def test_post_unknown_email_rerenders_form(self, t_authed):
+        """POST /login with unknown email re-renders the form with an error."""
+        data = {"email": "not-an@email.com", "password": t_authed.password}
+        resp = t_authed.client.post("/login", data=data, follow_redirects=False)
+        self._assert_login_rejected(resp)
 
 
 @pytest.mark.skip(reason="enabled at end of ft/login-session")

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- BEGIN: auth/login.html#content -->
+<!-- EXTENDS: base.html -->
+{% if error %}
+<div class="login__error", role="alert">
+  <p>{{ error.message }}</p>
+</div>
+{% endif %}
+<form class="login__form" method="post" action="/login">
+    <input type="email" name="email">
+    <input type="password" name="password">
+    <button type="submit">Log in</button>
+</form>
+<!-- END: auth/login.html#content -->
+{% endblock %}

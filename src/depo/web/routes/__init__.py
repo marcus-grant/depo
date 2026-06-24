@@ -13,6 +13,7 @@ License: Apache-2.0
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import PlainTextResponse, RedirectResponse
 
+from depo.web.routes.auth import auth_router
 from depo.web.routes.shortcode import shortcode_router
 from depo.web.routes.upload import upload, upload_router
 from depo.web.templates import get_templates
@@ -44,4 +45,5 @@ def theme(request: Request) -> Response:
 
 # Merge routers from domain-specific modules
 router.include_router(upload_router)  # Upload routes
+router.include_router(auth_router)  # Auth routes
 router.include_router(shortcode_router)  # Shortcode routes (WILDCARDS MUST BE LAST!)

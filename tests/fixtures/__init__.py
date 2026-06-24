@@ -19,11 +19,18 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from depo.model.item import LinkItem, PicItem, TextItem
+from depo.model.user import User
 from depo.repo.sqlite import SqliteRepository, init_db
 from depo.service.orchestrator import IngestOrchestrator
 from depo.storage.filesystem import FilesystemStorage
+from depo.util.password import hash_password
 from tests.factories import gen_image, make_client, make_ingest_service
-from tests.factories.db import insert_link_item, insert_pic_item, insert_text_item
+from tests.factories.db import (
+    insert_link_item,
+    insert_pic_item,
+    insert_text_item,
+    insert_user,
+)
 
 
 @pytest.fixture
@@ -188,3 +195,25 @@ def t_seeded(tmp_path) -> SeededApp:
     store.put(code=item_txt.code, format=item_txt.format, source_bytes=txt_data)
     store.put(code=item_pic.code, format=item_pic.format, source_bytes=pic_data)
     return SeededApp(client, browser, htmx, item_txt, item_pic, item_link)
+
+
+@dataclass
+class AuthedApp:
+    """TestClient bundled with a seeded user and known plaintext password.
+    Use for login/logout tests where a real user credential is a precondition."""
+
+    client: TestClient
+    user: User
+    password: str
+
+
+@pytest.fixture
+def t_authed(tmp_path) -> AuthedApp:
+    """TestClient with a single user seeded with a real scrypt hash."""
+    client, pw = make_client(tmp_path), "test-password"
+    user = insert_user(
+        conn=cast(FastAPI, client.app).state.repo._conn,
+        email="guy@example.com",
+        pw_hash=hash_password(pw, n=2, r=1, p=1),
+    )
+    return AuthedApp(client=client, user=user, password=pw)
