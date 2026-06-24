@@ -119,6 +119,20 @@ class TestLoginRoute:
         self._assert_login_rejected(resp)
 
 
+class TestLogoutRoute:
+    """Tests for GET /logout."""
+
+    def test_logout_clears_session_and_redirects(self, t_authed):
+        """GET /logout clears the session, subsequent request is unauthenticated."""
+        data = {"email": t_authed.user.email, "password": t_authed.password}
+        t_authed.client.post("/login", data=data, follow_redirects=False)
+        resp = t_authed.client.get("/logout", follow_redirects=False)
+        assert resp.status_code == 302
+        assert "session" not in resp.cookies
+        resp = t_authed.client.get("/", follow_redirects=False)
+        assert "session" not in resp.cookies
+
+
 @pytest.mark.skip(reason="enabled at end of ft/login-session")
 class TestLoginSession:
     """End-to-end login, session, and logout over HTTP.

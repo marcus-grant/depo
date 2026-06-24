@@ -59,3 +59,10 @@ async def handle_login(request: Request) -> Response:
     request.session.clear()  # Clear any existing session data
     request.session["uid"] = user.id  # Reset user_id in session
     return RedirectResponse(url="/", status_code=302)
+
+
+@auth_router.get("/logout")
+async def handle_logout(request: Request) -> Response:
+    """Clear the session and redirect to root."""
+    request.session.clear()  # Clear session data
+    return RedirectResponse(url="/", status_code=302)  # Redirect to root
