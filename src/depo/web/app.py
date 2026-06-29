@@ -14,6 +14,7 @@ import sqlite3
 from pathlib import Path
 
 from fastapi import FastAPI
+from starlette.middleware.sessions import SessionMiddleware
 from starlette.staticfiles import StaticFiles
 
 from depo.cli.config import DepoConfig
@@ -36,6 +37,14 @@ def app_factory(config: DepoConfig) -> FastAPI:
     # Start FastAPI lifecycle storing DepoConfig
     app = FastAPI()
     app.state.config = config
+
+    # Add middleware here
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=config.session_secret,
+        https_only=config.session_https_only,
+        same_site="lax",
+    )
 
     # Initialize DB, create Repository, StorageBackend
     app.state.config.db_path.parent.mkdir(parents=True, exist_ok=True)

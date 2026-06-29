@@ -30,3 +30,8 @@ def get_storage(request: Request) -> StorageBackend:
 def get_orchestrator(request: Request) -> IngestOrchestrator:
     """Provide the IngestOrchestrator from app state."""
     return request.app.state.orchestrator
+
+
+def get_current_uid(request: Request) -> int | None:
+    """Return the authenticated user's uid from the session, or None."""
+    return request.session.get("uid")

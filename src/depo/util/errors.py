@@ -349,3 +349,29 @@ class LinkRawNotSupportedError(NotFoundError):
         message = f"Item {code} is a link and has no raw content."
         DepoError.__init__(self, message, context)
         self.code = code
+
+
+# == Auth Domain ==
+class AuthenticationError(DepoError):
+    """Raised when login credentials cannot be verified.
+
+    Carries the attempted email as a named attribute for logging and
+    admin surfaces. The user-facing message is always the generic class
+    default so that a missing account and a wrong password are
+    indistinguishable in the response.
+    """
+
+    severity = Severity.WARNING
+    status = 401
+    message = "Incorrect e-mail or password."
+
+    def __init__(
+        self,
+        email: str,
+        context: dict | None = None,
+        status: int | None = None,
+        severity: Severity | None = None,
+    ):
+        self.email = email
+        self.severity = severity if severity is not None else self.__class__.severity
+        super().__init__(None, context, status)

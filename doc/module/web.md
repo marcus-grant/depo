@@ -5,7 +5,8 @@ Depends on service/, repo/, storage/, model/, cli/.
 
 ## app.py
 
-Application factory and logging setup. Wires dependencies from DepoConfig.
+Application factory and logging setup.
+Wires dependencies from DepoConfig.
 
 ### Functions
 
@@ -22,6 +23,8 @@ Registers the `unhandled` boundary via
 catch non-DepoError exceptions that escape routes.
 Mounts static files from `src/depo/static/`.
 SQLite uses `check_same_thread=False` for async handler compatibility.
+Also wires `SessionMiddleware` (itsdangerous signed cookies) using
+`config.session_secret` and `config.session_https_only`.
 
 `configure_logging` sets the `depo` logger level and attaches a text handler.
 `app_factory` calls it as its first step, driven by `config.log_level`.
@@ -30,7 +33,7 @@ SQLite uses `check_same_thread=False` for async handler compatibility.
 
 Route package. Domain routers in sub-modules, wiring in `__init__.py`.
 
-### __init__.py
+### init.py
 
 Wires domain routers and registers fixed-path handlers.
 Fixed-path decorators before `include_router` calls.
@@ -41,6 +44,23 @@ Wildcard shortcode router included last.
 | GET | `/` | `root_redirect()` | 302 redirect to `/upload` |
 | GET | `/health` | `health()` | Liveness probe |
 | POST | `/` | `upload()` | Alias, forwards to upload dispatcher |
+
+### auth.py
+
+Authentication router. Login and logout routes.
+
+| Method | Path | Handler | Description |
+|--------|------|---------|-------------|
+| GET | `/login` | `page_login()` | Render login form; redir. `/` if auth'd |
+| POST | `/login` | `handle_login()` | *`^`* |
+| GET | `/logout` | `handle_logout()` | Clears session and redirects to `/` |
+
+>`^`: Check credentials, start session on ack, re-renders form with error if fail
+
+`_render_login(request, error)` unifies all login-page renders.
+GET and both failure paths call it; `error` is `None` on the GET and
+an `AuthenticationError` instance on failure.
+Both failure paths (unknown email, wrong password) produce an identical 401 surface.
 
 ### shortcode.py
 
@@ -136,9 +156,14 @@ FastAPI dependency providers via `Depends()`.
 get_repo(request) -> SqliteRepository
 get_storage(request) -> StorageBackend
 get_orchestrator(request) -> IngestOrchestrator
+get_current_uid(request) -> int | None
 ```
 
 Thin getters pulling from `request.app.state`.
+
+`get_current_uid` reads request.session.get("uid");
+the only function in the web layer that touches `request.session` directly.
+`require_auth` in `ft/upload-gate` calls it to enforce authenticated access.
 
 ## Templates
 

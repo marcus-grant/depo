@@ -28,7 +28,11 @@ Before ending a session:
 - Carry static sections forward, with any updates made during the session
 - Trim completed items from planning docs
 - Record deferrals in the appropriate planning doc, not just here
-- Present the finished handoff for the user to persist
+- Output the finished handoff as the complete document in a single
+  markdown code fence: every static section reproduced verbatim and every
+  per-session section filled in with this session's content. "Carry
+  forward" means reproduce in full, not omit. The user copies the whole
+  fence to persist it.
 
 ## Test fixtures and factories [static]
 

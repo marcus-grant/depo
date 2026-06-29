@@ -8,7 +8,14 @@ Created: 2026-02-23
 License: Apache-2.0
 """
 
-import pytest
+from typing import cast
+
+from bs4 import BeautifulSoup as BSoup
+from fastapi import FastAPI
+
+from depo.util.errors import AuthenticationError
+from depo.util.password import hash_password
+from tests.factories.db import insert_user
 
 
 class TestRouteRegistration:
@@ -59,38 +66,116 @@ class TestRootRedirect:
         assert resp.headers.get("location") == "/upload"
 
 
-@pytest.mark.skip(reason="enabled at end of ft/login-session")
+class TestLoginRoute:
+    """Tests for GET and POST /login."""
+
+    def _assert_login_form(self, resp):
+        """Assert the response is an HTML page containing a valid login form."""
+        assert "text/html" in resp.headers["content-type"]
+        form = BSoup(resp.text, "html.parser").select_one("form.login__form")
+        assert form is not None
+        assert str(form.get("method", "")).lower() == "post"
+        assert form.select_one("input[type='email']") is not None
+        assert form.select_one("input[type='password']") is not None
+        assert form.select_one("button[type='submit']") is not None
+
+    def _assert_login_rejected(self, resp):
+        """Assert the response is a rejected login: form re-rendered with a
+        generic error, 401 status, and no session established."""
+        self._assert_login_form(resp)
+        assert resp.status_code == 401
+        assert AuthenticationError.message in resp.text
+        assert '"login__error"' in resp.text
+        assert "session" not in resp.cookies
+
+    def test_get_login_renders_form(self, t_browser):
+        """GET /login returns 200 with the login form."""
+        resp = t_browser.get("/login")
+        self._assert_login_form(resp)
+        assert resp.status_code == 200
+        assert "session" not in resp.cookies
+
+    def test_get_login_authenticated_redirects(self, t_authed):
+        """GET /login while authenticated redirects to / instead of rendering."""
+        data = {"email": t_authed.user.email, "password": t_authed.password}
+        t_authed.client.post("/login", data=data, follow_redirects=False)
+        resp = t_authed.client.get("/login", follow_redirects=False)
+        assert resp.status_code == 302
+        assert resp.headers.get("location") == "/"
+
+    def test_post_valid_credentials_redirects(self, t_authed):
+        """POST /login with valid credentials 302s and sets session uid."""
+        data = {"email": t_authed.user.email, "password": t_authed.password}
+        resp = t_authed.client.post("/login", data=data, follow_redirects=False)
+        assert resp.status_code == 302
+        assert "session" in resp.cookies
+
+    def test_post_wrong_password_rerenders_form(self, t_authed):
+        """POST /login with wrong password re-renders the form with an error."""
+        data = {"email": t_authed.user.email, "password": "wrong-pass"}
+        resp = t_authed.client.post("/login", data=data, follow_redirects=False)
+        self._assert_login_rejected(resp)
+
+    def test_post_unknown_email_rerenders_form(self, t_authed):
+        """POST /login with unknown email re-renders the form with an error."""
+        data = {"email": "not-an@email.com", "password": t_authed.password}
+        resp = t_authed.client.post("/login", data=data, follow_redirects=False)
+        self._assert_login_rejected(resp)
+
+
+class TestLogoutRoute:
+    """Tests for GET /logout."""
+
+    def test_logout_clears_session_and_redirects(self, t_authed):
+        """GET /logout clears the session, subsequent request is unauthenticated."""
+        data = {"email": t_authed.user.email, "password": t_authed.password}
+        t_authed.client.post("/login", data=data, follow_redirects=False)
+        resp = t_authed.client.get("/logout", follow_redirects=False)
+        assert resp.status_code == 302
+        assert "session" not in resp.cookies
+        assert "session" not in t_authed.client.get("/", follow_redirects=False).cookies
+
+
 class TestLoginSession:
     """End-to-end login, session, and logout over HTTP.
 
     Probes the session lifecycle via the t_client cookie jar; no
     authenticated-only route exists until ft/upload-gate, so value-level
-    uid recognition is left to the get_current_uid seam unit test.
+    uid recognition is left to the get_current_uid unit test.
     """
+
+    def _seed_user(self, t_client):
+        """Seed a test user with a known password into the client's db.
+        Returns (mail, pw) for use in login form data."""
+        conn = cast(FastAPI, t_client.app).state.repo._conn
+        mail, pw = "guy@example.com", "test-password"
+        insert_user(conn, email=mail, pw_hash=hash_password(pw, n=2, r=1, p=1))
+        return mail, pw
 
     def test_valid_login_starts_session(self, t_client):
         """POST /login with valid creds 302s and sets a session cookie."""
-        # should seed a user with a known password
-        # should POST email + password to /login with follow_redirects=False
-        # should get 302
-        # should find the session cookie present in the client jar
-        _ = t_client
-        ...
+        mail, pw = self._seed_user(t_client)
+        data = {"email": mail, "password": pw}
+        resp = t_client.post("/login", data=data, follow_redirects=False)
+        assert resp.status_code == 302
+        assert "session" in resp.cookies
 
     def test_bad_credentials_rejected(self, t_client):
         """POST /login with a wrong password re-renders the form, no session."""
-        # should seed a user with a known password
-        # should POST email + wrong password to /login
-        # should re-render the login form (200, html, error surfaced in body)
-        # should set no session cookie
-        _ = t_client
-        ...
+        mail, _ = self._seed_user(t_client)
+        data = {"email": mail, "password": "bad-password"}
+        resp = t_client.post("/login", data=data, follow_redirects=False)
+        assert resp.status_code == 401
+        assert "session" not in resp.cookies
+        assert AuthenticationError.message in resp.text
 
     def test_logout_clears_session(self, t_client):
         """GET /logout 302s and clears the session cookie."""
-        # should seed a user and log in
-        # should GET /logout with follow_redirects=False
-        # should get 302
-        # should find the session cookie cleared in the client jar
-        _ = t_client
-        ...
+        conn, pw = cast(FastAPI, t_client.app).state.repo._conn, "test-password"
+        pw_hash, mail = hash_password(pw, n=2, r=1, p=1), "guy@example.com"
+        insert_user(conn, email=mail, pw_hash=pw_hash)
+        data = {"email": mail, "password": pw}
+        t_client.post("/login", data=data, follow_redirects=False)
+        resp = t_client.get("/logout", follow_redirects=False)
+        assert resp.status_code == 302
+        assert "session" not in resp.cookies

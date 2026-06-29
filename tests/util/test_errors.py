@@ -45,6 +45,7 @@ class TestErrorSeverity:
         errors.UnknownClassificationError: errors.Severity.ERROR,
         errors.ImageDecodeError: errors.Severity.INFO,
         errors.UnsupportedFormatError: errors.Severity.INFO,
+        errors.AuthenticationError: errors.Severity.WARNING,
     }
 
     def test_each_subclass_resolves_expected_severity(self):
@@ -427,3 +428,33 @@ class TestLinkRawNotSupportedError:
         err = self.err(code="abc123")
         assert err.code == "abc123"
         assert "abc123" in str(err)
+
+
+# == Auth Domain ==
+
+_EMAIL = "guy@test.se"
+
+
+class TestAuthenticationError:
+    """Tests for AuthenticationError (401)."""
+
+    def test_defaults(self):
+        """Class-level defaults: inherits DepoError, status 401, severity WARNING."""
+        assert issubclass(errors.AuthenticationError, errors.DepoError)
+        assert errors.AuthenticationError.status == 401
+        assert errors.AuthenticationError.severity == errors.Severity.WARNING
+        msg = str(errors.AuthenticationError(_EMAIL))
+        assert ("mail" in msg) == ("pass" in msg)  # both or neither credential is named
+
+    def test_stores_email_generic_message(self):
+        """Constructor stores email as a named attribute; message stays generic."""
+        e = errors.AuthenticationError(_EMAIL)
+        assert e.email == _EMAIL
+        assert e.message == errors.AuthenticationError.message
+        assert _EMAIL not in e.message  # email should not be in the message
+
+    def test_severity_overridable_per_instance(self):
+        """An instance severity override takes effect, class default unchanged."""
+        e = errors.AuthenticationError(_EMAIL, severity=errors.Severity.INFO)
+        assert e.severity == errors.Severity.INFO
+        assert e.__class__.severity == errors.Severity.WARNING

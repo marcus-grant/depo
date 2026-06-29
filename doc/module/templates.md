@@ -35,6 +35,8 @@ base.html
 │   ├── page.html
 │   ├── formats.html
 │   └── script.html
+├── auth/
+│   └── login.html           # Login form (extends base.html)
 ├── theme.html
 ├── info/page.html
 │   ├── info/link.html
