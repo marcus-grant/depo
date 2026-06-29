@@ -375,3 +375,23 @@ class AuthenticationError(DepoError):
         self.email = email
         self.severity = severity if severity is not None else self.__class__.severity
         super().__init__(None, context, status)
+
+
+class AuthRequiredError(DepoError):
+    """Raised when a request reaches a gated route without an active session.
+    Default severity is INFO; override per-instance for call sites that
+    warrant escalation.
+    """
+
+    severity = Severity.INFO
+    status = 401
+    message = "Authentication required."
+
+    def __init__(
+        self,
+        context: dict | None = None,
+        status: int | None = None,
+        severity: Severity | None = None,
+    ):
+        self.severity = severity if severity is not None else self.__class__.severity
+        super().__init__(None, context, status)
