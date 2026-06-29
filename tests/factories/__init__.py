@@ -122,6 +122,18 @@ def make_probe_client(probe_fn: Callable[[Request], Any]) -> TestClient:
     return TestClient(app)
 
 
+def make_full_probe_client(path: Path, probe_fn: Callable[..., Any]) -> TestClient:
+    """Build a full-stack app with a single GET /test/probe route.
+    Wraps app_factory and make_config, so the probe runs behind
+    the real middleware stack and registered exception handlers.
+    Use for testing wired app behavior (session, auth boundary)
+    that make_probe_client's bare app cannot exercise.
+    """
+    app = app_factory(make_config(path))
+    app.add_api_route("/test/probe", probe_fn, methods=["GET"])
+    return TestClient(app)
+
+
 def make_persist_result(
     *,
     item: TextItem | PicItem | LinkItem | None = None,
