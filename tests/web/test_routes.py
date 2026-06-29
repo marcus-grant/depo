@@ -10,6 +10,7 @@ License: Apache-2.0
 
 from typing import cast
 
+import pytest
 from bs4 import BeautifulSoup as BSoup
 from fastapi import FastAPI
 
@@ -177,3 +178,41 @@ class TestLoginSession:
         resp = t_client.get("/logout", follow_redirects=False)
         assert resp.status_code == 302
         assert "session" not in resp.cookies
+
+
+_TBA_MSG = "upload-gate incomplete: require_auth, AuthRequiredError, gated routes"
+
+
+@pytest.mark.skip(_TBA_MSG)
+class TestUploadGate:
+    """Integration gate for authenticated-only upload routes."""
+
+    def test_unauth_post_upload_rejected(self, t_client):
+        """Unauthenticated POST /upload returns 401 and creates no item."""
+        _ = t_client
+        ...
+
+    def test_unauth_get_upload_form_rejected(self, t_browser):
+        """Unauthenticated GET /upload returns 401 and does not render the form."""
+        _ = t_browser
+        ...
+
+    def test_htmx_rejection_carries_login_link(self, t_htmx):
+        """The htmx upload-rejection partial carries a login link."""
+        _ = t_htmx
+        ...
+
+    def test_browser_rejection_carries_login_link(self, t_browser):
+        """The browser upload-rejection surface carries a login link."""
+        _ = t_browser
+        ...
+
+    def test_authed_post_upload_creates_item_with_uid(self, t_authed):
+        """An authenticated POST /upload creates an item with the session uid."""
+        _ = t_authed
+        ...
+
+    def test_authed_get_upload_renders_form(self, t_authed):
+        """An authenticated GET /upload renders the form."""
+        _ = t_authed
+        ...
