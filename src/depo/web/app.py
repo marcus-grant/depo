@@ -22,7 +22,8 @@ from depo.repo.sqlite import SqliteRepository, init_db
 from depo.service.ingest import IngestService
 from depo.service.orchestrator import IngestOrchestrator
 from depo.storage.filesystem import FilesystemStorage
-from depo.util.errors import Severity
+from depo.util.errors import AuthRequiredError, Severity
+from depo.web.error import auth_required
 
 
 def app_factory(config: DepoConfig) -> FastAPI:
@@ -74,6 +75,7 @@ def app_factory(config: DepoConfig) -> FastAPI:
     from depo.web.error import unhandled
 
     app.add_exception_handler(Exception, unhandled)
+    app.add_exception_handler(AuthRequiredError, auth_required)
 
     # Mount static assets directory for frontend - must come AFTER routes
     static_dir = Path(__file__).parent.parent / "static"

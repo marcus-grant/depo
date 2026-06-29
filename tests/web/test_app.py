@@ -104,3 +104,26 @@ class TestSessionMiddleware:
         assert isinstance(resp.json()["uid"], int)
 
 
+class TestAuthRequiredHandler:
+    """Tests for the app-level AuthRequiredError exception handler."""
+
+    @staticmethod
+    async def _raise_probe():
+        raise AuthRequiredError()
+
+    def test_api_surface_returns_401(self, tmp_path):
+        """An AuthRequiredError on the api surface returns status 401."""
+        client = make_full_probe_client(tmp_path, self._raise_probe)
+        assert client.get("/test/probe").status_code == 401
+
+    def test_browser_surface_returns_401(self, tmp_path):
+        """An AuthRequiredError on the browser surface returns a 401 page."""
+        client = make_full_probe_client(tmp_path, self._raise_probe)
+        resp = client.get("/test/probe", headers={"Accept": "text/html"})
+        assert resp.status_code == 401
+
+    def test_htmx_surface_returns_200_partial(self, tmp_path):
+        """An AuthRequiredError on the htmx surface returns a 200 partial."""
+        client = make_full_probe_client(tmp_path, self._raise_probe)
+        resp = client.get("/test/probe", headers={"HX-Request": "true"})
+        assert resp.status_code == 200
