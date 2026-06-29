@@ -171,9 +171,7 @@ class TestLoginSession:
 
     def test_logout_clears_session(self, t_client):
         """GET /logout 302s and clears the session cookie."""
-        conn, pw = cast(FastAPI, t_client.app).state.repo._conn, "test-password"
-        pw_hash, mail = hash_password(pw, n=2, r=1, p=1), "guy@example.com"
-        insert_user(conn, email=mail, pw_hash=pw_hash)
+        mail, pw = self._seed_user(t_client)
         data = {"email": mail, "password": pw}
         t_client.post("/login", data=data, follow_redirects=False)
         resp = t_client.get("/logout", follow_redirects=False)
