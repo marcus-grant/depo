@@ -76,6 +76,8 @@ These top-level prefixes are reserved and must not conflict with short-codes:
 
 - `/upload`
 - `/health`
+- `/login`
+- `/logout`
 
 ### Reserved Namespaces - Post-MVP additions
 
