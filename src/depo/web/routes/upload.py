@@ -21,7 +21,7 @@ from depo.model.formats import format_for_extension
 from depo.model.item import LinkItem
 from depo.service.orchestrator import IngestOrchestrator, PersistResult
 from depo.util import errors
-from depo.web.deps import get_orchestrator
+from depo.web.deps import get_orchestrator, require_auth
 from depo.web.error import api_error, browser_error, htmx_error
 from depo.web.templates import get_templates, is_htmx
 
@@ -29,8 +29,9 @@ upload_router = APIRouter()
 
 
 @upload_router.get("/upload")
-async def page_upload(req: Request):
+async def page_upload(req: Request, _uid: int = Depends(require_auth)) -> Response:
     """Serve the upload form as a full HTML page."""
+    _ = _uid  # Shut up LSPs that don't recognize FastAPI dependency injection
     return get_templates().TemplateResponse(request=req, name="upload/page.html")
 
 

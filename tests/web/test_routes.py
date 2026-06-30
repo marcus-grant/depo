@@ -14,7 +14,7 @@ import pytest
 from bs4 import BeautifulSoup as BSoup
 from fastapi import FastAPI
 
-from depo.util.errors import AuthenticationError
+from depo.util import errors
 from depo.util.password import hash_password
 from tests.factories.db import insert_user
 
@@ -28,9 +28,9 @@ class TestRouteRegistration:
         assert resp.status_code == 200
         assert resp.text == "ok"
 
-    def test_upload_not_captured_by_wildcard(self, t_client):
+    def test_upload_not_captured_by_wildcard(self, t_logged_in):
         """GET /upload returns upload page, not a shortcode lookup."""
-        resp = t_client.get("/upload")
+        resp = t_logged_in.get("/upload")
         assert resp.status_code == 200
         assert "text/html" in resp.headers["content-type"]
 
@@ -85,7 +85,7 @@ class TestLoginRoute:
         generic error, 401 status, and no session established."""
         self._assert_login_form(resp)
         assert resp.status_code == 401
-        assert AuthenticationError.message in resp.text
+        assert errors.AuthenticationError.message in resp.text
         assert '"login__error"' in resp.text
         assert "session" not in resp.cookies
 
@@ -168,7 +168,7 @@ class TestLoginSession:
         resp = t_client.post("/login", data=data, follow_redirects=False)
         assert resp.status_code == 401
         assert "session" not in resp.cookies
-        assert AuthenticationError.message in resp.text
+        assert errors.AuthenticationError.message in resp.text
 
     def test_logout_clears_session(self, t_client):
         """GET /logout 302s and clears the session cookie."""
@@ -183,10 +183,10 @@ class TestLoginSession:
 _TBA_MSG = "upload-gate incomplete: require_auth, AuthRequiredError, gated routes"
 
 
-@pytest.mark.skip(_TBA_MSG)
 class TestUploadGate:
     """Integration gate for authenticated-only upload routes."""
 
+    @pytest.mark.skip(_TBA_MSG)
     def test_unauth_post_upload_rejected(self, t_client):
         """Unauthenticated POST /upload returns 401 and creates no item."""
         _ = t_client
@@ -194,25 +194,31 @@ class TestUploadGate:
 
     def test_unauth_get_upload_form_rejected(self, t_browser):
         """Unauthenticated GET /upload returns 401 and does not render the form."""
-        _ = t_browser
-        ...
+        resp, login = t_browser.get("/upload"), 'a[href="/login"]'
+        assert resp.status_code == 401
+        assert errors.AuthRequiredError.message in resp.text
+        assert BSoup(resp.text, "html.parser").select_one(login) is not None
 
+    @pytest.mark.skip(_TBA_MSG)
     def test_htmx_rejection_carries_login_link(self, t_htmx):
         """The htmx upload-rejection partial carries a login link."""
         _ = t_htmx
         ...
 
+    @pytest.mark.skip(_TBA_MSG)
     def test_browser_rejection_carries_login_link(self, t_browser):
         """The browser upload-rejection surface carries a login link."""
         _ = t_browser
         ...
 
+    @pytest.mark.skip(_TBA_MSG)
     def test_authed_post_upload_creates_item_with_uid(self, t_authed):
         """An authenticated POST /upload creates an item with the session uid."""
         _ = t_authed
         ...
 
-    def test_authed_get_upload_renders_form(self, t_authed):
+    def test_authed_get_upload_renders_form(self, t_logged_in):
         """An authenticated GET /upload renders the form."""
-        _ = t_authed
-        ...
+        resp = t_logged_in.get("/upload")
+        assert resp.status_code == 200
+        assert "<!-- BEGIN: upload/page.html" in resp.text

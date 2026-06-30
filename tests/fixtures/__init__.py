@@ -217,3 +217,15 @@ def t_authed(tmp_path) -> AuthedApp:
         pw_hash=hash_password(pw, n=2, r=1, p=1),
     )
     return AuthedApp(client=client, user=user, password=pw)
+
+
+@pytest.fixture
+def t_logged_in(t_authed: AuthedApp) -> TestClient:
+    """TestClient with an active session for a seeded user.
+    Composes t_authed, then performs a real login so the client
+    carries a valid session cookie. Use for tests exercising
+    auth-gated routes as an authenticated user.
+    """
+    data = {"email": t_authed.user.email, "password": t_authed.password}
+    t_authed.client.post("/login", data=data)
+    return t_authed.client
