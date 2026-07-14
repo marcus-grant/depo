@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response, UploadFile
 from fastapi.responses import PlainTextResponse, RedirectResponse
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
-from depo.model.enums import ContentFormat
+from depo.model.enums import ContentFormat, Visibility
 from depo.model.formats import format_for_extension
 from depo.model.item import LinkItem
 from depo.service.orchestrator import IngestOrchestrator, PersistResult
@@ -26,6 +26,8 @@ from depo.web.error import api_error, browser_error, htmx_error
 from depo.web.templates import get_templates, is_htmx
 
 upload_router = APIRouter()
+
+_DEFAULT_PERM = Visibility.PUBLIC  # Default visibility for uploaded items (will change)
 
 
 @upload_router.get("/upload")
@@ -52,7 +54,7 @@ async def upload(
     if req.headers.get("content-type", "").startswith(url_encoded_head):
         try:
             params = await _parse_form_upload(req)
-            result = orch.ingest(**dict(params), uid=uid)  # type: ignore
+            result = orch.ingest(uid, _DEFAULT_PERM, **dict(params))  # type: ignore
         except errors.DepoError as e:
             return browser_error(req, e)
         return RedirectResponse(f"/{result.item.code}/info", status_code=303)
@@ -67,7 +69,7 @@ async def hx_upload(
     """Browser form upload: textarea content + format override."""
     try:
         params = await _parse_form_upload(request)
-        result = orch.ingest(**dict(params), uid=uid)  # type: ignore[arg-type]
+        result = orch.ingest(uid, _DEFAULT_PERM, **dict(params))  # type: ignore[arg-type]
         return get_templates().TemplateResponse(
             request=request,
             name="partials/success.html",
@@ -210,4 +212,4 @@ async def _ingest_upload(
     Raises some subclass of DepoError on failure."""
     req = None if file is not None or url is not None else req
     params = await _parse_upload(file=file, url=url, request=req)
-    return orch.ingest(**dict(params), requested_format=req_fmt, uid=uid)  # type: ignore[arg-type]
+    return orch.ingest(uid, _DEFAULT_PERM, **dict(params), requested_format=req_fmt)  # type: ignore[arg-type]

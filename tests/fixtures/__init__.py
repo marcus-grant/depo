@@ -83,6 +83,9 @@ def t_store(tmp_path) -> FilesystemStorage:
     return FilesystemStorage(root=tmp_path / "depo-test-store")
 
 
+OrchEnv = tuple[IngestOrchestrator, SqliteRepository, FilesystemStorage]
+
+
 @pytest.fixture
 def t_orch_env(
     t_repo, t_store
