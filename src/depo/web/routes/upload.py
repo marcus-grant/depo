@@ -39,6 +39,7 @@ async def page_upload(req: Request, _uid: int = Depends(require_auth)) -> Respon
 async def upload(
     req: Request,
     orch: IngestOrchestrator = Depends(get_orchestrator),
+    uid: int = Depends(require_auth),
     url: str | None = None,
     file: UploadFile | None = None,
     fmt: str | None = Query(None, alias="format"),

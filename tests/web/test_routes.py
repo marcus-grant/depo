@@ -17,6 +17,7 @@ from fastapi import FastAPI
 from depo.util import errors
 from depo.util.password import hash_password
 from tests.factories.db import insert_user
+from tests.helpers.assertions import assert_no_persistence
 
 
 class TestRouteRegistration:
@@ -186,11 +187,12 @@ _TBA_MSG = "upload-gate incomplete: require_auth, AuthRequiredError, gated route
 class TestUploadGate:
     """Integration gate for authenticated-only upload routes."""
 
-    @pytest.mark.skip(_TBA_MSG)
     def test_unauth_post_upload_rejected(self, t_client):
         """Unauthenticated POST /upload returns 401 and creates no item."""
-        _ = t_client
-        ...
+        resp = t_client.post("/upload", files={"file": ("t.txt", b"hHello!")})
+        assert resp.status_code == 401
+        assert errors.AuthRequiredError.message in resp.text
+        assert_no_persistence(cast(FastAPI, t_client.app))
 
     def test_unauth_get_upload_form_rejected(self, t_browser):
         """Unauthenticated GET /upload returns 401 and does not render the form."""
@@ -199,11 +201,13 @@ class TestUploadGate:
         assert errors.AuthRequiredError.message in resp.text
         assert BSoup(resp.text, "html.parser").select_one(login) is not None
 
-    @pytest.mark.skip(_TBA_MSG)
     def test_htmx_rejection_carries_login_link(self, t_htmx):
         """The htmx upload-rejection partial carries a login link."""
-        _ = t_htmx
-        ...
+        resp = t_htmx.post("/upload", data={"content": "hello", "format": "txt"})
+        assert resp.status_code == 200
+        assert errors.AuthRequiredError.message in resp.text
+        assert BSoup(resp.text, "html.parser").select_one('a[href="/login"]')
+        assert "<!-- BEGIN: errors/partial.html -->" in resp.text
 
     @pytest.mark.skip(_TBA_MSG)
     def test_browser_rejection_carries_login_link(self, t_browser):

@@ -8,13 +8,13 @@ Revised: [2026-06-23]
 License: Apache-2.0
 """
 
+
 from fastapi import FastAPI, Request
-from fastapi.testclient import TestClient
 
 from depo.util.errors import AuthRequiredError
 from depo.web.app import app_factory
 from depo.web.deps import get_current_uid
-from tests.factories import make_config, make_full_probe_client
+from tests.factories import make_config, make_full_probe_client, make_user_client
 
 
 class TestAppFactory:
@@ -44,22 +44,22 @@ class TestHealthCheck:
 class TestConfigWiring:
     """Resolved config governs the live upload path (gating tests)."""
 
+    _FILE = {"file": ("test.txt", b"Hello, World!")}
+
     def test_max_size_bytes_governs(self, tmp_path):
         """A tiny max_size_bytes rejects any upload with 413."""
-        client = TestClient(app_factory(make_config(tmp_path, max_size_bytes=1)))
-        resp = client.post("/upload", files={"file": ("t.txt", b"too big")})
-        assert resp.status_code == 413
+        client = make_user_client(tmp_path, max_size_bytes=1)
+        assert client.post("/upload", files=self._FILE).status_code == 413
 
     def test_max_url_len_governs(self, tmp_path):
         """A tiny max_url_len rejects a link with 413."""
-        client = TestClient(app_factory(make_config(tmp_path, max_url_len=1)))
-        resp = client.post("/upload?url=http://example.com")
-        assert resp.status_code == 413
+        client = make_user_client(tmp_path, max_url_len=1)
+        assert client.post("/upload?url=http://example.com").status_code == 413
 
     def test_min_code_len_governs(self, tmp_path):
         """A raised min_code_length yields a code of exactly that length."""
-        client = TestClient(app_factory(make_config(tmp_path, min_code_len=12)))
-        resp = client.post("/upload", files={"file": ("t.txt", b"hello world")})
+        client = make_user_client(tmp_path, min_code_len=12)
+        resp = client.post("/upload", files=self._FILE)
         assert len(resp.headers["X-Depo-Code"]) == 12
 
 

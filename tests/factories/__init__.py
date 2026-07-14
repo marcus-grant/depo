@@ -13,7 +13,7 @@ License: Apache-2.0
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from bs4 import BeautifulSoup as BSoup
 from fastapi import FastAPI, Request
@@ -25,9 +25,11 @@ from depo.model.enums import ContentFormat, ItemKind, Visibility
 from depo.model.item import LinkItem, PicItem, TextItem
 from depo.service.ingest import IngestService
 from depo.service.orchestrator import PersistResult
+from depo.util.password import hash_password
 from depo.web.app import app_factory
 from depo.web.templates import get_templates
 
+from .db import insert_user
 from .models import (
     make_item,
     make_link_item,
@@ -37,10 +39,14 @@ from .models import (
 )
 from .payloads import gen_image
 
+# TODO: Reorganize this mess of factories
+
 __all__ = [
+    "HEADER_BROWSER",
     "HEADER_HTMX",
     "gen_image",
     "make_client",
+    "make_user_client",
     "make_config",
     "make_item",
     "make_link_item",
@@ -52,7 +58,8 @@ __all__ = [
     "make_write_plan",
 ]
 
-HEADER_HTMX = {"HX-Request": "true"}
+HEADER_BROWSER = {"Accept": "text/html"}
+HEADER_HTMX = {**HEADER_BROWSER, "HX-Request": "true"}
 
 
 def make_config(p: Path, **overrides: Any) -> DepoConfig:
@@ -82,25 +89,29 @@ def make_ingest_service(**overrides: int) -> IngestService:
     return IngestService(**params)
 
 
-def make_client(p: Path) -> TestClient:
+def make_client(p: Path, **overrides) -> TestClient:
     """Build a full-stack TestClient rooted at p.
-
-    Wraps make_config and app_factory. The app initializes
-    its own DB and storage from the config paths. Use for
-    integration tests against real routes. Prefer the
-    t_client fixture unless you need a custom path.
+    Wraps make_config and app_factory. Config overrides are
+    forwarded to make_config. The app initializes its own DB
+    and storage from the config paths. Use for integration
+    tests against real routes. Prefer the t_client fixture
+    unless you need a custom path or config.
     """
-    return TestClient(app_factory(make_config(p)))
+    return TestClient(app_factory(make_config(p, **overrides)))
 
 
-def make_browser_client(p: Path) -> TestClient:
-    """Build a full-stack TestClient with Accept: text/html.
-    Wraps make_config and app_factory with browser-default
-    headers. Use for integration tests against HTML page
-    responses. Prefer the t_browser fixture unless you
-    need a custom path.
+def make_user_client(p: Path, **overrides) -> TestClient:
+    """Build a full-stack TestClient with a seeded user and active session.
+    The authenticated counterpart to make_client. Config overrides are
+    forwarded to make_config. Flavor headers (browser, htmx) are applied
+    per request, not baked into the client.
     """
-    return TestClient(app_factory(make_config(p)), headers={"Accept": "text/html"})
+    client = make_client(p, **overrides)
+    pw, conn = "test-password", cast(FastAPI, client.app).state.repo._conn
+    pw_hash, email = hash_password(pw, n=2, r=1, p=1), "guy@example.com"
+    insert_user(conn, email=email, pw_hash=pw_hash)
+    client.post("/login", data={"email": email, "password": pw})
+    return client
 
 
 def make_probe_client(probe_fn: Callable[[Request], Any]) -> TestClient:
