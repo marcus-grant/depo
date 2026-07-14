@@ -43,16 +43,29 @@ is almost always wrong.
 
 - Factories in `tests/factories/` build domain objects and wired test
   apps. `make_config` builds a `DepoConfig` under a tmp path;
-  `make_client` builds a wired `TestClient`; `make_user` and friends
-  build model instances. Keyword overrides replace defaults.
-- Fixtures in `tests/fixtures/` provide ready-to-use test dependencies.
-  The `t_*` naming marks them: `t_client`, `t_browser`, `t_htmx` for
-  the three client flavors, `t_conn`/`t_db`/`t_repo`/`t_store` for the
-  storage layers, `t_seeded` for an app pre-loaded with sample items.
-- Isolation helpers compose setup: e.g. `_isolate_config_env` clears
-  `DEPO_*`, sets a valid session secret, points XDG at tmp, and chdirs.
-  Prefer an autouse fixture calling a module-level helper over repeating
-  setup per method.
+  `make_client` and `make_user_client` build unauthenticated and
+  authenticated `TestClient`s, both taking config overrides.
+  `make_full_probe_client` wires a probe route into a full app, for
+  middleware and boundary tests.
+- Fixtures in `tests/fixtures/` provide ready-to-use dependencies, marked
+  by the `t_*` naming. `t_client` is unauthenticated, `t_user` is
+  authenticated; the choice between them states what a test exercises.
+  `t_known_user` returns a `KnownUser` with the credentials and uid in
+  hand, for tests that drive `/login` themselves.
+  `t_conn`/`t_db`/`t_repo`/`t_store` cover the storage layers, `t_seeded`
+  an app pre-loaded with items.
+- Request flavor is a header, not a client. Pass `HEADER_BROWSER` or
+  `HEADER_HTMX` on the call. `t_browser` and `t_htmx` predate this and are
+  being retired; do not add call sites.
+- Assertion helpers live in `tests/helpers/assertions.py`, notably
+  `assert_no_persistence(app)`: a rejected write leaves neither a repo row
+  nor a stored payload.
+- Annotate fixture params in test signatures. Pyright cannot infer them,
+  so an unannotated fixture makes every call through it typecheck
+  vacuously.
+- Isolation helpers compose setup: `_isolate_config_env` clears `DEPO_*`,
+  sets a session secret, points XDG at tmp, and chdirs. Prefer an autouse
+  fixture calling a module-level helper over per-method setup.
 
 When the shared scaffolding changes, note it in the per-session Layer
 status so the next reader knows.
