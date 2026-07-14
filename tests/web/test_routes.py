@@ -13,6 +13,7 @@ from typing import cast
 from bs4 import BeautifulSoup as BSoup
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from httpx import Response
 
 from depo.util import errors
 from depo.util.password import hash_password
@@ -187,38 +188,43 @@ class TestLoginSession:
 class TestUploadGate:
     """Integration gate for authenticated-only upload routes."""
 
-    def test_unauth_post_upload_rejected(self, t_client):
-        """Unauthenticated POST /upload returns 401 and creates no item."""
-        resp = t_client.post("/upload", files={"file": ("t.txt", b"hHello!")})
-        assert resp.status_code == 401
+    def _assert_auth_reject(self, resp: Response, expected_status: int):
+        """With response object & expeced_status assert the expected reject response."""
+        assert resp.status_code == expected_status
         assert errors.AuthRequiredError.message in resp.text
+
+    def _assert_login_link(self, resp: Response):
+        search_str = 'a[href="/login"]'
+        assert BSoup(resp.text, "html.parser").select_one(search_str) is not None
+
+    def test_unauth_post_upload_rejected(self, t_client: TestClient):
+        """Unauthenticated POST /upload returns 401 and creates no item."""
+        files = {"file": ("t.txt", b"Hello!")}
+        self._assert_auth_reject(t_client.post("/upload", files=files), 401)
         assert_no_persistence(cast(FastAPI, t_client.app))
 
-    def test_unauth_get_upload_form_rejected(self, t_browser):
+    def test_unauth_get_upload_form_rejected(self, t_client: TestClient):
         """Unauthenticated GET /upload returns 401 and does not render the form."""
-        resp, login = t_browser.get("/upload"), 'a[href="/login"]'
-        assert resp.status_code == 401
-        assert errors.AuthRequiredError.message in resp.text
-        assert BSoup(resp.text, "html.parser").select_one(login) is not None
+        resp = t_client.get("/upload", headers=HEADER_BROWSER)
+        self._assert_auth_reject(resp, 401)
+        self._assert_login_link(resp)
 
     def test_htmx_rejection_carries_login_link(self, t_client: TestClient):
         """The htmx upload-rejection partial carries a login link."""
         data = {"content": "hello", "format": "txt"}
         resp = t_client.post("/upload", data=data, headers=HEADER_HTMX)
-        assert resp.status_code == 200
-        assert errors.AuthRequiredError.message in resp.text
-        assert BSoup(resp.text, "html.parser").select_one('a[href="/login"]')
+        self._assert_auth_reject(resp, 200)
+        self._assert_login_link(resp)
         assert "<!-- BEGIN: errors/partial.html -->" in resp.text
 
     def test_browser_rejection_carries_login_link(self, t_client: TestClient):
         """The browser upload-rejection surface carries a login link."""
         data = {"content": "hello", "format": "txt"}
         resp = t_client.post("/upload", data=data, headers=HEADER_BROWSER)
-        assert resp.status_code == 401
-        assert errors.AuthRequiredError.message in resp.text
+        self._assert_auth_reject(resp, 401)
+        self._assert_login_link(resp)
         assert "BEGIN: errors/page.html#content" in resp.text
         assert "<!-- BEGIN: errors/partial.html -->" not in resp.text
-        assert BSoup(resp.text, "html.parser").select_one('a[href="/login"]')
 
     def test_known_user_post_upload_creates_item_with_uid(
         self, t_known_user: KnownUser
@@ -227,8 +233,8 @@ class TestUploadGate:
         data = {"email": t_known_user.user.email, "password": t_known_user.password}
         t_known_user.client.post("/login", data=data, follow_redirects=False)
         resp = t_known_user.client.post("/upload", files={"file": ("t.txt", b"Hello!")})
-        code = resp.headers.get("X-Depo-Code")
         assert resp.status_code == 201
+        code = resp.headers.get("X-Depo-Code")
         assert code is not None
         conn = cast(FastAPI, t_known_user.client.app).state.repo._conn
         row = conn.execute("SELECT uid FROM items WHERE code = ?", (code,)).fetchone()
