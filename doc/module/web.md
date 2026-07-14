@@ -95,8 +95,13 @@ Upload router, handlers, and request helpers.
 
 | Method | Path | Handler | Description |
 |--------|------|---------|-------------|
-| GET | `/upload` | `page_upload()` | Upload form, full page |
-| POST | `/upload` | `upload()` | Dispatcher, HX to hx_upload else api_upload |
+| GET | `/upload` | `page_upload()` |Upload form, full page. Need require_auth|
+| POST | `/upload` | `upload()` | Dispatcher, HX to hx_upload else api_upload. Needs require_auth |
+
+Both routes take `Depends(require_auth)`. The dispatcher threads the
+yielded uid into every ingest path, so a created item carries the session
+user's id. `hx_upload` and `api_upload` are not registered routes; the
+dispatcher calls them directly and passes uid explicitly.
 
 #### Types
 
@@ -116,8 +121,10 @@ Algebraic union, each variant corresponds to an upload path.
   - build PlainTextResponse with:
   - X-Depo-Code, X-Depo-Kind, X-Depo-Format, X-Depo-Created headers.
   - 201 new, 200 dedupe.
-- `_ingest_upload(file, url, request, orchestrator)`
+- `_ingest_upload(file, url, request, orchestrator, uid)`
   - parse and ingest, returns PersistResult
+  - uid is required, so omitting it is an error rather than a silent
+    anonymous write
 
 ## negotiate.py
 
@@ -157,13 +164,18 @@ get_repo(request) -> SqliteRepository
 get_storage(request) -> StorageBackend
 get_orchestrator(request) -> IngestOrchestrator
 get_current_uid(request) -> int | None
+require_auth(request) -> int
 ```
 
 Thin getters pulling from `request.app.state`.
 
 `get_current_uid` reads request.session.get("uid");
 the only function in the web layer that touches `request.session` directly.
-`require_auth` in `ft/upload-gate` calls it to enforce authenticated access.
+
+`require_auth` calls it and raises `AuthRequiredError` when there is no
+session uid, otherwise returning the uid. Routes gate on it by taking
+`Depends(require_auth)`, so an unauthenticated request is rejected during
+dependency resolution and the handler body never runs.
 
 ## Templates
 
@@ -229,5 +241,15 @@ the app-level boundary `unhandled`, registered in `app_factory`.
 It wraps the exception in `UnknownServerError`, negotiates surface,
 and delegates to a builder.
 It does not log; the builder does.
+
+`AuthRequiredError` is the exception to the route-catches-broadly pattern.
+It is raised inside `require_auth` during dependency resolution, before any
+handler body runs, so no route-level `try` can catch it. It is registered
+in `app_factory` with its own app-level handler, `auth_required`, which
+negotiates surface and delegates to a builder, passing the error through at
+its own 401 status rather than wrapping it as `UnknownServerError`.
+
+Keeping `unhandled` narrow preserves its signal: an `UnknownServerError`
+still means something genuinely unanticipated escaped.
 
 See [errors.md](../design/errors.md) for the full hierarchy and patterns.

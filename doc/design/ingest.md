@@ -34,9 +34,14 @@ filesystem writes.
 
 ### IngestOrchestrator
 
-Owns coordination across service, repo, and storage. Single entry point
-for the web layer. Handles dedupe checks, delegates persistence, and
-manages rollback if storage fails after a DB write.
+Owns coordination across service, repo, and storage.
+Single entry point for the web layer.
+Handles de-dupe checks, delegates persistence,
+and manages rollback if storage fails after a DB write.
+
+Takes `uid` and `perm` as required positional arguments and
+passes them to the repo on insert,
+so every persisted item carries an owner and a visibility.
 
 ### PersistResult
 
@@ -45,12 +50,20 @@ created or deduplicated.
 
 ## Design decisions
 
-- Orchestrator owns coordination. Repo and storage are siblings, not a chain.
-- Dedupe happens at the orchestrator level before any writes.
-- Storage writes before DB insert. Orphan files are easier to clean up than
-  orphan rows.
-- LinkItem payload is the URL as bytes. The repo decodes it for storage.
-  The orchestrator skips file storage for links.
+- `Orchestrator` owns coordination.
+  - Repo and storage are siblings, not a chain.
+  - De-dupe happens at the orchestrator level before any writes.
+  - Storage writes before DB insert.
+    - Orphan files are easier to clean up than orphan rows.
+- `LinkItem` payload is the URL as bytes.
+  - The repo decodes it for storage.
+  - The orchestrator skips file storage for links.
+  - Ownership is required, not defaulted.
+    - The orchestrator demands a uid and a visibility:
+      - Better than falling back to anonymous and public.
+      - Callers that forget can't silently persist an unowned item.
+    - Anonymous & system ingests state `uid=0` explicitly.
+    - The web layer supplies the session uid from `require_auth`.
 
 ## Classification
 

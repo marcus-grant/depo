@@ -18,6 +18,7 @@ their context.
 
 ```txt
 DepoError (500)
+├── ConfigError (500)
 ├── RepoError (500)
 │   ├── NotFoundError (404)
 │   │   ├── ExtensionMismatchError (404)
@@ -33,12 +34,30 @@ DepoError (500)
 │   ├── ImageDecodeError (422)
 │   ├── UnsupportedFormatError (422)
 │   └── UnknownClassificationError (500)
-└── ServerError (500)
-    └── MissingDependencyError (501)
+├── ServerError (500)
+│   └── MissingDependencyError (501)
+├── AuthenticationError (401)
+└── AuthRequiredError (401)
 ```
 
 Domain bases carry pass-through constructors so subclasses can call
 `super().__init__()` cleanly without skipping the hierarchy.
+
+The auth errors are leaves directly under `DepoError`,
+not a domain with a shared base.
+They describe two different failures at the same status:
+`AuthenticationError` means credentials were supplied and rejected;
+`AuthRequiredError` means no session was presented at all.
+Giving them a common base would imply a shared surface they do not have.
+
+`AuthenticationError` carries attempted email as a named attribute for logging,
+never in the user-facing message.
+Unknown-email and wrong-password paths converge on one identical 401 so
+the response cannot be used to enumerate accounts.
+
+`AuthRequiredError` carries no attributes.
+Call-site detail, such as the path that was gated, goes in `ctx` where
+the log handler can read it and correlate against nearby requests.
 
 ## Severity
 
@@ -54,11 +73,22 @@ with explicit decisions at a few nodes:
 - `UnknownClassificationError` is ERROR
 - `InsertFailedError` is ERROR (driver-level fault, not a domain condition)
 - `UniqueViolationError` is WARNING (expected user-facing condition)
+- `AuthenticationError` is WARNING
+- `AuthRequiredError` is INFO
 
 All other subclasses inherit from their nearest base.
 A gap test in `tests/util/test_errors.py` enumerates every concrete subclass and
 asserts its resolved severity,
 so a new error added without a severity decision fails the suite.
+
+The two auth errors sit at different levels deliberately.
+A failed login is someone trying passwords,
+and a cluster of them is the classic brute-force signal, so it is WARNING.
+A request reaching a gated route with no session is mostly routine,
+an expired cookie, a cold bookmark, a crawler walking URLs, so it is INFO.
+Raising it to WARNING would flood the tier with benign traffic and
+bury the signal worth watching.
+The per-instance severity override exists for call sites thatwarrant escalating a specific unauthenticated hit.
 
 ## Response builders
 
@@ -117,6 +147,22 @@ The boundary handler does not log, since it delegates to a builder.
 attaches a text handler. `app_factory` calls it first,
 driven by the `log_level` config field (see [cli](../module/cli.md)).
 Propagation stays on so test capture and parent handlers still see records.
+
+`auth_required(request, exc)` is the second app-level handler,
+registered with `add_exception_handler(AuthRequiredError, auth_required)`
+in `app_factory`.
+It negotiates surface the same way `unhandled` does, but
+passes the error through at its own 401 status rather than wrapping it.
+
+It needs its own registration because `AuthRequiredError` is raised inside
+`require_auth` during dependency resolution,
+before any handler body runs, so no route-level `try` can catch it.
+
+The registration is deliberately narrow.
+A broad `DepoError` handler would catch every anticipated error that
+escapes a route and quietly dispatch it,
+erasing the signal that `UnknownServerError` exists to raise:
+something reached the boundary that was not expected to.
 
 ## Deferred
 
