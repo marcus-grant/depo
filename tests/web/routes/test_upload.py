@@ -160,14 +160,13 @@ class TestGetUploadPage:
         resp = client.get("/upload")
         return BeautifulSoup(resp.text, "html.parser").select(selector)
 
-    def test_returns_200_and_html_content(self, t_logged_in):
-        resp = t_logged_in.get(url="/upload")
-        assert resp.status_code == 200
+    def test_returns_200_and_html_content(self, t_user: TestClient):
+        assert (resp := t_user.get(url="/upload")).status_code == 200
         assert resp.headers.get("content-type") == "text/html; charset=utf-8"
 
-    def test_returns_expected_html(self, t_logged_in):
+    def test_returns_expected_html(self, t_user: TestClient):
         """Returns template markers, form elements & content-type overrides"""
-        resp = t_logged_in.get(url="/upload")
+        resp = t_user.get(url="/upload")
         assert "<!-- BEGIN: upload/page.html" in resp.text
         assert "<!-- END: upload/page.html" in resp.text
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -179,9 +178,9 @@ class TestGetUploadPage:
         assert button or input_submit
         assert soup.find_all("optgroup")
 
-    def test_format_select_covers_all_formats(self, t_logged_in):
+    def test_format_select_covers_all_formats(self, t_user: TestClient):
         """Upload form has an option for every ContentFormat."""
-        soup = BeautifulSoup(t_logged_in.get("/upload").text, "html.parser")
+        soup = BeautifulSoup(t_user.get("/upload").text, "html.parser")
         select = soup.find("select", attrs={"name": "format"})
         assert select is not None
         options = set()
@@ -192,26 +191,24 @@ class TestGetUploadPage:
         expected = {f.value for f in ContentFormat}
         assert options == expected, f"Missing: {expected - options}"
 
-    def test_has_file_input(self, t_logged_in):
+    def test_has_file_input(self, t_user: TestClient):
         """Form includes a hidden file input for image uploads."""
-        soup = BeautifulSoup(t_logged_in.get("/upload").text, "html.parser")
+        soup = BeautifulSoup(t_user.get("/upload").text, "html.parser")
         finput = soup.find("input", attrs={"type": "file", "name": "file"})
         assert finput is not None
         hidden, style = finput.get("hidden"), finput.get("style") == "display:none"
         assert (hidden is not None) or (style == "display:none")
 
-    def test_has_file_input_label(self, t_logged_in):
+    def test_has_file_input_label(self, t_user: TestClient):
         """Form has a visible label triggering the file input."""
-        soup = BeautifulSoup(t_logged_in.get("/upload").text, "html.parser")
+        soup = BeautifulSoup(t_user.get("/upload").text, "html.parser")
         finput = soup.find("input", attrs={"type": "file", "name": "file"})
-        label = soup.find("label", attrs={"for": finput.get("id")})  # type:ignore
-        assert label is not None
+        assert soup.find("label", attrs={"for": finput.get("id")}) is not None  # type: ignore
 
-    def test_has_attachment_card(self, t_logged_in):
+    def test_has_attachment_card(self, t_user: TestClient):
         """Form includes an attachment preview container, hidden by default."""
-        soup = BeautifulSoup(t_logged_in.get("/upload").text, "html.parser")
-        card = soup.find(class_="attachment-card")
-        assert card is not None
+        soup = BeautifulSoup(t_user.get("/upload").text, "html.parser")
+        assert soup.find(class_="attachment-card") is not None
 
 
 _HTMX_DEFAULT_DATA = {"content": "hello world", "format": "txt"}

@@ -18,6 +18,7 @@ from depo.util import errors
 from depo.util.password import hash_password
 from tests.factories import HEADER_BROWSER, HEADER_HTMX
 from tests.factories.db import insert_user
+from tests.fixtures import KnownUser
 from tests.helpers.assertions import assert_no_persistence
 
 
@@ -30,16 +31,14 @@ class TestRouteRegistration:
         assert resp.status_code == 200
         assert resp.text == "ok"
 
-    def test_upload_not_captured_by_wildcard(self, t_logged_in):
+    def test_upload_not_captured_by_wildcard(self, t_user: TestClient):
         """GET /upload returns upload page, not a shortcode lookup."""
-        resp = t_logged_in.get("/upload")
-        assert resp.status_code == 200
+        assert (resp := t_user.get("/upload")).status_code == 200
         assert "text/html" in resp.headers["content-type"]
 
     def test_root_not_captured_by_wildcard(self, t_client):
         """GET / redirects to /upload, not a shortcode lookup."""
-        resp = t_client.get("/", follow_redirects=False)
-        assert resp.status_code == 302
+        assert (resp := t_client.get("/", follow_redirects=False)).status_code == 302
         assert resp.headers["location"] == "/upload"
 
     def test_wildcard_does_not_shadow_fixed_routes(self, t_client):
@@ -98,45 +97,48 @@ class TestLoginRoute:
         assert resp.status_code == 200
         assert "session" not in resp.cookies
 
-    def test_get_login_authenticated_redirects(self, t_authed):
+    def test_get_login_authenticated_redirects(self, t_known_user: KnownUser):
         """GET /login while authenticated redirects to / instead of rendering."""
-        data = {"email": t_authed.user.email, "password": t_authed.password}
-        t_authed.client.post("/login", data=data, follow_redirects=False)
-        resp = t_authed.client.get("/login", follow_redirects=False)
+        data = {"email": t_known_user.user.email, "password": t_known_user.password}
+        t_known_user.client.post("/login", data=data, follow_redirects=False)
+        resp = t_known_user.client.get("/login", follow_redirects=False)
         assert resp.status_code == 302
         assert resp.headers.get("location") == "/"
 
-    def test_post_valid_credentials_redirects(self, t_authed):
+    def test_post_valid_credentials_redirects(self, t_known_user: KnownUser):
         """POST /login with valid credentials 302s and sets session uid."""
-        data = {"email": t_authed.user.email, "password": t_authed.password}
-        resp = t_authed.client.post("/login", data=data, follow_redirects=False)
+        data = {"email": t_known_user.user.email, "password": t_known_user.password}
+        resp = t_known_user.client.post("/login", data=data, follow_redirects=False)
         assert resp.status_code == 302
         assert "session" in resp.cookies
 
-    def test_post_wrong_password_rerenders_form(self, t_authed):
+    def test_post_wrong_password_rerenders_form(self, t_known_user: KnownUser):
         """POST /login with wrong password re-renders the form with an error."""
-        data = {"email": t_authed.user.email, "password": "wrong-pass"}
-        resp = t_authed.client.post("/login", data=data, follow_redirects=False)
+        data = {"email": t_known_user.user.email, "password": "wrong-pass"}
+        resp = t_known_user.client.post("/login", data=data, follow_redirects=False)
         self._assert_login_rejected(resp)
 
-    def test_post_unknown_email_rerenders_form(self, t_authed):
+    def test_post_unknown_email_rerenders_form(self, t_known_user: KnownUser):
         """POST /login with unknown email re-renders the form with an error."""
-        data = {"email": "not-an@email.com", "password": t_authed.password}
-        resp = t_authed.client.post("/login", data=data, follow_redirects=False)
+        data = {"email": "not-an@email.com", "password": t_known_user.password}
+        resp = t_known_user.client.post("/login", data=data, follow_redirects=False)
         self._assert_login_rejected(resp)
 
 
 class TestLogoutRoute:
     """Tests for GET /logout."""
 
-    def test_logout_clears_session_and_redirects(self, t_authed):
+    def test_logout_clears_session_and_redirects(self, t_known_user: KnownUser):
         """GET /logout clears the session, subsequent request is unauthenticated."""
-        data = {"email": t_authed.user.email, "password": t_authed.password}
-        t_authed.client.post("/login", data=data, follow_redirects=False)
-        resp = t_authed.client.get("/logout", follow_redirects=False)
+        data = {"email": t_known_user.user.email, "password": t_known_user.password}
+        t_known_user.client.post("/login", data=data, follow_redirects=False)
+        resp = t_known_user.client.get("/logout", follow_redirects=False)
         assert resp.status_code == 302
         assert "session" not in resp.cookies
-        assert "session" not in t_authed.client.get("/", follow_redirects=False).cookies
+        assert (
+            "session"
+            not in t_known_user.client.get("/", follow_redirects=False).cookies
+        )
 
 
 class TestLoginSession:
@@ -182,9 +184,6 @@ class TestLoginSession:
         assert "session" not in resp.cookies
 
 
-_TBA_MSG = "upload-gate incomplete: require_auth, AuthRequiredError, gated routes"
-
-
 class TestUploadGate:
     """Integration gate for authenticated-only upload routes."""
 
@@ -221,20 +220,21 @@ class TestUploadGate:
         assert "<!-- BEGIN: errors/partial.html -->" not in resp.text
         assert BSoup(resp.text, "html.parser").select_one('a[href="/login"]')
 
-    def test_authed_post_upload_creates_item_with_uid(self, t_authed):
+    def test_known_user_post_upload_creates_item_with_uid(
+        self, t_known_user: KnownUser
+    ):
         """An authenticated POST /upload creates an item with the session uid."""
-        data = {"email": t_authed.user.email, "password": t_authed.password}
-        t_authed.client.post("/login", data=data, follow_redirects=False)
-        resp = t_authed.client.post("/upload", files={"file": ("t.txt", b"Hello!")})
+        data = {"email": t_known_user.user.email, "password": t_known_user.password}
+        t_known_user.client.post("/login", data=data, follow_redirects=False)
+        resp = t_known_user.client.post("/upload", files={"file": ("t.txt", b"Hello!")})
         code = resp.headers.get("X-Depo-Code")
         assert resp.status_code == 201
         assert code is not None
-        conn = cast(FastAPI, t_authed.client.app).state.repo._conn
+        conn = cast(FastAPI, t_known_user.client.app).state.repo._conn
         row = conn.execute("SELECT uid FROM items WHERE code = ?", (code,)).fetchone()
-        assert row["uid"] == t_authed.user.id
+        assert row["uid"] == t_known_user.user.id
 
-    def test_authed_get_upload_renders_form(self, t_logged_in):
+    def test_known_user_get_upload_renders_form(self, t_user: TestClient):
         """An authenticated GET /upload renders the form."""
-        resp = t_logged_in.get("/upload")
-        assert resp.status_code == 200
+        assert (resp := t_user.get("/upload")).status_code == 200
         assert "<!-- BEGIN: upload/page.html" in resp.text
