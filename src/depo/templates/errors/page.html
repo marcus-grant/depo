@@ -2,12 +2,7 @@
 {% block content %}
 <!-- BEGIN: errors/page.html#content -->
 <section class="window window--error">
-  <h2>{{ error.message }}</h2>
-  {% if error.status == 401 %}
-  <p>You must be logged in to perform this action!</p>
-  <hr>
-  <p>Please <a href="/login">log in</a> to continue.</p>
-  {% endif %}
+  {% include "errors/_content.html" %}
   {% if error.status >= 500 %}
   <details>
     <summary>Debug info</summary>

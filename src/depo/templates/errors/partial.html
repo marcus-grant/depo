@@ -1,5 +1,5 @@
 <!-- BEGIN: errors/partial.html -->
 <div class="error error--{{ role }}" role="{{ role }}">
-  <p>{{ error.message }}</p>
+  {% include "errors/_content.html" %}
 </div>
 <!-- END: errors/partial.html -->
