@@ -10,12 +10,13 @@ License: Apache-2.0
 
 from typing import cast
 
-import pytest
 from bs4 import BeautifulSoup as BSoup
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 from depo.util import errors
 from depo.util.password import hash_password
+from tests.factories import HEADER_BROWSER, HEADER_HTMX
 from tests.factories.db import insert_user
 from tests.helpers.assertions import assert_no_persistence
 
@@ -201,25 +202,36 @@ class TestUploadGate:
         assert errors.AuthRequiredError.message in resp.text
         assert BSoup(resp.text, "html.parser").select_one(login) is not None
 
-    def test_htmx_rejection_carries_login_link(self, t_htmx):
+    def test_htmx_rejection_carries_login_link(self, t_client: TestClient):
         """The htmx upload-rejection partial carries a login link."""
-        resp = t_htmx.post("/upload", data={"content": "hello", "format": "txt"})
+        data = {"content": "hello", "format": "txt"}
+        resp = t_client.post("/upload", data=data, headers=HEADER_HTMX)
         assert resp.status_code == 200
         assert errors.AuthRequiredError.message in resp.text
         assert BSoup(resp.text, "html.parser").select_one('a[href="/login"]')
         assert "<!-- BEGIN: errors/partial.html -->" in resp.text
 
-    @pytest.mark.skip(_TBA_MSG)
-    def test_browser_rejection_carries_login_link(self, t_browser):
+    def test_browser_rejection_carries_login_link(self, t_client: TestClient):
         """The browser upload-rejection surface carries a login link."""
-        _ = t_browser
-        ...
+        data = {"content": "hello", "format": "txt"}
+        resp = t_client.post("/upload", data=data, headers=HEADER_BROWSER)
+        assert resp.status_code == 401
+        assert errors.AuthRequiredError.message in resp.text
+        assert "BEGIN: errors/page.html#content" in resp.text
+        assert "<!-- BEGIN: errors/partial.html -->" not in resp.text
+        assert BSoup(resp.text, "html.parser").select_one('a[href="/login"]')
 
-    @pytest.mark.skip(_TBA_MSG)
     def test_authed_post_upload_creates_item_with_uid(self, t_authed):
         """An authenticated POST /upload creates an item with the session uid."""
-        _ = t_authed
-        ...
+        data = {"email": t_authed.user.email, "password": t_authed.password}
+        t_authed.client.post("/login", data=data, follow_redirects=False)
+        resp = t_authed.client.post("/upload", files={"file": ("t.txt", b"Hello!")})
+        code = resp.headers.get("X-Depo-Code")
+        assert resp.status_code == 201
+        assert code is not None
+        conn = cast(FastAPI, t_authed.client.app).state.repo._conn
+        row = conn.execute("SELECT uid FROM items WHERE code = ?", (code,)).fetchone()
+        assert row["uid"] == t_authed.user.id
 
     def test_authed_get_upload_renders_form(self, t_logged_in):
         """An authenticated GET /upload renders the form."""

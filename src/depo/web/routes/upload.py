@@ -48,25 +48,26 @@ async def upload(
     Delegates to hx_upload for HTMX requests, api_upload for API requests."""
     url_encoded_head = "application/x-www-form-urlencoded"
     if is_htmx(req):
-        return await hx_upload(req, orch)
+        return await hx_upload(req, uid, orch)
     if req.headers.get("content-type", "").startswith(url_encoded_head):
         try:
             params = await _parse_form_upload(req)
-            result = orch.ingest(**dict(params))  # type: ignore
+            result = orch.ingest(**dict(params), uid=uid)  # type: ignore
         except errors.DepoError as e:
             return browser_error(req, e)
         return RedirectResponse(f"/{result.item.code}/info", status_code=303)
-    return await api_upload(req, orch=orch, url=url, file=file, fmt=fmt)
+    return await api_upload(req, uid, orch=orch, url=url, file=file, fmt=fmt)
 
 
 async def hx_upload(
     request: Request,
+    uid: int,
     orch: IngestOrchestrator = Depends(get_orchestrator),
 ) -> Response:
     """Browser form upload: textarea content + format override."""
     try:
         params = await _parse_form_upload(request)
-        result = orch.ingest(**dict(params))  # type: ignore[arg-type]
+        result = orch.ingest(**dict(params), uid=uid)  # type: ignore[arg-type]
         return get_templates().TemplateResponse(
             request=request,
             name="partials/success.html",
@@ -79,6 +80,7 @@ async def hx_upload(
 
 async def api_upload(
     req: Request,
+    uid: int,
     orch: IngestOrchestrator = Depends(get_orchestrator),
     url: str | None = None,
     file: UploadFile | None = None,
@@ -93,7 +95,7 @@ async def api_upload(
                 raise errors.UnsupportedFormatError(req_fmt_str)
         else:
             req_fmt = None
-        result = await _ingest_upload(file, url, req, orch, req_fmt=req_fmt)
+        result = await _ingest_upload(file, url, req, orch, uid, req_fmt=req_fmt)
     except errors.DepoError as e:
         return api_error(e)
     return _upload_response(result)
@@ -201,10 +203,11 @@ async def _ingest_upload(
     url: str | None,
     req: Request | None,
     orch: IngestOrchestrator,
+    uid: int,
     req_fmt: ContentFormat | None = None,
 ) -> PersistResult:
     """Parse request and ingest with IngestOrchestrator given.
     Raises some subclass of DepoError on failure."""
     req = None if file is not None or url is not None else req
     params = await _parse_upload(file=file, url=url, request=req)
-    return orch.ingest(**dict(params), requested_format=req_fmt)  # type: ignore[arg-type]
+    return orch.ingest(**dict(params), requested_format=req_fmt, uid=uid)  # type: ignore[arg-type]

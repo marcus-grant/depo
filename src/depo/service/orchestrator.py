@@ -96,7 +96,7 @@ class IngestOrchestrator:
             return PersistResult(item=item, created=False)
 
         # Insert into database with WritePlan
-        item = self._repo.insert(plan)
+        item = self._repo.insert(plan, uid=uid, perm=perm)
 
         # Save into StorageBackend if not a LinkItem
         # TODO: Implement payload_path temp file streaming
