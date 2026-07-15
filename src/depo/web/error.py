@@ -11,7 +11,7 @@ import logging
 from fastapi import Request
 from starlette.responses import PlainTextResponse, Response
 
-from depo.util.errors import DepoError, UnknownServerError
+from depo.util.errors import AuthRequiredError, DepoError, UnknownServerError
 from depo.web.negotiate import wants_html
 from depo.web.templates import get_templates as _get
 from depo.web.templates import is_htmx
@@ -36,6 +36,20 @@ def unhandled(request: Request, exc: Exception) -> Response:
     if wants_html(request):
         return browser_error(request, err)
     return api_error(err)
+
+
+def auth_required(request: Request, exc: Exception) -> Response:
+    """Surface-appropriate response for an AuthRequiredError reaching the boundary.
+    Dispatches to the htmx, browser, or api builder by request type,
+    passing the error through at its own 401 status rather than wrapping
+    it as UnknownServerError.
+    """
+    assert isinstance(exc, AuthRequiredError)
+    if is_htmx(request):
+        return htmx_error(request, exc)
+    if wants_html(request):
+        return browser_error(request, exc)
+    return api_error(exc)
 
 
 def api_error(err: DepoError) -> PlainTextResponse:

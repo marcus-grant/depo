@@ -136,23 +136,30 @@ class IngestOrchestrator:
 
     def ingest(
         self,
+        uid: int,
+        perm: Visibility,
         *,
         payload_bytes: bytes | None = None,
         payload_path: Path | None = None,
-        link_url: str | None = None,
         filename: str | None = None,
         declared_mime: str | None = None,
         requested_format: ContentFormat | None = None,
-        uid: int = 0,
-        perm: Visibility = Visibility.PUBLIC,
     ) -> PersistResult: ...
 ```
+
+`uid` and `perm` are required positional args.
+The layer nearest persistence demands an owner and
+a visibility rather than defaulting silently;
+so anonymous or system ingest states `uid=0` explicitly rather than omitting it.
+The web layer supplies the session uid from `require_auth` and,
+until permissions work lands,
+a placeholder visibility hoisted to `_DEFAULT_PERM` in `routes/upload.py`.
 
 #### IngestOrchestrator - Pipeline
 
 1. `IngestService.build_plan()` → WritePlan
 2. `Repo.get_by_full_hash()` → dedupe check, return early if exists
-3. `Repo.insert()` → resolve code internally, write metadata
+3. `Repo.insert(plan, uid, perm)` → resolve code internally, write metadata
 4. `Storage.put()` → write bytes (skip for LinkItem)
 5. On storage failure → `Repo.delete()` for rollback
 6. Return `PersistResult(item, created)`

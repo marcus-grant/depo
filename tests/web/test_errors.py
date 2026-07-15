@@ -72,29 +72,29 @@ class TestHtmxErrorPartial:
         data = {"content": "x" * (defaults.MAX_SIZE_BYTES + 1), "format": ""}
         return c.post("/upload", data=data, headers=HEADER_HTMX)
 
-    def test_empty_upload_returns_partial(self, t_client: TestClient):
+    def test_empty_upload_returns_partial(self, t_user: TestClient):
         """Empty upload returns error partial not wrapped in base template."""
-        assert "<!-- BEGIN: errors/partial.html" in self._empty_resp(t_client).text
-        assert "<!-- BEGIN: base.html" not in self._empty_resp(t_client).text
+        assert "<!-- BEGIN: errors/partial.html" in self._empty_resp(t_user).text
+        assert "<!-- BEGIN: base.html" not in self._empty_resp(t_user).text
 
-    def test_empty_upload_error_message(self, t_client: TestClient):
+    def test_empty_upload_error_message(self, t_user: TestClient):
         """Empty upload error partial includes error message."""
         from depo.util.errors import PayloadEmptyError
 
-        assert PayloadEmptyError.message in self._empty_resp(t_client).text
+        assert PayloadEmptyError.message in self._empty_resp(t_user).text
 
-    def test_oversized_upload_returns_partial(self, t_client: TestClient):
+    def test_oversized_upload_returns_partial(self, t_user: TestClient):
         """Oversized upload returns error partial not wrapped in base template."""
-        resp = self._oversize_resp(t_client)
+        resp = self._oversize_resp(t_user)
         expected_words = ["too large", "too big", "exceeds", "exceed", "oversized"]
         assert any(w in resp.text.lower() for w in expected_words)
         assert "<!-- BEGIN: errors/partial.html" in resp.text
         assert "<!-- BEGIN: base.html" not in resp.text
 
-    def test_htmx_error_returns_200(self, t_client: TestClient):
+    def test_htmx_error_returns_200(self, t_user: TestClient):
         """HTMX error responses always return 200 status."""
-        assert self._empty_resp(t_client).status_code == 200
-        assert self._oversize_resp(t_client).status_code == 200
+        assert self._empty_resp(t_user).status_code == 200
+        assert self._oversize_resp(t_user).status_code == 200
 
 
 class TestUnexpectedErrorBoundary:

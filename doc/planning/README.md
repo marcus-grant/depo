@@ -8,7 +8,7 @@ Project planning, priorities, and development workflow.
 - [Task Planning](./tasks.md)
   - How a unit of work becomes a structured PR
   - Phased TDD checklist; worked example in mvp.md
-- [v0.2 Planning](./v0.2.md)
+- [v0.2 Planning](./v02.md)
   - Post-MVP improvements planned for next release
 - [v1.0 Requirements](./v1.md)
   - Long-term direction and constraints

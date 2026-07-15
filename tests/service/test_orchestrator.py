@@ -13,14 +13,18 @@ import pytest
 from tests.factories import make_ingest_service
 from tests.factories.models import make_link_item, make_pic_item, make_text_item
 from tests.factories.payloads import gen_image
+from tests.fixtures import OrchEnv
 from tests.helpers.assertions import assert_field
 
-from depo.model.enums import ContentFormat
+from depo.model.enums import ContentFormat, Visibility
 from depo.model.item import LinkItem, PicItem, TextItem
 from depo.service.orchestrator import IngestOrchestrator, PersistResult
 from depo.util.shortcode import hash_full_b32
 
 _EXPECTED_OS_RAISE = "Testing disk write error"
+
+_UID = 0
+_VIS = Visibility.PUBLIC
 
 
 def _failing_put(**_):
@@ -71,12 +75,12 @@ class TestIngestOrchestratorInit:
 class TestIngestOrchestratorIngest:
     """Tests for IngestOrchestrator.ingest()."""
 
-    def test_happy_path_text_item(self, t_orch_env):
+    def test_happy_path_text_item(self, t_orch_env: OrchEnv):
         """TextItem happy path: created=True, item in repo, bytes in storage."""
         orch, repo, store = t_orch_env  # Assemble orchestrator
         payload, fmt = b"Hello, World!", ContentFormat.PLAINTEXT
         # Act with assembled orchestrator's ingest & test inputs
-        result = orch.ingest(payload_bytes=payload, requested_format=fmt)
+        result = orch.ingest(_UID, _VIS, payload_bytes=payload, requested_format=fmt)
         # Assert PersistResult with correct field values
         assert isinstance(result, PersistResult)
         assert result.created
@@ -85,12 +89,12 @@ class TestIngestOrchestratorIngest:
         with store.open(code=result.item.code, format=result.item.format) as f:
             assert f.read() == payload
 
-    def test_happy_path_pic_item(self, t_orch_env):
+    def test_happy_path_pic_item(self, t_orch_env: OrchEnv):
         """PicItem happy path: created=True, item in repo, bytes in storage."""
         # TODO: Modify this test to use payload_path file streaming
         orch, repo, storage = t_orch_env  # Assemble orchestrator
         payload = gen_image(ContentFormat.PNG, 1, 1)  # and its inputs
-        result = orch.ingest(payload_bytes=payload)  # Act
+        result = orch.ingest(_UID, _VIS, payload_bytes=payload)  # Act
         assert isinstance(result, PersistResult)  # Assert
         assert result.created
         assert repo.get_by_full_hash(result.item.hash_full) == result.item
@@ -98,36 +102,36 @@ class TestIngestOrchestratorIngest:
         with storage.open(code=result.item.code, format=result.item.format) as f:
             assert f.read() == payload
 
-    def test_happy_path_link_item(self, t_orch_env):
+    def test_happy_path_link_item(self, t_orch_env: OrchEnv):
         """LinkItem happy path: created=True, item in repo, NOT in storage."""
         orch, repo, store = t_orch_env  # Assemble
-        result = orch.ingest(payload_bytes=b"https://www.example.com/")  # Act
+        result = orch.ingest(_UID, _VIS, payload_bytes=b"https://test.se/")  # Act
         assert isinstance(result, PersistResult)  # Assert
         assert result.created
         assert repo.get_by_full_hash(result.item.hash_full) == result.item
         assert isinstance(result.item, LinkItem)
         assert list(store._root.glob(f"*{result.item.code}*")) == []
 
-    def test_dedupe_returns_existing_item(self, t_orch_env):
+    def test_dedupe_returns_existing_item(self, t_orch_env: OrchEnv):
         """Duplicate payload returns created=False with existing item."""
         # Assemble Orchestrator, and the payload to ingest
         orch, _, _ = t_orch_env
         payload, fmt = b"duplicate content", ContentFormat.PLAINTEXT
 
         # Act by ingesting the same content twice with same args
-        first = orch.ingest(payload_bytes=payload, requested_format=fmt)
-        second = orch.ingest(payload_bytes=payload, requested_format=fmt)
+        first = orch.ingest(_UID, _VIS, payload_bytes=payload, requested_format=fmt)
+        second = orch.ingest(_UID, _VIS, payload_bytes=payload, requested_format=fmt)
 
         # Assert only first result has .created and that first.item == second.item
         assert first.created is True
         assert second.created is False
         assert second.item == first.item
 
-    def test_rollback_on_storage_raise(self, t_orch_env, monkeypatch):
+    def test_rollback_on_storage_raise(self, t_orch_env: OrchEnv, monkeypatch):
         """Rollback on storage.put OSError causes repo.delete & re-raises"""
         orch, repo, store = t_orch_env
         monkeypatch.setattr(store, "put", _failing_put)
         hash_full, cf_txt = hash_full_b32(b"hello"), ContentFormat.PLAINTEXT
         with pytest.raises(OSError, match=_EXPECTED_OS_RAISE):
-            orch.ingest(payload_bytes=b"hello", requested_format=cf_txt)
+            orch.ingest(_UID, _VIS, payload_bytes=b"hello", requested_format=cf_txt)
         assert repo.get_by_full_hash(hash_full) is None

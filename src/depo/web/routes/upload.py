@@ -16,21 +16,24 @@ from fastapi import APIRouter, Depends, Query, Request, Response, UploadFile
 from fastapi.responses import PlainTextResponse, RedirectResponse
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
-from depo.model.enums import ContentFormat
+from depo.model.enums import ContentFormat, Visibility
 from depo.model.formats import format_for_extension
 from depo.model.item import LinkItem
 from depo.service.orchestrator import IngestOrchestrator, PersistResult
 from depo.util import errors
-from depo.web.deps import get_orchestrator
+from depo.web.deps import get_orchestrator, require_auth
 from depo.web.error import api_error, browser_error, htmx_error
 from depo.web.templates import get_templates, is_htmx
 
 upload_router = APIRouter()
 
+_DEFAULT_PERM = Visibility.PUBLIC  # Default visibility for uploaded items (will change)
+
 
 @upload_router.get("/upload")
-async def page_upload(req: Request):
+async def page_upload(req: Request, _uid: int = Depends(require_auth)) -> Response:
     """Serve the upload form as a full HTML page."""
+    _ = _uid  # Shut up LSPs that don't recognize FastAPI dependency injection
     return get_templates().TemplateResponse(request=req, name="upload/page.html")
 
 
@@ -38,6 +41,7 @@ async def page_upload(req: Request):
 async def upload(
     req: Request,
     orch: IngestOrchestrator = Depends(get_orchestrator),
+    uid: int = Depends(require_auth),
     url: str | None = None,
     file: UploadFile | None = None,
     fmt: str | None = Query(None, alias="format"),
@@ -46,25 +50,26 @@ async def upload(
     Delegates to hx_upload for HTMX requests, api_upload for API requests."""
     url_encoded_head = "application/x-www-form-urlencoded"
     if is_htmx(req):
-        return await hx_upload(req, orch)
+        return await hx_upload(req, uid, orch)
     if req.headers.get("content-type", "").startswith(url_encoded_head):
         try:
             params = await _parse_form_upload(req)
-            result = orch.ingest(**dict(params))  # type: ignore
+            result = orch.ingest(uid, _DEFAULT_PERM, **dict(params))  # type: ignore
         except errors.DepoError as e:
             return browser_error(req, e)
         return RedirectResponse(f"/{result.item.code}/info", status_code=303)
-    return await api_upload(req, orch=orch, url=url, file=file, fmt=fmt)
+    return await api_upload(req, uid, orch=orch, url=url, file=file, fmt=fmt)
 
 
 async def hx_upload(
     request: Request,
+    uid: int,
     orch: IngestOrchestrator = Depends(get_orchestrator),
 ) -> Response:
     """Browser form upload: textarea content + format override."""
     try:
         params = await _parse_form_upload(request)
-        result = orch.ingest(**dict(params))  # type: ignore[arg-type]
+        result = orch.ingest(uid, _DEFAULT_PERM, **dict(params))  # type: ignore[arg-type]
         return get_templates().TemplateResponse(
             request=request,
             name="partials/success.html",
@@ -77,6 +82,7 @@ async def hx_upload(
 
 async def api_upload(
     req: Request,
+    uid: int,
     orch: IngestOrchestrator = Depends(get_orchestrator),
     url: str | None = None,
     file: UploadFile | None = None,
@@ -91,7 +97,7 @@ async def api_upload(
                 raise errors.UnsupportedFormatError(req_fmt_str)
         else:
             req_fmt = None
-        result = await _ingest_upload(file, url, req, orch, req_fmt=req_fmt)
+        result = await _ingest_upload(file, url, req, orch, uid, req_fmt=req_fmt)
     except errors.DepoError as e:
         return api_error(e)
     return _upload_response(result)
@@ -199,10 +205,11 @@ async def _ingest_upload(
     url: str | None,
     req: Request | None,
     orch: IngestOrchestrator,
+    uid: int,
     req_fmt: ContentFormat | None = None,
 ) -> PersistResult:
     """Parse request and ingest with IngestOrchestrator given.
     Raises some subclass of DepoError on failure."""
     req = None if file is not None or url is not None else req
     params = await _parse_upload(file=file, url=url, request=req)
-    return orch.ingest(**dict(params), requested_format=req_fmt)  # type: ignore[arg-type]
+    return orch.ingest(uid, _DEFAULT_PERM, **dict(params), requested_format=req_fmt)  # type: ignore[arg-type]

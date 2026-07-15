@@ -68,4 +68,4 @@ Run the checks, commit with a `Doc:` prefix.
 One PR, usually six to twelve commits, each under 300 lines. If TDD
 implementation passes a dozen units, or a unit will not stay small, the task
 is too big and should split into dependent tasks. Pre-MVP tasks do not bump
-versions; releases live in v0.2.md and v1.md.
+versions; releases live in v02.md, unplanned.md and v1.md.

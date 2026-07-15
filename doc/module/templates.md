@@ -23,6 +23,7 @@ templates/
 │   ├── foot.html            # Site footer
 │   └── success.html         # Upload success (HTMX fragment)
 └── errors/
+    ├── _content.html        # Shared error body (include, not rendered)
     ├── page.html            # Full-page error (extends base.html)
     └── partial.html         # Error pip (HTMX fragment)
 ```
@@ -43,10 +44,15 @@ base.html
 │   ├── info/text.html
 │   └── info/pic.html
 └── errors/
-    └── page.html
+    ├── _content.html        # Shared error body (include, not rendered)
+    ├── page.html            # Full-page error (extends base.html)
+    └── partial.html         # Error pip (HTMX fragment)
 ```
 
 `errors/partial.html` is a standalone fragment, not extending base.html.
+
+`errors/_content.html` is an include, not a rendered template. Both
+`errors/page.html` and `errors/partial.html` include it for the error body.
 
 `base.html` provides the page shell:
 `nav` partial, content block, footer partial.
@@ -96,15 +102,23 @@ data-copy-url (fetch, sniff Content-Type, writeText or ClipboardItem).
 
 ## Error pages
 
-Both error templates use `section.window.window--error` as their container.
-No action row, no metadata, no payload block.
+`errors/_content.html` carries the shared body:
+the error message as a heading, and, for 401, a prompt linking to `/login`.
+Both surfaces include it.
 
-404: Renders the shortcode in a code.shortcode element with a message
-that the code does not exist or was deleted.
+The wrappers differ deliberately, because their semantics differ.
+`errors/page.html` wraps the content in `section.window.window--error`,
+a landmark region on a freshly loaded page.
+`errors/partial.html` wraps it in `div.error.error--{role}` with
+a matching `role` attribute, an ARIA live region,
+because htmx swaps it in dynamically and a screen reader must announce it.
 
-500: Renders a message heading, a paragraph with issues link, and a
-details element (default closed) containing debug info as a dl with
-path, method, and detail.
+The 5xx debug disclosure stays page-only.
+A collapsed details element is useful on a full error page someone stops to read;
+it is noise inside a transient alert.
+
+404: Renders shortcode in a `code.shortcode` element with
+a message that the code does not exist or was deleted.
 
 ## Conventions
 

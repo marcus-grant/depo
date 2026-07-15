@@ -16,6 +16,9 @@ These negotiate request context and delegate to a specific handler.
 - `POST /upload` - `upload()`
   - Delegates to `hx_upload` or `api_upload`.
   - Also handles multipart form data & file uploads with file upload element.
+  - Gated by `require_auth`.
+    - Threads the session uid into every ingest path.
+    - So a created item carries the uploading user's id.
 
 ### Single-context routes
 
@@ -29,6 +32,8 @@ These negotiate request context and delegate to a specific handler.
 - `GET /upload` - `page_upload()`.
   - Upload form, full page render.
   - File picker embedded into text area to drop files or click to pick.
+  - Gated by `require_auth`.
+    - An unauthenticated request gets a 401 with login link rather than form.
 - `GET /health` - `health()`.
   - Liveness probe.
 
@@ -53,6 +58,32 @@ Dispatchers inspect request context to choose a handler:
 
 The negotiation is a thin dispatch, not interleaved with handler logic.
 Each handler is explicitly named and does one thing.
+
+## Authentication
+
+Gated routes take `Depends(require_auth)`.
+Dependency reads the session uid and raises `AuthRequiredError` when there is none,
+so an unauthenticated request is rejected during dependency resolution.
+The handler body never runs.
+No bytes are parsed, nothing is persisted.
+
+Rejection is a uniform 401 on every surface.
+An unauthenticated request is not redirected to `/login`:
+a redirect would launder an authorization failure into a navigation event.
+The status on the wire would say the request succeeded going somewhere,
+not that it was refused.
+
+Instead, the UI surfaces carry the way forward in the body.
+The browser error page and the htmx error partial both
+render a link to `/login` alongside the error message.
+The API surface returns the message as plaintext.
+
+The htmx surface is the one exception to the uniform status,
+and it is a temporary one:
+`htmx_error` hard-codes 200 so htmx will swap the partial into the DOM.
+Migrating the htmx error surfaces to honest status codes is tracked in planning.
+
+Currently gated: `GET /upload`, `POST /upload`.
 
 ## Router organization
 

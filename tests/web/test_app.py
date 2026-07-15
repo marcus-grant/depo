@@ -8,12 +8,13 @@ Revised: [2026-06-23]
 License: Apache-2.0
 """
 
-from fastapi import FastAPI, Request
-from fastapi.testclient import TestClient
 
+from fastapi import FastAPI, Request
+
+from depo.util.errors import AuthRequiredError
 from depo.web.app import app_factory
 from depo.web.deps import get_current_uid
-from tests.factories import make_config
+from tests.factories import make_config, make_full_probe_client, make_user_client
 
 
 class TestAppFactory:
@@ -43,42 +44,27 @@ class TestHealthCheck:
 class TestConfigWiring:
     """Resolved config governs the live upload path (gating tests)."""
 
+    _FILE = {"file": ("test.txt", b"Hello, World!")}
+
     def test_max_size_bytes_governs(self, tmp_path):
         """A tiny max_size_bytes rejects any upload with 413."""
-        client = TestClient(app_factory(make_config(tmp_path, max_size_bytes=1)))
-        resp = client.post("/upload", files={"file": ("t.txt", b"too big")})
-        assert resp.status_code == 413
+        client = make_user_client(tmp_path, max_size_bytes=1)
+        assert client.post("/upload", files=self._FILE).status_code == 413
 
     def test_max_url_len_governs(self, tmp_path):
         """A tiny max_url_len rejects a link with 413."""
-        client = TestClient(app_factory(make_config(tmp_path, max_url_len=1)))
-        resp = client.post("/upload?url=http://example.com")
-        assert resp.status_code == 413
+        client = make_user_client(tmp_path, max_url_len=1)
+        assert client.post("/upload?url=http://example.com").status_code == 413
 
     def test_min_code_len_governs(self, tmp_path):
         """A raised min_code_length yields a code of exactly that length."""
-        client = TestClient(app_factory(make_config(tmp_path, min_code_len=12)))
-        resp = client.post("/upload", files={"file": ("t.txt", b"hello world")})
+        client = make_user_client(tmp_path, min_code_len=12)
+        resp = client.post("/upload", files=self._FILE)
         assert len(resp.headers["X-Depo-Code"]) == 12
 
 
 class TestSessionMiddleware:
     """Tests that SessionMiddleware is wired and the current-user seam works."""
-
-    def _probe_request(self, path, probe_fn, **kwargs):
-        """Fire a GET /_probe/response against a full-stack app and return the response.
-        probe_fn receives the Request; its return value is serialized as JSON.
-        Extra kwargs are forwarded to the TestClient.get call, allowing callers
-        to pass cookies, headers, or other request parameters.
-        Use to test middleware and seam behavior against the real app stack
-        without hitting production routes.
-        """
-        app = app_factory(make_config(path))
-        app.add_api_route("/_probe/response", probe_fn, methods=["GET"])
-        client = TestClient(app)
-        if "cookies" in kwargs:
-            client.cookies.update(kwargs.pop("cookies"))
-        return client.get("/_probe/response", **kwargs)
 
     def _uid_probe(self, request: Request):
         return {"uid": get_current_uid(request)}  # should not raise
@@ -90,19 +76,20 @@ class TestSessionMiddleware:
             request.session["probe"] = "ok"
             return {"probe": request.session["probe"]}
 
-        resp = self._probe_request(tmp_path, _session_probe)
+        resp = make_full_probe_client(tmp_path, _session_probe).get("/test/probe")
         assert resp.status_code == 200
         assert resp.json()["probe"] == "ok"
 
     def test_unauthenticated_request_has_no_uid(self, tmp_path):
         """get_current_uid returns None for a request with no session uid."""
-        assert self._probe_request(tmp_path, self._uid_probe).json()["uid"] is None
+        client = make_full_probe_client(tmp_path, self._uid_probe)
+        assert client.get("/test/probe").json()["uid"] is None
 
     def test_tampered_cookie_rejected(self, tmp_path):
         """A forged or tampered session cookie resolves to no current user."""
-        bad_cookie = {"session": "bad_cookie"}
-        resp = self._probe_request(tmp_path, self._uid_probe, cookies=bad_cookie)
-        assert resp.json()["uid"] is None
+        client = make_full_probe_client(tmp_path, self._uid_probe)
+        client.cookies.set("session", "bad_cookie")
+        assert client.get("/test/probe").json()["uid"] is None
 
     def test_uid_round_trips_as_int(self, tmp_path):
         """A uid written to the session is returned by get_current_uid as int."""
@@ -111,6 +98,32 @@ class TestSessionMiddleware:
             request.session["uid"] = 42
             return {"uid": get_current_uid(request)}
 
-        resp = self._probe_request(tmp_path, _set_and_read_probe)
+        client = make_full_probe_client(tmp_path, _set_and_read_probe)
+        resp = client.get("/test/probe")
         assert resp.json()["uid"] == 42
         assert isinstance(resp.json()["uid"], int)
+
+
+class TestAuthRequiredHandler:
+    """Tests for the app-level AuthRequiredError exception handler."""
+
+    @staticmethod
+    async def _raise_probe():
+        raise AuthRequiredError()
+
+    def test_api_surface_returns_401(self, tmp_path):
+        """An AuthRequiredError on the api surface returns status 401."""
+        client = make_full_probe_client(tmp_path, self._raise_probe)
+        assert client.get("/test/probe").status_code == 401
+
+    def test_browser_surface_returns_401(self, tmp_path):
+        """An AuthRequiredError on the browser surface returns a 401 page."""
+        client = make_full_probe_client(tmp_path, self._raise_probe)
+        resp = client.get("/test/probe", headers={"Accept": "text/html"})
+        assert resp.status_code == 401
+
+    def test_htmx_surface_returns_200_partial(self, tmp_path):
+        """An AuthRequiredError on the htmx surface returns a 200 partial."""
+        client = make_full_probe_client(tmp_path, self._raise_probe)
+        resp = client.get("/test/probe", headers={"HX-Request": "true"})
+        assert resp.status_code == 200

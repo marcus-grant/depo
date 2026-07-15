@@ -46,6 +46,7 @@ class TestErrorSeverity:
         errors.ImageDecodeError: errors.Severity.INFO,
         errors.UnsupportedFormatError: errors.Severity.INFO,
         errors.AuthenticationError: errors.Severity.WARNING,
+        errors.AuthRequiredError: errors.Severity.INFO,
     }
 
     def test_each_subclass_resolves_expected_severity(self):
@@ -458,3 +459,21 @@ class TestAuthenticationError:
         e = errors.AuthenticationError(_EMAIL, severity=errors.Severity.INFO)
         assert e.severity == errors.Severity.INFO
         assert e.__class__.severity == errors.Severity.WARNING
+
+
+class TestAuthRequiredError:
+    """Tests for AuthRequiredError (401)."""
+
+    def test_defaults(self):
+        """Class-level defaults: inherits DepoError, status 401, severity INFO."""
+        assert issubclass(errors.AuthRequiredError, errors.DepoError)
+        assert errors.AuthRequiredError.status == 401
+        assert errors.AuthRequiredError.severity == errors.Severity.INFO
+        e = errors.AuthRequiredError()
+        assert e.message == errors.AuthRequiredError.message
+
+    def test_severity_overridable_per_instance(self):
+        """An instance severity override takes effect, class default unchanged."""
+        e = errors.AuthRequiredError(severity=errors.Severity.WARNING)
+        assert e.severity == errors.Severity.WARNING
+        assert errors.AuthRequiredError.severity == errors.Severity.INFO

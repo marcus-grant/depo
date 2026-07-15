@@ -235,16 +235,32 @@ Avoids update anomalies (3NF) and keeps storage minimal.
 def insert(
     self,
     plan: WritePlan,
-    code: str,
     *,
     uid: int = 0,
     perm: Visibility = Visibility.PUBLIC,
 ) -> Item:
 ```
 
-Parameters with defaults for features not yet implemented (auth, permissions).
-Interface is stable—when feature lands, callers start passing real values.
+Parameters with defaults for features not yet implemented (`auth`, `perm`).
+Interface is stable, so when the feature lands,
+callers start passing real values.
 No signature change, no migration.
+
+The pattern has a potential trap, authentication found it.
+`IngestOrchestrator.ingest` accepted `uid` and `perm` with these defaults and
+then never passed them to the repo.
+Every item persisted as uid 0.
+The defaults meant nothing raised, because nothing failed a type check.
+Thus the gap only surfaced when a test asserted that
+an uploaded item carried its uploading client's id.
+
+So, use defaults for fields where the placeholder value is genuinely correct.
+At least till the feature is released.
+Do not use them for fields where an omission is a silent failure with
+consequences, ownership, permissions, or anything else load-bearing for security.
+Make the parameter required,
+so forgetting it is an error instead of a quiet default.
+`ingest` now requires both; callers with no user state `uid=0` explicitly.
 
 ## Test Patterns
 
@@ -289,13 +305,26 @@ def t_client(tmp_path):
 def t_seeded(tmp_path):
     """TestClient with one text, pic, and link item pre-populated.
     Returns SeededApp. Seeds via repo and store, no upload round-trip."""
+
+@pytest.fixture
+def t_user(tmp_path):
+    """TestClient with a seeded user and an active session."""
+
+@pytest.fixture
+def t_known_user(tmp_path):
+    """Seeded user with email, password, and id known, no session started.
+    Returns KnownUser. For tests that drive /login themselves or assert
+    against the user's id."""
 ```
 
 Fixtures compose upward: `t_conn` → `t_db` → `t_repo` → `t_orch_env`.
 Each layer adds one concern (schema, repository wrapper, orchestrator wiring).
-Web fixtures (`t_client`, `t_seeded`) use `make_client` from `tests/factories`.
+Web fixtures (`t_client`, `t_seeded`, `t_user`) use `make_client` from
+`tests/factories`. `t_user` is built on `make_user_client`,
+which seeds a user and performs a real login,
+so the client carries a session cookie.
 
-Key conventions:
+#### Pattern: Centralized Fixtures with `t_` Prefix: Key conventions
 
 - `t_` prefix distinguishes first-party from pytest/third-party fixtures
 - `t_orch_env` returns a tuple so tests can access repo/storage for assertions
@@ -303,6 +332,11 @@ Key conventions:
 - `t_store` and web fixtures use `tmp_path` for automatic cleanup
 - `t_conn` exists for raw schema/SQL tests that don't need the full repo
 - Registered via `conftest.py` `pytest_plugins` for project-wide availability
+- `t_client` is unauthenticated and `t_user` is authenticated;
+  - a test's choice between them states which case it exercises
+- `t_known_user` returns `KnownUser` so tests reach the credentials & uid;
+  - It is deliberately not logged in.
+  - Since logging in is what its consumers are testing
 
 ### Pattern: Central Test Specs
 
@@ -381,6 +415,30 @@ When algebraic types meet a function with optional kwargs, the type
 checker can't prove the union satisfies the signature. Contain the
 `type: ignore` in one place — the glue function that owns both sides
 of the boundary. Tests bracket correctness from both ends.
+
+### Pattern: Request flavor is a header, not a client
+
+Browser and htmx requests differ only by headers;
+so they are a property of the request, not of the client.
+Tests pass `HEADER_BROWSER` or `HEADER_HTMX` from `tests/factories` on the call:
+
+```python
+resp = t_user.post("/upload", data=data, headers=HEADER_HTMX)
+```
+
+Baking headers into a client instead hides which surface tests operate on.
+A client can silently carry a header the route ignores.
+That happened:
+a test named for htmx fixtures was asserting against a plaintext API response.
+Since the fixture sent `HX-Request` without an `Accept` header and
+the route negotiated on `Accept` alone.
+
+Where a test class shares a fixed request shape,
+a class-local `_act` helper applies the headers once.
+Where the request shape is itself the subject,
+as in dispatch tests, each test builds its request explicitly.
+
+`t_browser` and `t_htmx` predate this convention and are being retired.
 
 ## Error Handling Patterns
 

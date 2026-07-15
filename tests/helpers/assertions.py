@@ -10,6 +10,8 @@ import sqlite3
 from dataclasses import MISSING, fields
 from typing import Any
 
+from fastapi import FastAPI
+
 
 def assert_field(
     cls: type,
@@ -100,3 +102,14 @@ def assert_column(
         f"{name} default mismatch: expected {default}, got {row[4]}"
     )
     assert row[5] == int(pk), f"{name} pk mismatch: expected {pk}, got {bool(row[5])}"
+
+
+### Store & Repo Assertions ###
+def assert_no_persistence(app: FastAPI) -> None:
+    """Assert no item row & no stored object exists in database or store.
+    The security invariant for gated writes:
+    a rejected upload MUST leave neither a repo row nor payload in store."""
+    conn, msg = app.state.repo._conn, "Repo shouldn't gain an item record"
+    assert conn.execute("SELECT COUNT(*) FROM items").fetchone()[0] == 0, msg
+    root, msg = app.state.store._root, "Store shouldn't gain a payload file"
+    assert not any(p.is_file() for p in root.iterdir()), msg

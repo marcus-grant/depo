@@ -24,7 +24,12 @@ from depo.repo.sqlite import SqliteRepository, init_db
 from depo.service.orchestrator import IngestOrchestrator
 from depo.storage.filesystem import FilesystemStorage
 from depo.util.password import hash_password
-from tests.factories import gen_image, make_client, make_ingest_service
+from tests.factories import (
+    gen_image,
+    make_client,
+    make_ingest_service,
+    make_user_client,
+)
 from tests.factories.db import (
     insert_link_item,
     insert_pic_item,
@@ -78,6 +83,9 @@ def t_store(tmp_path) -> FilesystemStorage:
     return FilesystemStorage(root=tmp_path / "depo-test-store")
 
 
+OrchEnv = tuple[IngestOrchestrator, SqliteRepository, FilesystemStorage]
+
+
 @pytest.fixture
 def t_orch_env(
     t_repo, t_store
@@ -105,9 +113,19 @@ def t_client(tmp_path) -> TestClient:
     test creates its own content. Backed by make_client.
     Depends on pytest builtin fixture: tmp_path for isolated filesystem.
     """
-    client = make_client(tmp_path)  # creates DB and store dirs at tmp_path
+    client = make_client(tmp_path)
     assert client is not None
     return client
+
+
+@pytest.fixture
+def t_user(tmp_path) -> TestClient:
+    """TestClient with a seeded user and an active session.
+    The authenticated counterpart to t_client. Flavor headers
+    (browser, htmx) are applied per request, not baked into the
+    client.
+    """
+    return make_user_client(tmp_path)
 
 
 @pytest.fixture
@@ -198,7 +216,7 @@ def t_seeded(tmp_path) -> SeededApp:
 
 
 @dataclass
-class AuthedApp:
+class KnownUser:
     """TestClient bundled with a seeded user and known plaintext password.
     Use for login/logout tests where a real user credential is a precondition."""
 
@@ -208,7 +226,7 @@ class AuthedApp:
 
 
 @pytest.fixture
-def t_authed(tmp_path) -> AuthedApp:
+def t_known_user(tmp_path) -> KnownUser:
     """TestClient with a single user seeded with a real scrypt hash."""
     client, pw = make_client(tmp_path), "test-password"
     user = insert_user(
@@ -216,4 +234,4 @@ def t_authed(tmp_path) -> AuthedApp:
         email="guy@example.com",
         pw_hash=hash_password(pw, n=2, r=1, p=1),
     )
-    return AuthedApp(client=client, user=user, password=pw)
+    return KnownUser(client=client, user=user, password=pw)

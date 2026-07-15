@@ -12,10 +12,15 @@ from typing import cast
 
 from bs4 import BeautifulSoup as BSoup
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from httpx import Response
 
-from depo.util.errors import AuthenticationError
+from depo.util import errors
 from depo.util.password import hash_password
+from tests.factories import HEADER_BROWSER, HEADER_HTMX
 from tests.factories.db import insert_user
+from tests.fixtures import KnownUser
+from tests.helpers.assertions import assert_no_persistence
 
 
 class TestRouteRegistration:
@@ -27,16 +32,14 @@ class TestRouteRegistration:
         assert resp.status_code == 200
         assert resp.text == "ok"
 
-    def test_upload_not_captured_by_wildcard(self, t_client):
+    def test_upload_not_captured_by_wildcard(self, t_user: TestClient):
         """GET /upload returns upload page, not a shortcode lookup."""
-        resp = t_client.get("/upload")
-        assert resp.status_code == 200
+        assert (resp := t_user.get("/upload")).status_code == 200
         assert "text/html" in resp.headers["content-type"]
 
     def test_root_not_captured_by_wildcard(self, t_client):
         """GET / redirects to /upload, not a shortcode lookup."""
-        resp = t_client.get("/", follow_redirects=False)
-        assert resp.status_code == 302
+        assert (resp := t_client.get("/", follow_redirects=False)).status_code == 302
         assert resp.headers["location"] == "/upload"
 
     def test_wildcard_does_not_shadow_fixed_routes(self, t_client):
@@ -84,7 +87,7 @@ class TestLoginRoute:
         generic error, 401 status, and no session established."""
         self._assert_login_form(resp)
         assert resp.status_code == 401
-        assert AuthenticationError.message in resp.text
+        assert errors.AuthenticationError.message in resp.text
         assert '"login__error"' in resp.text
         assert "session" not in resp.cookies
 
@@ -95,45 +98,48 @@ class TestLoginRoute:
         assert resp.status_code == 200
         assert "session" not in resp.cookies
 
-    def test_get_login_authenticated_redirects(self, t_authed):
+    def test_get_login_authenticated_redirects(self, t_known_user: KnownUser):
         """GET /login while authenticated redirects to / instead of rendering."""
-        data = {"email": t_authed.user.email, "password": t_authed.password}
-        t_authed.client.post("/login", data=data, follow_redirects=False)
-        resp = t_authed.client.get("/login", follow_redirects=False)
+        data = {"email": t_known_user.user.email, "password": t_known_user.password}
+        t_known_user.client.post("/login", data=data, follow_redirects=False)
+        resp = t_known_user.client.get("/login", follow_redirects=False)
         assert resp.status_code == 302
         assert resp.headers.get("location") == "/"
 
-    def test_post_valid_credentials_redirects(self, t_authed):
+    def test_post_valid_credentials_redirects(self, t_known_user: KnownUser):
         """POST /login with valid credentials 302s and sets session uid."""
-        data = {"email": t_authed.user.email, "password": t_authed.password}
-        resp = t_authed.client.post("/login", data=data, follow_redirects=False)
+        data = {"email": t_known_user.user.email, "password": t_known_user.password}
+        resp = t_known_user.client.post("/login", data=data, follow_redirects=False)
         assert resp.status_code == 302
         assert "session" in resp.cookies
 
-    def test_post_wrong_password_rerenders_form(self, t_authed):
+    def test_post_wrong_password_rerenders_form(self, t_known_user: KnownUser):
         """POST /login with wrong password re-renders the form with an error."""
-        data = {"email": t_authed.user.email, "password": "wrong-pass"}
-        resp = t_authed.client.post("/login", data=data, follow_redirects=False)
+        data = {"email": t_known_user.user.email, "password": "wrong-pass"}
+        resp = t_known_user.client.post("/login", data=data, follow_redirects=False)
         self._assert_login_rejected(resp)
 
-    def test_post_unknown_email_rerenders_form(self, t_authed):
+    def test_post_unknown_email_rerenders_form(self, t_known_user: KnownUser):
         """POST /login with unknown email re-renders the form with an error."""
-        data = {"email": "not-an@email.com", "password": t_authed.password}
-        resp = t_authed.client.post("/login", data=data, follow_redirects=False)
+        data = {"email": "not-an@email.com", "password": t_known_user.password}
+        resp = t_known_user.client.post("/login", data=data, follow_redirects=False)
         self._assert_login_rejected(resp)
 
 
 class TestLogoutRoute:
     """Tests for GET /logout."""
 
-    def test_logout_clears_session_and_redirects(self, t_authed):
+    def test_logout_clears_session_and_redirects(self, t_known_user: KnownUser):
         """GET /logout clears the session, subsequent request is unauthenticated."""
-        data = {"email": t_authed.user.email, "password": t_authed.password}
-        t_authed.client.post("/login", data=data, follow_redirects=False)
-        resp = t_authed.client.get("/logout", follow_redirects=False)
+        data = {"email": t_known_user.user.email, "password": t_known_user.password}
+        t_known_user.client.post("/login", data=data, follow_redirects=False)
+        resp = t_known_user.client.get("/logout", follow_redirects=False)
         assert resp.status_code == 302
         assert "session" not in resp.cookies
-        assert "session" not in t_authed.client.get("/", follow_redirects=False).cookies
+        assert (
+            "session"
+            not in t_known_user.client.get("/", follow_redirects=False).cookies
+        )
 
 
 class TestLoginSession:
@@ -167,15 +173,74 @@ class TestLoginSession:
         resp = t_client.post("/login", data=data, follow_redirects=False)
         assert resp.status_code == 401
         assert "session" not in resp.cookies
-        assert AuthenticationError.message in resp.text
+        assert errors.AuthenticationError.message in resp.text
 
     def test_logout_clears_session(self, t_client):
         """GET /logout 302s and clears the session cookie."""
-        conn, pw = cast(FastAPI, t_client.app).state.repo._conn, "test-password"
-        pw_hash, mail = hash_password(pw, n=2, r=1, p=1), "guy@example.com"
-        insert_user(conn, email=mail, pw_hash=pw_hash)
+        mail, pw = self._seed_user(t_client)
         data = {"email": mail, "password": pw}
         t_client.post("/login", data=data, follow_redirects=False)
         resp = t_client.get("/logout", follow_redirects=False)
         assert resp.status_code == 302
         assert "session" not in resp.cookies
+
+
+class TestUploadGate:
+    """Integration gate for authenticated-only upload routes."""
+
+    def _assert_auth_reject(self, resp: Response, expected_status: int):
+        """With response object & expeced_status assert the expected reject response."""
+        assert resp.status_code == expected_status
+        assert errors.AuthRequiredError.message in resp.text
+
+    def _assert_login_link(self, resp: Response):
+        search_str = 'a[href="/login"]'
+        assert BSoup(resp.text, "html.parser").select_one(search_str) is not None
+
+    def test_unauth_post_upload_rejected(self, t_client: TestClient):
+        """Unauthenticated POST /upload returns 401 and creates no item."""
+        files = {"file": ("t.txt", b"Hello!")}
+        self._assert_auth_reject(t_client.post("/upload", files=files), 401)
+        assert_no_persistence(cast(FastAPI, t_client.app))
+
+    def test_unauth_get_upload_form_rejected(self, t_client: TestClient):
+        """Unauthenticated GET /upload returns 401 and does not render the form."""
+        resp = t_client.get("/upload", headers=HEADER_BROWSER)
+        self._assert_auth_reject(resp, 401)
+        self._assert_login_link(resp)
+
+    def test_htmx_rejection_carries_login_link(self, t_client: TestClient):
+        """The htmx upload-rejection partial carries a login link."""
+        data = {"content": "hello", "format": "txt"}
+        resp = t_client.post("/upload", data=data, headers=HEADER_HTMX)
+        self._assert_auth_reject(resp, 200)
+        self._assert_login_link(resp)
+        assert "<!-- BEGIN: errors/partial.html -->" in resp.text
+
+    def test_browser_rejection_carries_login_link(self, t_client: TestClient):
+        """The browser upload-rejection surface carries a login link."""
+        data = {"content": "hello", "format": "txt"}
+        resp = t_client.post("/upload", data=data, headers=HEADER_BROWSER)
+        self._assert_auth_reject(resp, 401)
+        self._assert_login_link(resp)
+        assert "BEGIN: errors/page.html#content" in resp.text
+        assert "<!-- BEGIN: errors/partial.html -->" not in resp.text
+
+    def test_known_user_post_upload_creates_item_with_uid(
+        self, t_known_user: KnownUser
+    ):
+        """An authenticated POST /upload creates an item with the session uid."""
+        data = {"email": t_known_user.user.email, "password": t_known_user.password}
+        t_known_user.client.post("/login", data=data, follow_redirects=False)
+        resp = t_known_user.client.post("/upload", files={"file": ("t.txt", b"Hello!")})
+        assert resp.status_code == 201
+        code = resp.headers.get("X-Depo-Code")
+        assert code is not None
+        conn = cast(FastAPI, t_known_user.client.app).state.repo._conn
+        row = conn.execute("SELECT uid FROM items WHERE code = ?", (code,)).fetchone()
+        assert row["uid"] == t_known_user.user.id
+
+    def test_known_user_get_upload_renders_form(self, t_user: TestClient):
+        """An authenticated GET /upload renders the form."""
+        assert (resp := t_user.get("/upload")).status_code == 200
+        assert "<!-- BEGIN: upload/page.html" in resp.text

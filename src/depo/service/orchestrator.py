@@ -56,25 +56,25 @@ class IngestOrchestrator:
 
     def ingest(
         self,
+        uid: int,
+        perm: Visibility,
         *,
         payload_bytes: bytes | None = None,
         payload_path: Path | None = None,
         filename: str | None = None,
         declared_mime: str | None = None,
         requested_format: ContentFormat | None = None,
-        uid: int = 0,
-        perm: Visibility = Visibility.PUBLIC,
     ) -> PersistResult:
         """Ingest content and persist to repo and storage.
 
         Args:
+            uid: User ID.
+            perm: Visibility level.
             payload_bytes: Content as in-memory bytes.
             payload_path: Path to content on disk.
             filename: Original filename hint.
             declared_mime: MIME type from HTTP header.
             requested_format: Explicit format requested by user.
-            uid: User ID.
-            perm: Visibility level.
 
         Returns:
             PersistResult with item and created flag.
@@ -96,7 +96,7 @@ class IngestOrchestrator:
             return PersistResult(item=item, created=False)
 
         # Insert into database with WritePlan
-        item = self._repo.insert(plan)
+        item = self._repo.insert(plan, uid=uid, perm=perm)
 
         # Save into StorageBackend if not a LinkItem
         # TODO: Implement payload_path temp file streaming

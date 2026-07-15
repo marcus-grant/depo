@@ -17,12 +17,20 @@ Content hashing and code canonicalization.
 Centralized exception hierarchy rooted at `DepoError`.
 All exceptions carry `status` (HTTP code), `message`, `ctx` (dict),
 `severity` (a `Severity` level), and `exception` (optional wrapped exception).
+
 Domain bases:
-`RepoError`, `ValidationError`, `ClassificationError`, `ServerError`.
+`ConfigError`, `RepoError`, `ValidationError`, `ClassificationError`,
+`ServerError`.
+
+The auth errors sit directly under `DepoError` rather than sharing an auth
+base. `AuthenticationError` is a failed credential check; `AuthRequiredError`
+is a request reaching a gated route with no session. They are distinct
+surfaces, not a hierarchy.
 
 `Severity` is an `IntEnum` mirroring stdlib logging levels
 (DEBUG 10 through CRITICAL 50);
-each error's `severity` is a class attribute resolved by inheritance.
+each error's `severity` is a class attribute resolved by inheritance,
+overridable per instance.
 
 See [errors.md](../design/errors.md)
 for the full hierarchy, severity decisions, and the logging seam.

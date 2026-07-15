@@ -28,266 +28,87 @@ service, repo, and storage. Dedupe by content hash.
 
 ## Pre-MVP work
 
-Ordered by dependency. Each heading is roughly one PR.
+The cutoff test: does this block deploying a real instance with real data?
+Everything that does not is in [v0.2](./v02.md).
 
-### Upload gate (Branch: `ft/upload-gate`)
+Ordered by dependency. Each heading is one PR. The end of this list is `v0.1`.
 
-*Problem: any anonymous visitor can POST to `/upload` and create items
-with the default `uid=0`. The MVP-critical requirement is that no
-anonymous POST is ever possible. Add a web-layer `require_auth`
-dependency that gates both `/upload` routes, a 401 `AuthRequiredError`,
-and thread the authenticated uid into the existing ingest path so items
-persist with the real uploader's id instead of 0. Branch from `ft/login-session`.
-Out of scope: `perm`/visibility enforcement and any 403/ownership checks
-(post-MVP, the column is present and ingest already passes the PUBLIC
-default); roles and user relations (post-MVP); per-item ownership on
-read/delete (post-MVP); CSRF (v1, tracked); rate limiting (post-MVP);
-gating any route other than the two `/upload` routes.*
+### Fix htmx dispatch on shortcode routes (Branch: `fix/htmx-dispatch`)
 
-*Open decision (resolve before the require_auth and gate units): the auth
-failure raises `AuthRequiredError(DepoError, status=401)`. The per-surface
-response is settled in intent: plain browser 302 to `/login`, pure API a
-plain 401, HTMX a client navigation to `/login` (via `HX-Redirect`) rather
-than an inline error. Two coupled things are UNRESOLVED. First, the HTMX
-case does NOT fit `htmx_error`'s established contract (200 + an error
-partial in the body); an `HX-Redirect` navigation is a distinct response,
-so either `htmx_error` learns a redirect mode or the HTMX auth failure
-short-circuits to a dedicated redirect response that never enters the
-error-partial path. Second, where the redirect-vs-render negotiation lives:
-(a) `require_auth` raises and the three builders negotiate surface
-(centralizes it but couples the generic error seam to auth-specific
-redirect logic), or (b) `require_auth` returns the redirect directly for
-browser/HTMX context and only raises for API (keeps the builders generic
-but splits the gate's behavior by surface), or (c) `AuthRequiredError`
-carries a redirect target and the builders gain a generic
-redirect-instead-of-render rule (reusable, larger builder-contract change).
-The require_auth unit below is written assuming (a)/(c) (it raises); if (b)
-is chosen, that unit changes to return-redirect-for-browser-context.
-`fix/form-error-surface` has landed; the builder shape is settled.
+`item()` and `info()` in `src/depo/web/routes/shortcode.py` negotiate on
+`wants_html` alone and never consult `is_htmx`. An htmx request whose Accept
+header lacks `text/html` falls through to the API branch and receives
+plaintext, which htmx then swaps into the DOM.
 
-Mechanics note on (b): a FastAPI `Depends` cannot short-circuit by
-returning a `Response`; a returned value only populates the parameter.
-So "return the redirect" is not directly possible. (b) in practice means
-raising a redirect-carrying exception handled at the boundary, which
-collapses it toward (c). Pick (b) only with that understanding.
+The upload dispatcher already does this correctly: `is_htmx` first, then
+`wants_html`, then API. Most specific wins, since an htmx request is also a
+browser request.
 
-#### Setup and gating test
+- [ ] Red: a dispatch test asserting an htmx-marked request never receives a
+      plaintext response, for every route that can return an HTML surface
+- [ ] Reorder negotiation in `item()` and `info()` to check `is_htmx` first
+- [ ] Point the htmx branch at the existing page render. These routes have no
+      partial variants and nothing in the current UI swaps them, so the fix is
+      defensive: close the hole, do not build partials for a flow that does not
+      exist yet
+- [ ] Update the content negotiation section of `doc/design/routes.md`
 
-- [ ] Branch `ft/upload-gate` from `ft/login-session`.
-- [ ] Add a skipped integration test to `tests/web/test_routes.py` (new
-      `TestUploadGate` class) asserting the MVP guarantee end to end: an
-      unauthenticated POST `/upload` is rejected and creates no item; an
-      authenticated client (session established via `/login`) POST
-      `/upload` creates an item whose `uid` is the logged-in user, not 0.
-      Assert the invariant (rejected, no item, correct uid on success),
-      NOT the per-surface mechanism (302 vs `HX-Redirect` vs error
-      partial) which the builder open-decision settles and the per-route
-      gate units assert. `@pytest.mark.skip` until the last unit.
-  - [ ] Commit: `Tst: Add skipped gating test for upload gate`
+Surfaced by `ft/upload-gate`: a test using the old `t_htmx` fixture (which sent
+`HX-Request` with no Accept header) was asserting against a plaintext info
+response without anyone noticing.
 
-#### TDD implementation
+### Schema migrations (Branch: `ft/migrations`)
 
-**Add the AuthRequiredError type**
-(`tests/util/test_errors.py`)
+The one architectural gap before live data. `init_db` runs `schema.sql` with
+`CREATE TABLE IF NOT EXISTS`, which is idempotent but cannot alter an existing
+table. The moment a column is added to a deployed instance holding real items,
+there is no upgrade path.
 
-- [ ] Red: tests asserting `AuthRequiredError` is a `DepoError` subclass
-      with status 401 and `Severity.INFO` (unauthenticated traffic is
-      expected, not a fault), and a pass-through constructor. Add
-      `AuthRequiredError: Severity.INFO` to the gap-test `EXPECTED` dict
-      so `descendants(DepoError) == set(EXPECTED)` still holds (a new
-      concrete error without a severity decision fails the suite).
-- [ ] Add `AuthRequiredError(DepoError)` to `src/depo/util/errors.py` as
-      a new top-level domain base (parallel to `RepoError` /
-      `ValidationError`): `status = 401`, `severity = Severity.INFO`,
-      pass-through `__init__`.
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Ft: Add AuthRequiredError type`
+Deferring this gets strictly more expensive with every stored item.
 
-**Thread authenticated uid through ingest**
-(`tests/service/test_orchestrator.py`)
+- [ ] Decide the approach. Versioned SQL files plus a `schema_version` table is
+      likely the right weight for a single-file SQLite app; Alembic is heavy for
+      this
+- [ ] Decide whether migrations apply on startup or via an explicit CLI command
+- [ ] Test: a DB at version N upgrades to N+1 without data loss
+- [ ] Document in `doc/module/repo.md`
 
-- [ ] Red: test asserting `ingest(uid=N)` persists an item with
-      `items.uid == N` (currently `ingest` accepts `uid` but drops it:
-      the `self._repo.insert(plan)` call omits it, so a non-default uid
-      never reaches the row).
-- [ ] In `IngestOrchestrator.ingest` (`src/depo/service/orchestrator.py`)
-      pass the param through: `self._repo.insert(plan, uid=uid)`.
-      `repo.insert` already accepts and writes `uid`; this is the missing
-      link, not a repo change.
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Ft: Thread authenticated uid through ingest`
+### Logging to file (Branch: `ft/log-file`)
 
-**Add the require_auth dependency**
-(`tests/web/test_deps.py`, new)
+An instance you cannot see is an instance you cannot operate. Logs need to land
+in a file that survives, readable over ssh.
 
-- [ ] Red: tests asserting `require_auth` yields the uid when a valid
-      session is present, and raises `AuthRequiredError` when there is no
-      session uid. Built on `get_current_uid` (PR 3); yields the bare uid
-      (the upload path only needs the int, and this keeps `pw_hash` out
-      of request scope). For MVP, yielding the session uid without a
-      confirming user fetch is acceptable: `items.uid` is FK-checked at
-      insert, so a stale-cookie / deleted-user uid fails at the FK rather
-      than persisting. (If the chosen design instead fetches to validate,
-      a missing row is an auth failure, raise `AuthRequiredError`, not a
-      500.)
-- [ ] Add `require_auth(request) -> int` to `src/depo/web/deps.py`,
-      reading `get_current_uid` and raising `AuthRequiredError` on None.
-      (Written assuming open-decision option (a)/(c): raises, builders
-      negotiate. Under (b) this returns a redirect for browser/HTMX
-      context and raises only for API.)
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Ft: Add require_auth dependency`
+Deliberately minimal. The user-facing versus admin-facing message split is a
+real problem but not a deployment blocker: `DepoError.ctx` already carries
+call-site detail for log handlers, and `AuthRequiredError` already uses it. That
+split is v0.2 work.
 
-**Gate POST /upload and pass uid to ingest**
-(`tests/web/test_routes.py`)
+- [ ] Add a `FileHandler` in `configure_logging`, path from config
+- [ ] Config field for the log file path, alongside the existing `log_level`
+- [ ] Keep propagation on so test capture still works
 
-- [ ] Red: tests asserting an unauthenticated POST `/upload` is rejected
-      and creates no item, and an authenticated POST creates an item with
-      the session user's uid. Assert the per-surface mechanism settled by
-      the open decision (401 api; HTMX client-navigation to `/login`;
-      302 to `/login` for a non-HTMX form). Cover the dispatcher and both
-      `hx_`/`api_` paths.
-- [ ] Wire `require_auth` into the `upload` dispatcher in
-      `src/depo/web/routes/upload.py` via `Depends(require_auth)`, and
-      pass the yielded uid into `orch.ingest(uid=...)` in the dispatcher
-      and the `hx_`/`api_`/`_ingest_upload` call sites that currently call
-      `ingest` with no uid.
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Ft: Gate POST /upload and pass uid to ingest`
+### Deploy (Branch: `ft/deploy`)
 
-**Gate GET /upload (the form)**
-(`tests/web/test_routes.py`)
+Minimal deployment tooling. No Ansible, no orchestration: a Dockerfile and a few
+scripts. Target environment is a server running nginx and letsencrypt as a
+reverse proxy, app in a container.
 
-- [ ] Red: tests asserting an unauthenticated GET `/upload` does not
-      render the form and redirects to `/login` (302 for a browser; the
-      HTMX-GET case, if the form is ever fetched via HTMX, uses the same
-      client-navigation mechanism settled in the open decision), and an
-      authenticated GET renders the form.
-- [ ] Wire `require_auth` into `page_upload` in
-      `src/depo/web/routes/upload.py` via `Depends(require_auth)`.
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Ft: Gate GET /upload form`
+- [ ] Dockerfile
+- [ ] Container lifecycle: SIGTERM handling, WAL checkpoint on shutdown so the
+      DB is consistent when the container stops
+- [ ] Backup script for the SQLite DB, with retention pruning
+- [ ] Update path: run migrations, restart the service
+- [ ] Production config:
+  - `DEPO_MODE` (`dev`/`prod`) config field
+  - `gen-secret` CLI command printing a suitable random session secret
+  - `load_config` behaviour per mode: dev auto-generates an ephemeral secret
+    with a warning, prod keeps the hard-fail sentinel
+  - A `depo.toml` fit for a live instance
+- [ ] Deployment and ops doc: required config, WAL journal mode, store directory
+      setup
 
-#### Integration and documentation
-
-- [ ] Unskip the `TestUploadGate` gating test; confirm it passes.
-- [ ] Update `doc/module/web.md` (`require_auth`, the gated `/upload`
-      routes), `doc/module/util.md` and `doc/design/errors.md`
-      (`AuthRequiredError`, the new 401 top-level domain base), and
-      `doc/module/service.md` (ingest now threads uid to the row).
-- [ ] Record a post-MVP item in the post-MVP planning doc: examine
-      moving `pw_hash` into a dedicated `credentials` table associated to
-      a user (keeps `users`/`User` hash-free by construction, confines
-      the hash to the credential layer, room for multiple auth methods
-      per user). Open: one-to-one vs one-to-many; when it lands.
-- [ ] uv run ruff check && uv run pytest
-- [ ] Commit: `Doc: ...`
-
-#### PR
-
-- [ ] gh pr create --title "Ft: Upload gate" --body "..."
-
-### Global Chrome & Layout Realignment (nav / main / footer / base.html)
-
-**Goal:** Make the overall page shell feel like a single calm system surface.
-Prefer structural honesty (borders, spacing, rhythm) over “window/dialog” cosplay.
-Ensure all hierarchy works in pure grayscale; color remains semantic only.
-
-#### Styling Refinement Pass (deferred from ft/visual-refinement)
-
-- Merge info header row
-- Fix View Raw button height
-- Resolve upload page width (too narrow despite `main--wide`)
-- Replace `article` with `section` on info page
-
-#### Interaction semantics stay semantic
-
-- Keep warm/cool meaning invariant across the shell:
-  - cool = focus/state
-  - warm = attention/interruption
-  - red = failure only
-- Do not use accent color to “decorate” global chrome.
-
-#### Primitive audit (enforce allowed tools)
-
-- Allowed:
-  - spacing,
-  - typography (mono for identifiers),
-  - weight,
-  - sizing steps,
-  - hard borders,
-  - optional dither separators.
-- Disallowed by default:
-  - blur shadows, gradients, large colored surfaces, decorative textures.
-- If a new visual device is introduced
-  - it must justify itself as structure (not vibe).
-
-#### HTMX compatibility (no layout surprises)
-
-- Shell (`header/main/footer`) should remain stable across HTMX swaps.
-- Swaps should target interior regions only;
-  - avoid global reflow by keeping consistent container widths/padding in `base.html`.
-
-#### Login form chrome (deferred from ft/login-session)
-
-- Style the auth/login.html form and error elements (login__form,
-  login__error); both are currently undecorated structural markup
-- Add coverage for the login__form and login__error classes in the
-  template class-consistency / spec test modules
-- Add required and rely on type="email" on the login inputs for
-  client-side validation
-- Inform the user of a bad login via a partial update rather than a
-  full-page re-render. HTMX is the candidate, but verify first whether
-  it can swap an error partial while preserving the 401 status, or
-  whether it only swaps on 2xx by default and needs configuration for
-  error codes. It may not be the right mechanism; find out before
-  committing
-- Based on that finding, plan the idiomatic login error response
-  (status code, swap target, partial template)
-- When this lands, update the affected tests: the BS4 form-structure
-  checks and error-block assertions in test_routes.py assume a
-  full-page render and will change
-
-### Pre-MVP housecleaning
-
-- Improve `get_templates()` ergonomics: the call-it-everywhere pattern
-  is awkward; build a cleaner shared singleton for the templates
-  instance that call sites can reference directly
-- Default `follow_redirects=False` in the test client fixtures
-  (`t_client`, `t_browser`, `t_htmx`); `TestClient` defaults it to True
-  but route tests rarely want redirects followed, so nearly every
-  redirect assertion has to override it
-- Reconsider whether the error classes belong in the model layer rather
-  than util; they increasingly carry structured domain fields (id,
-  resource, email) rather than being pure utilities
-- Lift the per-instance severity override into DepoError.**init** so all
-  subclasses inherit it the way they inherit the status override, rather
-  than each class reimplementing it
-- Split the single errors module into per-domain modules once it grows
-  large enough that one file hurts maintenance
-- Rename `tests/factories/db.py::insert_user` to `seed_user` to resolve
-  naming overlap with `SqliteRepository.insert_user`
-- Split `src/depo/repo/sqlite.py` into per-concern submodules (items,
-  users, schema) once the auth sequence lands
-- Standardize scrypt cost params in password tests to minimum values
-  (n=2, r=1, p=1); some tests still use n=2**14 making the suite slow
-- Revisit scrypt N=2**16 choice against a timing benchmark on target
-  hardware; OWASP floor is 2**17, current value is a split-the-difference
-  estimate without a measured baseline
-- Replace empirical maxmem formula (256*n*r*p + 1MiB) in password.py
-  with a principled bound once OpenSSL's internal buffer requirement is
-  confirmed
-- Add redirect-when-unauthenticated to GET /logout (mirroring the
-  authenticated-redirect already on GET /login), once more of the app
-  exists to redirect to sensibly
-- Plan session secret management UX and dev/prod mode: a `DEPO_MODE`
-  config field (`dev`/`prod`), a `gen-secret` CLI command printing a
-  suitable random secret to stdout, and adjusted `load_config` behaviour
-  per mode (dev auto-generates an ephemeral secret with a warning; prod
-  keeps the hard-fail sentinel)
-- Write a deployment/ops doc covering required config for a running
-  instance: DEPO_SESSION_SECRET, WAL journal mode, store directory
-  setup, and recommended depo.toml fields
+The store is deliberately out of scope for backup here. A separate borgbackup
+job from a home NAS covers it.
 
 ### Manual Testing
 
