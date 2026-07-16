@@ -10,8 +10,10 @@ License: Apache-2.0
 """
 
 import pytest
+from fastapi.testclient import TestClient
 
 from depo.model.formats import extension_for_format
+from tests.fixtures import SeededApp
 
 
 class TestItem:
@@ -57,6 +59,12 @@ class TestItem:
         assert resp.status_code == 302
         assert resp.headers["location"] == "/N0EX1ST/raw"
 
+    def test_htmx_without_accept_redirects_to_info(self, t_client: TestClient):
+        """Bare HX-Request redirects to /info, not /raw."""
+        kwargs = {"headers": {"HX-Request": "true"}, "follow_redirects": False}
+        assert (resp := t_client.get("/f00bar", **kwargs)).status_code == 302
+        assert resp.headers["location"] == "/f00bar/info"
+
 
 class TestGetInfo:
     """Tests for GET /{code}/info.
@@ -90,6 +98,13 @@ class TestGetInfo:
     def test_unknown_code_404(self, t_client):
         """Unknown code returns 404."""
         assert t_client.get("/ZZZZZZZZ/info").status_code == 404
+
+    def test_htmx_without_accept_renders_page(self, t_seeded: SeededApp):
+        """Bare HX-Request renders the info page, not api plaintext."""
+        route = f"/{t_seeded.txt.code}/info"
+        resp = t_seeded.client.get(route, headers={"HX-Request": "true"})
+        assert resp.headers["content-type"].startswith("text/html")
+        assert "<!-- BEGIN: info/text.html" in resp.text
 
 
 class TestInfoPage:

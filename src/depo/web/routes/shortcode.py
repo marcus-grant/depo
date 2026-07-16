@@ -28,10 +28,9 @@ from depo.util.errors import (
 from depo.web.deps import get_repo, get_storage
 from depo.web.error import api_error, browser_error
 from depo.web.negotiate import wants_html
-from depo.web.templates import get_templates
+from depo.web.templates import get_templates, is_htmx
 
 shortcode_router = APIRouter()  # Initialize router
-
 
 
 def _serve_item_content(item: TextItem | PicItem, store: StorageBackend) -> Response:
@@ -70,7 +69,7 @@ async def raw_ext(
 @shortcode_router.get("/{code}")
 async def item(req: Request, code: str) -> Response:
     """Redirect shortcut to canonical route based on client type."""
-    if wants_html(req):
+    if is_htmx(req) or wants_html(req):
         return RedirectResponse(url=f"/{code}/info", status_code=302)
     return RedirectResponse(url=f"/{code}/raw", status_code=302)
 
@@ -86,7 +85,7 @@ async def info(
     Delegates to page_info for browser requests,
     api_info for API/CLI requests.
     """
-    if wants_html(req):
+    if is_htmx(req) or wants_html(req):
         return await page_info(req, code, repo, store)
     return await api_info(code, repo)
 
