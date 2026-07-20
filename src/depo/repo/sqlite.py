@@ -23,7 +23,7 @@ def init_db(conn: sqlite3.Connection) -> None:
     Args:
         conn: SQLite connection to initialize.
     """
-    schema = resources.files("depo.repo").joinpath("schema.sql").read_text()
+    schema = resources.files("depo.repo.schema").joinpath("_schema.sql").read_text()
     conn.executescript(schema)
     conn.commit()  # Ensure schema is applied before any other operations
     conn.execute("PRAGMA foreign_keys = ON")
