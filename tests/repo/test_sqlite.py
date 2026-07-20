@@ -146,6 +146,24 @@ class TestInitDb:
         t_conn.execute(q)
         init_db(t_conn)
 
+    def test_creates_repo_meta_table(self, t_conn):
+        """init_db creates the repo_meta table."""
+        init_db(t_conn)
+        q = "SELECT name FROM sqlite_master WHERE type=? AND name=?"
+        assert t_conn.execute(q, ("table", "repo_meta")).fetchone() is not None
+
+    @pytest.mark.parametrize(
+        "name, typ, notnull, default, pk",
+        [
+            ("key", "TEXT", True, None, True),
+            ("value", "TEXT", True, None, False),
+        ],
+    )
+    def test_repo_meta_table_columns(self, t_db, name, typ, notnull, default, pk):
+        """repo_meta has the expected columns."""
+        kwargs = {"notnull": notnull, "default": default, "pk": pk}
+        assert_column(t_db, "repo_meta", name, typ, **kwargs)
+
 
 class TestRowMappers:
     """Tests for row mapper functions."""

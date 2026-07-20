@@ -2,8 +2,13 @@
 -- SQLite schema for depo item storage.
 -- Author: Marcus Grant
 -- Date: 2026-01-26
--- Revised: [2026-06-12]
+-- Revised: [2026-06-12, 2026-07-20]
 -- License: Apache-2.0
+CREATE TABLE IF NOT EXISTS repo_meta (
+  key           TEXT PRIMARY KEY NOT NULL,
+  value         TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS users (
     id          INTEGER PRIMARY KEY,
     email       TEXT NOT NULL UNIQUE,
