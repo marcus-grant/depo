@@ -136,6 +136,27 @@ class RepoError(DepoError):
     message = "Repository error occurred."
 
 
+class SchemaVersionError(RepoError):
+    """Raised when the DB schema version does not match the code's.
+
+    CRITICAL: writing to a schema-mismatched store risks
+    irreversible corruption of content-addressed records. The
+    server must refuse to start rather than proceed. Covers both
+    directions: DB behind (run migrate) and DB ahead (deploy
+    matching code).
+    """
+
+    severity = Severity.CRITICAL
+    expected: str
+    stated: str
+
+    def __init__(self, expected: str, stated: str):
+        self.expected = expected
+        self.stated = stated
+        self.message = f"Schema version mismatch: expected {expected}, got {stated}."
+        super().__init__(self.message)
+
+
 class NotFoundError(RepoError):
     """Repo Domain error for not found resources."""
 
