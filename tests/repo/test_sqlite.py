@@ -9,6 +9,7 @@ License: Apache-2.0
 
 import re
 import sqlite3
+from pathlib import Path
 
 import pytest
 from packaging.version import InvalidVersion
@@ -19,10 +20,12 @@ from depo.model.user import User
 from depo.repo.schema import SCHEMA_VERSION
 from depo.repo.sqlite import (
     SqliteRepository,
+    _migration_version,
     _row_to_link_item,
     _row_to_pic_item,
     _row_to_text_item,
     init_db,
+    list_migrations,
     pending_migrations,
 )
 from depo.util import errors
@@ -205,6 +208,70 @@ class TestPendingMigrations:
             pending_migrations("1.0.0", available=[bad, "2.0.0"])
         with pytest.raises(InvalidVersion, match=re.escape(repr(bad))):
             pending_migrations(bad, available=["3.0.0"])
+
+
+class TestMigrationVersion:
+    """Tests for _migration_version()."""
+
+    def test_parses_well_formed_filename(self):
+        """A well-formed migration filename yields its dotted version."""
+        path = Path("test/migration-01-02-03.sql")
+        assert _migration_version(path) == "1.2.3"
+
+    def test_raises_on_non_migration_filename(self):
+        """A filename without the migration- prefix raises."""
+        with pytest.raises(InvalidVersion):
+            assert _migration_version(Path("test/_schema.sql"))
+
+    def test_raises_on_non_numeric_segments(self):
+        """Non-numeric version segments raise."""
+        # e.g. Path("migration-a-b-c.sql")
+        with pytest.raises(InvalidVersion):
+            _migration_version(Path("migration-a-b-c.sql"))
+
+    def test_raises_on_wrong_segment_count(self):
+        """A filename without exactly three version segments raises."""
+        with pytest.raises(InvalidVersion):
+            _migration_version(Path("migration-1-2.sql"))
+
+    def test_raises_on_wrong_prefix(self):
+        """A three-segment name without the migration- prefix raises."""
+        with pytest.raises(InvalidVersion):
+            _migration_version(Path("foobar-1-2-3.sql"))
+
+
+class TestListMigrations:
+    """Tests for list_migrations()."""
+
+    def _write_schema_files(self, root: Path, paths: list[str]):
+        for p in paths:
+            (root / p).write_text(f"test path: {p}")
+
+    def test_empty_when_no_migration_files(self, tmp_path):
+        """A directory with no migration files yields empty."""
+        assert list_migrations(tmp_path) == []
+
+    def test_lists_versions_ascending(self, tmp_path):
+        """Migration files are listed as versions, ascending."""
+        files = [
+            "migration-01-2-10.sql",
+            "migration-1-02-2.sql",
+            "migration-2-0-00.sql",
+        ]
+        self._write_schema_files(tmp_path, files)
+        assert list_migrations(tmp_path) == ["1.2.2", "1.2.10", "2.0.0"]
+
+    def test_ignores_non_migration_files(self, tmp_path):
+        """Non-migration files in the directory are not listed."""
+        files = ["migration-01-02-03.sql", "foobar-00-00-01.sql"]
+        self._write_schema_files(tmp_path, files)
+        assert list_migrations(tmp_path) == ["1.2.3"]
+
+    def test_raises_on_malformed_migration_file(self, tmp_path):
+        """A migration-globbed file with a bad version raises."""
+        self._write_schema_files(tmp_path, ["migration-x-y-z.sql"])
+        with pytest.raises(InvalidVersion):
+            list_migrations(tmp_path)
 
 
 class TestRowMappers:

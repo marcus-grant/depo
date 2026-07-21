@@ -9,6 +9,7 @@ License: Apache-2.0
 
 import sqlite3
 from importlib import resources
+from pathlib import Path
 
 from packaging.version import InvalidVersion, Version
 
@@ -34,37 +35,69 @@ def init_db(conn: sqlite3.Connection) -> None:
     conn.execute("PRAGMA busy_timeout = 5000")  # Wait milsec if database is locked
 
 
-def pending_migrations(stated: str, available: list[str]) -> list[str]:
-    """Select migration versions strictly newer than the stated version.
-
-    Compares the store's stated version against the available migration
-    versions and returns those greater than stated, ordered ascending by
-    release segment (numeric, not lexical). The stated version itself is
-    excluded. Returns an empty list when the store is current.
-
-    Every version string, stated and available alike, must be a three-part
-    X.Y.Z semver. An unparseable or wrong-arity string raises
-    InvalidVersion naming the offending value.
-
-    Args:
-        stated: The version currently recorded in the store.
-        available: The migration versions the code carries.
+def _valid_semver(s: str) -> Version:
+    """Parse s into a three-part Version.
 
     Returns:
-        Pending migration versions, ascending. Empty if none are newer.
-
+        The parsed Version.
     Raises:
-        InvalidVersion: A version string is unparseable or not three-part.
+        InvalidVersion: s is unparseable or not three-part.
     """
-    v_stated, avail_list = Version(stated), [Version(v) for v in available]
-    if len(v_stated.release) != 3:
-        msg = f"invalid schema version {v_stated!r}: must be three-part X.Y.Z semver"
+    msg = f"invalid schema version {s!r}: must be three-part X.Y.Z semver"
+    try:
+        version = Version(s)
+    except InvalidVersion as e:
+        raise InvalidVersion(msg) from e
+    if len(version.release) != 3:
         raise InvalidVersion(msg)
-    for v in avail_list:
-        if len(v.release) != 3:
-            msg = f"invalid schema version {v!r}: must be three-part X.Y.Z semver"
-            raise InvalidVersion(msg)
+    return version
+
+
+def pending_migrations(stated: str, available: list[str]) -> list[str]:
+    """Select migration versions strictly newer than stated, ascending.
+
+    Ordering is numeric per segment, not lexical. Stated is excluded.
+
+    Returns:
+        Pending versions ascending; empty when the store is current.
+    Raises:
+        InvalidVersion: any version is unparseable or not three-part.
+    """
+    v_stated, avail_list = _valid_semver(stated), [_valid_semver(v) for v in available]
     return [str(v) for v in sorted(avail_list) if v_stated < v]
+
+
+def _migration_version(path: Path) -> str:
+    """Extract a dotted version from a migration file path.
+
+    e.g. migration-1-2-3.sql -> '1.2.3'.
+
+    Returns:
+        The dotted version string.
+    Raises:
+        InvalidVersion: the filename is not migration-M-m-p.sql shape.
+    """
+    parts = path.stem.split("-")
+    if len(parts) != 4 or parts[0] != "migration":
+        msg = f"Migration file ({path}) isnt of form: "
+        msg += "migration-<MAJOR>-<MINOR>-<PATCH>.sql"
+        raise InvalidVersion(msg)
+    return str(_valid_semver(".".join(parts[1:])))
+
+
+def list_migrations(directory: Path) -> list[str]:
+    """List migration versions in a directory, ascending.
+
+    Globs migration-*.sql and parses each via _migration_version.
+
+    Returns:
+        Version strings ascending; empty when none present.
+    Raises:
+        InvalidVersion: a globbed file is not migration-M-m-p.sql shape.
+    """
+    migration_paths = directory.glob("migration-*.sql")
+    migration_versions = [_migration_version(p) for p in migration_paths]
+    return sorted(migration_versions, key=Version)
 
 
 def _row_to_text_item(row: sqlite3.Row) -> TextItem:
