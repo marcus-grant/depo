@@ -8,6 +8,10 @@ CREATE TABLE IF NOT EXISTS repo_meta (
   key           TEXT PRIMARY KEY NOT NULL,
   value         TEXT NOT NULL
 );
+-- NOTE: Must hand-edit schema version to depo.repo.schema.SCHEMA_VERSION in code.
+-- This is a double entry workflow to ensure schema and migrations are done carefully.
+INSERT OR REPLACE INTO repo_meta (key, value)
+VALUES ('schema_version', '0.1.0');
 
 CREATE TABLE IF NOT EXISTS users (
     id          INTEGER PRIMARY KEY,
