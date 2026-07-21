@@ -10,6 +10,8 @@ License: Apache-2.0
 import sqlite3
 from importlib import resources
 
+from packaging.version import InvalidVersion, Version
+
 from depo.model.enums import ContentFormat, ItemKind, Visibility
 from depo.model.item import LinkItem, PicItem, TextItem
 from depo.model.user import User
@@ -30,6 +32,39 @@ def init_db(conn: sqlite3.Connection) -> None:
     conn.execute("PRAGMA journal_mode = WAL")  # WAL mode
     conn.execute("PRAGMA synchronous = NORMAL")  # Sync = better performance in WAL
     conn.execute("PRAGMA busy_timeout = 5000")  # Wait milsec if database is locked
+
+
+def pending_migrations(stated: str, available: list[str]) -> list[str]:
+    """Select migration versions strictly newer than the stated version.
+
+    Compares the store's stated version against the available migration
+    versions and returns those greater than stated, ordered ascending by
+    release segment (numeric, not lexical). The stated version itself is
+    excluded. Returns an empty list when the store is current.
+
+    Every version string, stated and available alike, must be a three-part
+    X.Y.Z semver. An unparseable or wrong-arity string raises
+    InvalidVersion naming the offending value.
+
+    Args:
+        stated: The version currently recorded in the store.
+        available: The migration versions the code carries.
+
+    Returns:
+        Pending migration versions, ascending. Empty if none are newer.
+
+    Raises:
+        InvalidVersion: A version string is unparseable or not three-part.
+    """
+    v_stated, avail_list = Version(stated), [Version(v) for v in available]
+    if len(v_stated.release) != 3:
+        msg = f"invalid schema version {v_stated!r}: must be three-part X.Y.Z semver"
+        raise InvalidVersion(msg)
+    for v in avail_list:
+        if len(v.release) != 3:
+            msg = f"invalid schema version {v!r}: must be three-part X.Y.Z semver"
+            raise InvalidVersion(msg)
+    return [str(v) for v in sorted(avail_list) if v_stated < v]
 
 
 def _row_to_text_item(row: sqlite3.Row) -> TextItem:

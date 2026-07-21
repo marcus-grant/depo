@@ -7,19 +7,23 @@ Revisions: [2026-06-16]
 License: Apache-2.0
 """
 
+import re
 import sqlite3
 
 import pytest
+from packaging.version import InvalidVersion
 
 from depo.model.enums import ContentFormat, ItemKind, Visibility
 from depo.model.item import LinkItem, PicItem, TextItem
 from depo.model.user import User
+from depo.repo.schema import SCHEMA_VERSION
 from depo.repo.sqlite import (
     SqliteRepository,
     _row_to_link_item,
     _row_to_pic_item,
     _row_to_text_item,
     init_db,
+    pending_migrations,
 )
 from depo.util import errors
 from tests.factories.db import (
@@ -163,6 +167,44 @@ class TestInitDb:
         """repo_meta has the expected columns."""
         kwargs = {"notnull": notnull, "default": default, "pk": pk}
         assert_column(t_db, "repo_meta", name, typ, **kwargs)
+
+    def test_stamps_schema_version(self, t_db):
+        """init_db stamps SCHEMA_VERSION into repo_meta."""
+        q = "SELECT value FROM repo_meta WHERE key='schema_version'"
+        assert t_db.execute(q).fetchone()[0] == SCHEMA_VERSION
+
+
+class TestPendingMigrations:
+    """Tests for pending_migrations()."""
+
+    def test_empty_when_none_newer(self):
+        """No migrations newer than stated yields empty."""
+        assert pending_migrations(stated="1.7.1", available=["1.7.0", "1.0.0"]) == []
+
+    def test_returns_newer_ordered(self):
+        """Versions newer than stated returned ascending."""
+        expected = ["1.7.2", "2.0.0"]
+        avail = ["1.6.9", *expected]
+        assert pending_migrations(stated="1.7.1", available=avail) == expected
+
+    def test_excludes_stated_itself(self):
+        """The stated version is not itself pending."""
+        stated, expected = "1.7.1", ["1.7.2"]
+        available = [stated, *expected]
+        assert pending_migrations(stated=stated, available=available) == expected
+
+    def test_orders_by_semver_not_lexically(self):
+        """Ordering is numeric per segment, not string."""
+        avail, expect = ["1.1.10", "1.1.2"], ["1.1.2", "1.1.10"]
+        assert pending_migrations(stated="1.1.1", available=avail) == expect
+
+    @pytest.mark.parametrize("bad", ["abc", "", "1.2.x", "v.e.r", "1.2", "1.2.3.4"])
+    def test_raises_on_invalid_version(self, bad):
+        """Unparseable or non-3-part version strings raise, naming the value."""
+        with pytest.raises(InvalidVersion, match=re.escape(repr(bad))):
+            pending_migrations("1.0.0", available=[bad, "2.0.0"])
+        with pytest.raises(InvalidVersion, match=re.escape(repr(bad))):
+            pending_migrations(bad, available=["3.0.0"])
 
 
 class TestRowMappers:
