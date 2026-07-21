@@ -17,6 +17,7 @@ from depo.model.enums import ContentFormat, ItemKind, Visibility
 from depo.model.item import LinkItem, PicItem, TextItem
 from depo.model.user import User
 from depo.model.write_plan import WritePlan
+from depo.repo.schema import SCHEMA_VERSION
 from depo.util import errors
 
 
@@ -98,6 +99,54 @@ def list_migrations(directory: Path) -> list[str]:
     migration_paths = directory.glob("migration-*.sql")
     migration_versions = [_migration_version(p) for p in migration_paths]
     return sorted(migration_versions, key=Version)
+
+
+def check_migration_state(conn: sqlite3.Connection) -> None:
+    """Refuse startup unless the store schema is at a safe version.
+
+    Reads the stated version, discovers available migrations, and
+    verifies the store is neither behind (unapplied migrations pending)
+    nor ahead (stated version beyond all known migrations). CRITICAL:
+    operating on a mismatched store risks irreversible corruption, so
+    any mismatch raises rather than returning.
+
+    Raises:
+        SchemaVersionError: the store is behind or ahead of a safe state.
+    """
+    stated = read_schema_version(conn)
+    available = available_migrations()
+    if pending_migrations(stated, available):
+        raise errors.SchemaVersionError(expected=available[-1], stated=stated)
+    if available and Version(stated) > Version(available[-1]):
+        raise errors.SchemaVersionError(expected=available[-1], stated=stated)
+    return None
+
+
+def available_migrations() -> list[str]:
+    """List migration versions bundled in the repo schema package.
+
+    Returns:
+        Version strings ascending; empty when none are bundled.
+    Raises:
+        InvalidVersion: a bundled migration file has a bad name.
+    """
+    directory = Path(str(resources.files("depo.repo.schema")))
+    return list_migrations(directory)
+
+
+def read_schema_version(conn: sqlite3.Connection) -> str:
+    """Read the stamped schema version from repo_meta.
+
+    Returns:
+        The stored schema_version value.
+    Raises:
+        SchemaVersionError: no schema_version is recorded.
+    """
+    q = "SELECT value FROM repo_meta WHERE key='schema_version'"
+    row = conn.execute(q).fetchone()
+    if row is None:
+        raise errors.SchemaVersionError(expected=SCHEMA_VERSION, stated="none recorded")
+    return row[0]
 
 
 def _row_to_text_item(row: sqlite3.Row) -> TextItem:

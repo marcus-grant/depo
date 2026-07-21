@@ -33,22 +33,6 @@ Everything that does not is in [v0.2](./v02.md).
 
 Ordered by dependency. Each heading is one PR. The end of this list is `v0.1`.
 
-### Schema migrations (Branch: `ft/migrations`)
-
-The one architectural gap before live data. `init_db` runs `schema.sql` with
-`CREATE TABLE IF NOT EXISTS`, which is idempotent but cannot alter an existing
-table. The moment a column is added to a deployed instance holding real items,
-there is no upgrade path.
-
-Deferring this gets strictly more expensive with every stored item.
-
-- [ ] Decide the approach. Versioned SQL files plus a `schema_version` table is
-      likely the right weight for a single-file SQLite app; Alembic is heavy for
-      this
-- [ ] Decide whether migrations apply on startup or via an explicit CLI command
-- [ ] Test: a DB at version N upgrades to N+1 without data loss
-- [ ] Document in `doc/module/repo.md`
-
 ### Logging to file (Branch: `ft/log-file`)
 
 An instance you cannot see is an instance you cannot operate. Logs need to land

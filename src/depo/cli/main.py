@@ -18,8 +18,8 @@ from rich.table import Table
 
 from depo.cli.config import DepoConfig, load_config
 from depo.model.user import User
-from depo.repo.sqlite import SqliteRepository, init_db
-from depo.util.errors import UniqueViolationError
+from depo.repo.sqlite import SqliteRepository, check_migration_state, init_db
+from depo.util.errors import SchemaVersionError, UniqueViolationError
 from depo.util.password import hash_password
 from depo.web.app import app_factory
 
@@ -54,6 +54,15 @@ def serve(ctx: click.Context) -> None:
     import uvicorn
 
     cfg: DepoConfig = ctx.obj["config"]
+    if not cfg.db_path.exists():
+        raise click.ClickException("database not initialized; run `depo init` first")
+    conn = sqlite3.connect(str(cfg.db_path))
+    try:
+        check_migration_state(conn)
+    except SchemaVersionError as e:
+        raise click.ClickException(str(e)) from e
+    finally:
+        conn.close()
     app = app_factory(cfg)
     uvicorn.run(app, host=cfg.host, port=cfg.port)
 

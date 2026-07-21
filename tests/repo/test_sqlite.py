@@ -24,9 +24,12 @@ from depo.repo.sqlite import (
     _row_to_link_item,
     _row_to_pic_item,
     _row_to_text_item,
+    available_migrations,
+    check_migration_state,
     init_db,
     list_migrations,
     pending_migrations,
+    read_schema_version,
 )
 from depo.util import errors
 from tests.factories.db import (
@@ -272,6 +275,63 @@ class TestListMigrations:
         self._write_schema_files(tmp_path, ["migration-x-y-z.sql"])
         with pytest.raises(InvalidVersion):
             list_migrations(tmp_path)
+
+
+class TestAvailableMigrations:
+    """Tests for available_migrations()."""
+
+    def test_delegates_to_list_migrations(self, monkeypatch):
+        """Resolves the schema package and delegates to list_migrations."""
+        sentinel = ["9.9.9"]
+        captured = None
+
+        def spy(directory):
+            nonlocal captured
+            captured = directory
+            return sentinel
+
+        monkeypatch.setattr("depo.repo.sqlite.list_migrations", spy)
+        assert available_migrations() == sentinel
+        assert captured is not None
+        assert captured.name == "schema"
+        assert (captured / "_schema.sql").is_file()
+
+
+class TestReadSchemaVersion:
+    """Tests for read_schema_version()."""
+
+    def test_reads_stamped_version(self, t_db: sqlite3.Connection):
+        """Returns the schema_version stamped by init_db."""
+        q = "SELECT value FROM repo_meta WHERE key='schema_version'"
+        assert read_schema_version(t_db) == t_db.execute(q).fetchone()[0]
+
+    def test_raises_when_none_recorded(self, t_conn: sqlite3.Connection):
+        """Raises when no schema_version row is present."""
+        init_db(t_conn)
+        t_conn.execute("DELETE FROM repo_meta WHERE key='schema_version'")
+        with pytest.raises(errors.SchemaVersionError):
+            read_schema_version(t_conn)
+
+
+class TestCheckMigrationState:
+    """Tests for check_migration_state()."""
+
+    def test_passes_when_current(self, t_db: sqlite3.Connection, monkeypatch):
+        """No pending migrations and not ahead: passes."""
+        monkeypatch.setattr("depo.repo.sqlite.available_migrations", lambda: ["0.1.0"])
+        check_migration_state(t_db)
+
+    def test_raises_when_behind(self, t_db: sqlite3.Connection, monkeypatch):
+        """A migration newer than stated is pending: raises."""
+        monkeypatch.setattr("depo.repo.sqlite.available_migrations", lambda: ["0.2.0"])
+        with pytest.raises(errors.SchemaVersionError):
+            check_migration_state(t_db)
+
+    def test_raises_when_ahead(self, t_db: sqlite3.Connection, monkeypatch):
+        """Stated version beyond all known migrations: raises."""
+        monkeypatch.setattr("depo.repo.sqlite.available_migrations", lambda: ["0.0.1"])
+        with pytest.raises(errors.SchemaVersionError):
+            check_migration_state(t_db)
 
 
 class TestRowMappers:
