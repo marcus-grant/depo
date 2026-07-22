@@ -33,6 +33,24 @@ Everything that does not is in [v0.2](./v02.md).
 
 Ordered by dependency. Each heading is one PR. The end of this list is `v0.1`.
 
+### Hash and encode changeover (Branch: `ft/hash-update`)
+
+Replace blake2b integer high-pad with blake3 bitstream low-pad per the
+[conformance](../design/conformance.md) contract. Latent-correct today
+(depo only encodes on-ladder 120 bits), so no data migration; rewrite
+`util/shortcode.py` and its tests.
+
+- [ ] Rewrite hasher: blake2b to unkeyed blake3, 120-bit on the 40-bit ladder
+- [ ] Rewrite encoder: integer high-pad to bitstream low-pad Crockford
+- [ ] Implement the conformance assertion classes as the test suite
+- [ ] Derive depo's frozen vectors independently from the external oracles
+- [ ] Converge vectors with normpic before merge (cross-repo gate)
+Before PR submit:
+- [ ] Verify every process step in the shared plan was walked
+- [ ] Update `conformance.md` with anything found during implementation
+- [ ] Update `shortcodes.md` Hashing and Canonicalization to match shipped code
+- [ ] Share findings and converged vectors with the normpic peer
+
 ### Logging to file (Branch: `ft/log-file`)
 
 An instance you cannot see is an instance you cannot operate. Logs need to land
