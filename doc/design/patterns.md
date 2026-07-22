@@ -438,8 +438,6 @@ a class-local `_act` helper applies the headers once.
 Where the request shape is itself the subject,
 as in dispatch tests, each test builds its request explicitly.
 
-`t_browser` and `t_htmx` predate this convention and are being retired.
-
 ## Error Handling Patterns
 
 ### Pattern: Error Skeleton First

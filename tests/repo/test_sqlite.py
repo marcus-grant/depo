@@ -7,19 +7,29 @@ Revisions: [2026-06-16]
 License: Apache-2.0
 """
 
+import re
 import sqlite3
+from pathlib import Path
 
 import pytest
+from packaging.version import InvalidVersion
 
 from depo.model.enums import ContentFormat, ItemKind, Visibility
 from depo.model.item import LinkItem, PicItem, TextItem
 from depo.model.user import User
+from depo.repo.schema import SCHEMA_VERSION
 from depo.repo.sqlite import (
     SqliteRepository,
+    _migration_version,
     _row_to_link_item,
     _row_to_pic_item,
     _row_to_text_item,
+    available_migrations,
+    check_migration_state,
     init_db,
+    list_migrations,
+    pending_migrations,
+    read_schema_version,
 )
 from depo.util import errors
 from tests.factories.db import (
@@ -145,6 +155,183 @@ class TestInitDb:
         q += "VALUES (1, 'a@b.com', 'Test', 'x', 0)"
         t_conn.execute(q)
         init_db(t_conn)
+
+    def test_creates_repo_meta_table(self, t_conn):
+        """init_db creates the repo_meta table."""
+        init_db(t_conn)
+        q = "SELECT name FROM sqlite_master WHERE type=? AND name=?"
+        assert t_conn.execute(q, ("table", "repo_meta")).fetchone() is not None
+
+    @pytest.mark.parametrize(
+        "name, typ, notnull, default, pk",
+        [
+            ("key", "TEXT", True, None, True),
+            ("value", "TEXT", True, None, False),
+        ],
+    )
+    def test_repo_meta_table_columns(self, t_db, name, typ, notnull, default, pk):
+        """repo_meta has the expected columns."""
+        kwargs = {"notnull": notnull, "default": default, "pk": pk}
+        assert_column(t_db, "repo_meta", name, typ, **kwargs)
+
+    def test_stamps_schema_version(self, t_db):
+        """init_db stamps SCHEMA_VERSION into repo_meta."""
+        q = "SELECT value FROM repo_meta WHERE key='schema_version'"
+        assert t_db.execute(q).fetchone()[0] == SCHEMA_VERSION
+
+
+class TestPendingMigrations:
+    """Tests for pending_migrations()."""
+
+    def test_empty_when_none_newer(self):
+        """No migrations newer than stated yields empty."""
+        assert pending_migrations(stated="1.7.1", available=["1.7.0", "1.0.0"]) == []
+
+    def test_returns_newer_ordered(self):
+        """Versions newer than stated returned ascending."""
+        expected = ["1.7.2", "2.0.0"]
+        avail = ["1.6.9", *expected]
+        assert pending_migrations(stated="1.7.1", available=avail) == expected
+
+    def test_excludes_stated_itself(self):
+        """The stated version is not itself pending."""
+        stated, expected = "1.7.1", ["1.7.2"]
+        available = [stated, *expected]
+        assert pending_migrations(stated=stated, available=available) == expected
+
+    def test_orders_by_semver_not_lexically(self):
+        """Ordering is numeric per segment, not string."""
+        avail, expect = ["1.1.10", "1.1.2"], ["1.1.2", "1.1.10"]
+        assert pending_migrations(stated="1.1.1", available=avail) == expect
+
+    @pytest.mark.parametrize("bad", ["abc", "", "1.2.x", "v.e.r", "1.2", "1.2.3.4"])
+    def test_raises_on_invalid_version(self, bad):
+        """Unparseable or non-3-part version strings raise, naming the value."""
+        with pytest.raises(InvalidVersion, match=re.escape(repr(bad))):
+            pending_migrations("1.0.0", available=[bad, "2.0.0"])
+        with pytest.raises(InvalidVersion, match=re.escape(repr(bad))):
+            pending_migrations(bad, available=["3.0.0"])
+
+
+class TestMigrationVersion:
+    """Tests for _migration_version()."""
+
+    def test_parses_well_formed_filename(self):
+        """A well-formed migration filename yields its dotted version."""
+        path = Path("test/migration-01-02-03.sql")
+        assert _migration_version(path) == "1.2.3"
+
+    def test_raises_on_non_migration_filename(self):
+        """A filename without the migration- prefix raises."""
+        with pytest.raises(InvalidVersion):
+            assert _migration_version(Path("test/_schema.sql"))
+
+    def test_raises_on_non_numeric_segments(self):
+        """Non-numeric version segments raise."""
+        # e.g. Path("migration-a-b-c.sql")
+        with pytest.raises(InvalidVersion):
+            _migration_version(Path("migration-a-b-c.sql"))
+
+    def test_raises_on_wrong_segment_count(self):
+        """A filename without exactly three version segments raises."""
+        with pytest.raises(InvalidVersion):
+            _migration_version(Path("migration-1-2.sql"))
+
+    def test_raises_on_wrong_prefix(self):
+        """A three-segment name without the migration- prefix raises."""
+        with pytest.raises(InvalidVersion):
+            _migration_version(Path("foobar-1-2-3.sql"))
+
+
+class TestListMigrations:
+    """Tests for list_migrations()."""
+
+    def _write_schema_files(self, root: Path, paths: list[str]):
+        for p in paths:
+            (root / p).write_text(f"test path: {p}")
+
+    def test_empty_when_no_migration_files(self, tmp_path):
+        """A directory with no migration files yields empty."""
+        assert list_migrations(tmp_path) == []
+
+    def test_lists_versions_ascending(self, tmp_path):
+        """Migration files are listed as versions, ascending."""
+        files = [
+            "migration-01-2-10.sql",
+            "migration-1-02-2.sql",
+            "migration-2-0-00.sql",
+        ]
+        self._write_schema_files(tmp_path, files)
+        assert list_migrations(tmp_path) == ["1.2.2", "1.2.10", "2.0.0"]
+
+    def test_ignores_non_migration_files(self, tmp_path):
+        """Non-migration files in the directory are not listed."""
+        files = ["migration-01-02-03.sql", "foobar-00-00-01.sql"]
+        self._write_schema_files(tmp_path, files)
+        assert list_migrations(tmp_path) == ["1.2.3"]
+
+    def test_raises_on_malformed_migration_file(self, tmp_path):
+        """A migration-globbed file with a bad version raises."""
+        self._write_schema_files(tmp_path, ["migration-x-y-z.sql"])
+        with pytest.raises(InvalidVersion):
+            list_migrations(tmp_path)
+
+
+class TestAvailableMigrations:
+    """Tests for available_migrations()."""
+
+    def test_delegates_to_list_migrations(self, monkeypatch):
+        """Resolves the schema package and delegates to list_migrations."""
+        sentinel = ["9.9.9"]
+        captured = None
+
+        def spy(directory):
+            nonlocal captured
+            captured = directory
+            return sentinel
+
+        monkeypatch.setattr("depo.repo.sqlite.list_migrations", spy)
+        assert available_migrations() == sentinel
+        assert captured is not None
+        assert captured.name == "schema"
+        assert (captured / "_schema.sql").is_file()
+
+
+class TestReadSchemaVersion:
+    """Tests for read_schema_version()."""
+
+    def test_reads_stamped_version(self, t_db: sqlite3.Connection):
+        """Returns the schema_version stamped by init_db."""
+        q = "SELECT value FROM repo_meta WHERE key='schema_version'"
+        assert read_schema_version(t_db) == t_db.execute(q).fetchone()[0]
+
+    def test_raises_when_none_recorded(self, t_conn: sqlite3.Connection):
+        """Raises when no schema_version row is present."""
+        init_db(t_conn)
+        t_conn.execute("DELETE FROM repo_meta WHERE key='schema_version'")
+        with pytest.raises(errors.SchemaVersionError):
+            read_schema_version(t_conn)
+
+
+class TestCheckMigrationState:
+    """Tests for check_migration_state()."""
+
+    def test_passes_when_current(self, t_db: sqlite3.Connection, monkeypatch):
+        """No pending migrations and not ahead: passes."""
+        monkeypatch.setattr("depo.repo.sqlite.available_migrations", lambda: ["0.1.0"])
+        check_migration_state(t_db)
+
+    def test_raises_when_behind(self, t_db: sqlite3.Connection, monkeypatch):
+        """A migration newer than stated is pending: raises."""
+        monkeypatch.setattr("depo.repo.sqlite.available_migrations", lambda: ["0.2.0"])
+        with pytest.raises(errors.SchemaVersionError):
+            check_migration_state(t_db)
+
+    def test_raises_when_ahead(self, t_db: sqlite3.Connection, monkeypatch):
+        """Stated version beyond all known migrations: raises."""
+        monkeypatch.setattr("depo.repo.sqlite.available_migrations", lambda: ["0.0.1"])
+        with pytest.raises(errors.SchemaVersionError):
+            check_migration_state(t_db)
 
 
 class TestRowMappers:

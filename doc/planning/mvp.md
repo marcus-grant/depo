@@ -33,46 +33,6 @@ Everything that does not is in [v0.2](./v02.md).
 
 Ordered by dependency. Each heading is one PR. The end of this list is `v0.1`.
 
-### Fix htmx dispatch on shortcode routes (Branch: `fix/htmx-dispatch`)
-
-`item()` and `info()` in `src/depo/web/routes/shortcode.py` negotiate on
-`wants_html` alone and never consult `is_htmx`. An htmx request whose Accept
-header lacks `text/html` falls through to the API branch and receives
-plaintext, which htmx then swaps into the DOM.
-
-The upload dispatcher already does this correctly: `is_htmx` first, then
-`wants_html`, then API. Most specific wins, since an htmx request is also a
-browser request.
-
-- [ ] Red: a dispatch test asserting an htmx-marked request never receives a
-      plaintext response, for every route that can return an HTML surface
-- [ ] Reorder negotiation in `item()` and `info()` to check `is_htmx` first
-- [ ] Point the htmx branch at the existing page render. These routes have no
-      partial variants and nothing in the current UI swaps them, so the fix is
-      defensive: close the hole, do not build partials for a flow that does not
-      exist yet
-- [ ] Update the content negotiation section of `doc/design/routes.md`
-
-Surfaced by `ft/upload-gate`: a test using the old `t_htmx` fixture (which sent
-`HX-Request` with no Accept header) was asserting against a plaintext info
-response without anyone noticing.
-
-### Schema migrations (Branch: `ft/migrations`)
-
-The one architectural gap before live data. `init_db` runs `schema.sql` with
-`CREATE TABLE IF NOT EXISTS`, which is idempotent but cannot alter an existing
-table. The moment a column is added to a deployed instance holding real items,
-there is no upgrade path.
-
-Deferring this gets strictly more expensive with every stored item.
-
-- [ ] Decide the approach. Versioned SQL files plus a `schema_version` table is
-      likely the right weight for a single-file SQLite app; Alembic is heavy for
-      this
-- [ ] Decide whether migrations apply on startup or via an explicit CLI command
-- [ ] Test: a DB at version N upgrades to N+1 without data loss
-- [ ] Document in `doc/module/repo.md`
-
 ### Logging to file (Branch: `ft/log-file`)
 
 An instance you cannot see is an instance you cannot operate. Logs need to land

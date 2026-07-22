@@ -100,10 +100,30 @@ class TestConfigShow:
         assert "3000" in result.output
 
 
+class TestServeGuard:
+    """Tests for serve's migration-state gate."""
+
+    def test_aborts_when_db_uninitialized(self, tmp_path, monkeypatch):
+        """serve exits non-zero with guidance when the store is absent."""
+        monkeypatch.setattr("uvicorn.run", lambda *a, **k: None)
+        result = _invoke("serve", tmp_path=tmp_path)
+        assert result.exit_code != 0
+        assert "init" in result.output.lower()
+
+    def test_aborts_when_schema_unsafe(self, tmp_path, monkeypatch):
+        """serve exits non-zero when the store schema is unsafe."""
+        _invoke("init", tmp_path=tmp_path)
+        monkeypatch.setattr("depo.repo.sqlite.available_migrations", lambda: ["9.9.9"])
+        monkeypatch.setattr("uvicorn.run", lambda *a, **k: None)
+        result = _invoke("serve", tmp_path=tmp_path)
+        assert result.exit_code != 0
+
+
 class TestServe:
     """Tests for `depo serve`."""
 
     def test_calls_uvicorn(self, tmp_path):
+        _invoke("init", tmp_path=tmp_path)  # Needs an initialized database first
         with patch("uvicorn.run") as mock_run:
             result = _invoke("serve", tmp_path=tmp_path)
         assert result.exit_code == 0

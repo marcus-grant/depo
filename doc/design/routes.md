@@ -55,6 +55,11 @@ Dispatchers inspect request context to choose a handler:
 
 - `is_htmx(request)` - checks for `HX-Request` header
 - `wants_html(request)` - checks Accept header for `text/html`
+Order matters: check `is_htmx` first, then `wants_html`, then fall back
+to the API surface. An htmx request is also a browser request, so
+checking `wants_html` first swallows it and returns plaintext that htmx
+swaps into the DOM.
+The negotiation is a thin dispatch, not interleaved with handler logic.
 
 The negotiation is a thin dispatch, not interleaved with handler logic.
 Each handler is explicitly named and does one thing.

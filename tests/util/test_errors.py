@@ -31,6 +31,7 @@ class TestErrorSeverity:
         errors.UnknownServerError: errors.Severity.ERROR,
         errors.MissingDependencyError: errors.Severity.WARNING,
         errors.RepoError: errors.Severity.WARNING,
+        errors.SchemaVersionError: errors.Severity.CRITICAL,
         errors.NotFoundError: errors.Severity.INFO,
         errors.InsertFailedError: errors.Severity.ERROR,
         errors.UniqueViolationError: errors.Severity.WARNING,
@@ -162,9 +163,6 @@ class TestUnknownServerError:
         assert e.exception is err
 
 
-# == Repo Domain ==
-
-
 class TestMissingDependencyError:
     """Tests for MissingDependencyError (501)."""
 
@@ -182,6 +180,9 @@ class TestMissingDependencyError:
         assert e.status == 501
 
 
+# == Repo Domain ==
+
+
 class TestRepoError:
     """Tests for the RepoError domain base."""
 
@@ -189,6 +190,32 @@ class TestRepoError:
         """Inherits from DepoError and has status 500."""
         assert issubclass(errors.RepoError, errors.DepoError)
         assert errors.RepoError.status == 500
+
+
+class TestSchemaVersionError:
+    """Tests for SchemaVersionError."""
+
+    def test_is_repo_error(self):
+        """SchemaVersionError is a RepoError subclass."""
+        assert issubclass(errors.SchemaVersionError, errors.RepoError)
+
+    def test_severity_is_critical(self):
+        """SchemaVersionError reports CRITICAL severity."""
+        assert errors.SchemaVersionError.severity == errors.Severity.CRITICAL
+
+    def test_stashes_expected_and_stated(self):
+        """SchemaVersionError stores the expected and stated versions."""
+        e = errors.SchemaVersionError(expected="1.0.0", stated="0.2.2")
+        assert e.expected == "1.0.0"
+        assert e.stated == "0.2.2"
+
+    def test_message_names_both_versions(self):
+        """The message names both the expected and stated versions."""
+        stated, expected = "0.2.2", "1.0.0"
+        msg = errors.SchemaVersionError(expected=expected, stated=stated).message
+        assert stated in msg
+        assert expected in msg
+        assert all(s in msg.lower() for s in ["schema", "version", "mismatch"])
 
 
 class TestCodeCollisionError:

@@ -9,11 +9,15 @@ License: Apache-2.0
 
 import sqlite3
 from importlib import resources
+from pathlib import Path
+
+from packaging.version import InvalidVersion, Version
 
 from depo.model.enums import ContentFormat, ItemKind, Visibility
 from depo.model.item import LinkItem, PicItem, TextItem
 from depo.model.user import User
 from depo.model.write_plan import WritePlan
+from depo.repo.schema import SCHEMA_VERSION
 from depo.util import errors
 
 
@@ -23,13 +27,126 @@ def init_db(conn: sqlite3.Connection) -> None:
     Args:
         conn: SQLite connection to initialize.
     """
-    schema = resources.files("depo.repo").joinpath("schema.sql").read_text()
+    schema = resources.files("depo.repo.schema").joinpath("_schema.sql").read_text()
     conn.executescript(schema)
     conn.commit()  # Ensure schema is applied before any other operations
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")  # WAL mode
     conn.execute("PRAGMA synchronous = NORMAL")  # Sync = better performance in WAL
     conn.execute("PRAGMA busy_timeout = 5000")  # Wait milsec if database is locked
+
+
+def _valid_semver(s: str) -> Version:
+    """Parse s into a three-part Version.
+
+    Returns:
+        The parsed Version.
+    Raises:
+        InvalidVersion: s is unparseable or not three-part.
+    """
+    msg = f"invalid schema version {s!r}: must be three-part X.Y.Z semver"
+    try:
+        version = Version(s)
+    except InvalidVersion as e:
+        raise InvalidVersion(msg) from e
+    if len(version.release) != 3:
+        raise InvalidVersion(msg)
+    return version
+
+
+def pending_migrations(stated: str, available: list[str]) -> list[str]:
+    """Select migration versions strictly newer than stated, ascending.
+
+    Ordering is numeric per segment, not lexical. Stated is excluded.
+
+    Returns:
+        Pending versions ascending; empty when the store is current.
+    Raises:
+        InvalidVersion: any version is unparseable or not three-part.
+    """
+    v_stated, avail_list = _valid_semver(stated), [_valid_semver(v) for v in available]
+    return [str(v) for v in sorted(avail_list) if v_stated < v]
+
+
+def _migration_version(path: Path) -> str:
+    """Extract a dotted version from a migration file path.
+
+    e.g. migration-1-2-3.sql -> '1.2.3'.
+
+    Returns:
+        The dotted version string.
+    Raises:
+        InvalidVersion: the filename is not migration-M-m-p.sql shape.
+    """
+    parts = path.stem.split("-")
+    if len(parts) != 4 or parts[0] != "migration":
+        msg = f"Migration file ({path}) isnt of form: "
+        msg += "migration-<MAJOR>-<MINOR>-<PATCH>.sql"
+        raise InvalidVersion(msg)
+    return str(_valid_semver(".".join(parts[1:])))
+
+
+def list_migrations(directory: Path) -> list[str]:
+    """List migration versions in a directory, ascending.
+
+    Globs migration-*.sql and parses each via _migration_version.
+
+    Returns:
+        Version strings ascending; empty when none present.
+    Raises:
+        InvalidVersion: a globbed file is not migration-M-m-p.sql shape.
+    """
+    migration_paths = directory.glob("migration-*.sql")
+    migration_versions = [_migration_version(p) for p in migration_paths]
+    return sorted(migration_versions, key=Version)
+
+
+def check_migration_state(conn: sqlite3.Connection) -> None:
+    """Refuse startup unless the store schema is at a safe version.
+
+    Reads the stated version, discovers available migrations, and
+    verifies the store is neither behind (unapplied migrations pending)
+    nor ahead (stated version beyond all known migrations). CRITICAL:
+    operating on a mismatched store risks irreversible corruption, so
+    any mismatch raises rather than returning.
+
+    Raises:
+        SchemaVersionError: the store is behind or ahead of a safe state.
+    """
+    stated = read_schema_version(conn)
+    available = available_migrations()
+    if pending_migrations(stated, available):
+        raise errors.SchemaVersionError(expected=available[-1], stated=stated)
+    if available and Version(stated) > Version(available[-1]):
+        raise errors.SchemaVersionError(expected=available[-1], stated=stated)
+    return None
+
+
+def available_migrations() -> list[str]:
+    """List migration versions bundled in the repo schema package.
+
+    Returns:
+        Version strings ascending; empty when none are bundled.
+    Raises:
+        InvalidVersion: a bundled migration file has a bad name.
+    """
+    directory = Path(str(resources.files("depo.repo.schema")))
+    return list_migrations(directory)
+
+
+def read_schema_version(conn: sqlite3.Connection) -> str:
+    """Read the stamped schema version from repo_meta.
+
+    Returns:
+        The stored schema_version value.
+    Raises:
+        SchemaVersionError: no schema_version is recorded.
+    """
+    q = "SELECT value FROM repo_meta WHERE key='schema_version'"
+    row = conn.execute(q).fetchone()
+    if row is None:
+        raise errors.SchemaVersionError(expected=SCHEMA_VERSION, stated="none recorded")
+    return row[0]
 
 
 def _row_to_text_item(row: sqlite3.Row) -> TextItem:
