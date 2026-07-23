@@ -5,11 +5,14 @@ gets a unique shortcode derived from its content hash.
 
 ## Hashing
 
-- Algorithm: BLAKE2b
-- Digest size: 120 bits (15 bytes)
-- Encoding: Crockford base32
+- Algorithm: BLAKE3, unkeyed
+- Digest size: 120 bits (15 bytes), sliced at the XOF cut
+- Encoding: Crockford base32, low-pad bitstream
 - Canonical output: uppercase
 - Full encoded hash length: 24 characters
+
+Conformance is proven against pinned reference vectors and independent
+encoders; see [conformance](./conformance.md).
 
 ## Storage model
 
@@ -34,9 +37,12 @@ Input is normalized before lookup:
 - `o` and `O` become `0`
 - `i`, `I`, `l`, `L` become `1`
 - Lowercased input is uppercased
+- `u` and `U` are rejected, not coerced
 
 The DB stores canonical uppercase only. Ambiguous input from users is
-accepted and silently corrected (Postel's Law).
+accepted and silently corrected (Postel's Law), except U: it is the mod-37
+check symbol, so coercing it to V requires an explicit non-checksum
+declaration no caller can yet make.
 
 ## Related docs
 
