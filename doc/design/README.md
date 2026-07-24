@@ -81,6 +81,9 @@ IngestOrchestrator coordinates Repository and StorageBackend as siblings.
 - [Shortcodes](./shortcodes.md)
   - Hashing, encoding, collision handling, canonicalization
 
+- [Conformance](./conformance.md)
+  - Shared address scheme, oracle pins, and how conformance is proven
+
 - [Routes](./routes.md)
   - URL surface, content negotiation, handler naming conventions
 

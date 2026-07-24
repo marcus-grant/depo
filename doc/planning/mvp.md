@@ -33,6 +33,17 @@ Everything that does not is in [v0.2](./v02.md).
 
 Ordered by dependency. Each heading is one PR. The end of this list is `v0.1`.
 
+### Hash and encode changeover (Branch: `ft/hash-update`)
+
+Replace blake2b integer high-pad with blake3 bitstream low-pad per the
+[conformance](../design/conformance.md) contract. Latent-correct today
+(depo only encodes on-ladder 120 bits), so no data migration; rewrite
+`util/shortcode.py` and its tests.
+
+- [ ] Converge vectors with normpic before merge (cross-repo gate)
+Before PR submit:
+- [ ] Share findings and converged vectors with the normpic peer
+
 ### Logging to file (Branch: `ft/log-file`)
 
 An instance you cannot see is an instance you cannot operate. Logs need to land
@@ -69,6 +80,20 @@ reverse proxy, app in a container.
 
 The store is deliberately out of scope for backup here. A separate borgbackup
 job from a home NAS covers it.
+
+### Extract the shortcode codec as its own library
+
+The codec is shared with sibling projects; extracting before MVP means
+consumers integrate against a library rather than depo's internals, so later
+releases are not reshaping a shared dependency after the fact. A Rust port
+becomes the default implementation eventually, with the Python one kept as a
+cross-reference oracle.
+
+- [ ] Extract `util/shortcode.py`, its vectors, and its conformance suite
+- [ ] Import back into depo as a dependency
+- [ ] Decide depo's canary tests: the whole conformance suite belongs to the
+      library, so depo needs only enough to catch a divergence from the
+      contract, not to re-prove it
 
 ### Manual Testing
 
