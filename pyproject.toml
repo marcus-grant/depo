@@ -4,6 +4,7 @@ version = "0.0.0"
 description = "Content-addressed paste / image service"
 requires-python = ">=3.12"
 dependencies = [
+    "b3c32",
     "blake3>=1.0.9",
     "click>=8.3.1",
     "fastapi>=0.128.5",
@@ -32,6 +33,9 @@ dev-dependencies = [
   "pyright>=1.1.409",
   "hypothesis>=6.161.0",
 ]
+
+[tool.uv.sources]
+b3c32 = { git = "https://github.com/marcus-grant/b3c32", subdirectory = "python", rev = "v0.0.1" }
 
 [tool.pytest]
 testpaths = ["tests"]
