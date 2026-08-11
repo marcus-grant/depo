@@ -34,6 +34,18 @@ wheels = [
 ]
 
 [[package]]
+name = "b3c32"
+version = "0.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "blake3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9e/cf/1f1c28c205ea0788b03047eae7d858d2d5517646f78c28ec1b706a141df8/b3c32-0.0.2.tar.gz", hash = "sha256:4e90d405c7818f493f1dce87063e4eab34fb7b41f23bb7627608ae4dbaf12c2b", size = 27890, upload-time = "2026-08-11T18:33:24.181Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4a/ac/ab3be7662c2e52def97ffba8177c77557b05adf2d75c2b182a788f57767a/b3c32-0.0.2-py3-none-any.whl", hash = "sha256:2d475049c99c3850fa74c638838667007823f4bcf32af2d7e9471a20fc27c4d1", size = 5867, upload-time = "2026-08-11T18:33:23.174Z" },
+]
+
+[[package]]
 name = "beautifulsoup4"
 version = "4.14.3"
 source = { registry = "https://pypi.org/simple" }
@@ -173,6 +185,7 @@ name = "depo"
 version = "0.0.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "b3c32" },
     { name = "blake3" },
     { name = "click" },
     { name = "fastapi" },
@@ -201,6 +214,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "b3c32", specifier = "==0.0.2" },
     { name = "blake3", specifier = ">=1.0.9" },
     { name = "click", specifier = ">=8.3.1" },
     { name = "fastapi", specifier = ">=0.128.5" },

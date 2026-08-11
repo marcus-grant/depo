@@ -13,6 +13,7 @@ from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from b3c32 import CROCKFORD32_ALPHABET
 from bs4 import BeautifulSoup
 from fastapi import UploadFile
 from httpx import Response
@@ -23,7 +24,6 @@ from depo.cli import defaults
 from depo.model.enums import ContentFormat
 from depo.model.formats import ItemKind
 from depo.util import errors
-from depo.util.shortcode import _CROCKFORD32
 from depo.web.routes.upload import _parse_form_upload, _parse_upload, _upload_response
 from tests.factories import HEADER_BROWSER, HEADER_HTMX, gen_image, make_persist_result
 
@@ -38,7 +38,7 @@ def _assert_api_upload_created(resp, expected_kind: ItemKind):
     kind = resp.headers.get("X-Depo-Kind")
     assert kind == expected_kind, f"kind={kind} != {expected_kind}"
     assert resp.headers["X-Depo-Created"] == "true"
-    assert all(c in _CROCKFORD32 for c in resp.text), f"bad chars: {resp.text}"
+    assert all(c in CROCKFORD32_ALPHABET for c in resp.text), f"bad chars: {resp.text}"
     assert len(resp.text) == 8, f"len={len(resp.text)} != 8"
 
 
