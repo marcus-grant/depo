@@ -1,9 +1,6 @@
 from b3c32 import coerce_crockford_b32, hash_b32
 
 _SHORTCODE_BITS = 120
-# Mirrors the b3c32 contract alphabet. Temporary: replace with a
-# public export from b3c32 when the library provides one.
-CROCKFORD32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
 
 def hash_full_b32(data: bytes) -> str:
