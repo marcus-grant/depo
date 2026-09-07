@@ -95,6 +95,52 @@ cross-reference oracle.
       library, so depo needs only enough to catch a divergence from the
       contract, not to re-prove it
 
+### Hash-named storage (Branch: `ft/hash-named-store`)
+
+Rung 1 of the ingest redesign ladder. Store payload files under
+`{hash_full}.{ext}` instead of `{code}.{ext}`. The code stays a DB-level
+alias for the hash, which it conceptually already is. This decouples the
+storage write from code resolution (which happens at repo insert), and is
+the prerequisite for the durable ordering below. Read path resolves
+code -> item -> hash via the repo it already queries.
+
+- [ ] Rename scheme in `FilesystemStorage._path_for`: hash, not code
+  - [ ] `put`/`open`/`delete` signatures take `hash_full` + format
+  - [ ] Update call sites: orchestrator, `selector.get_raw`
+- [ ] One-time migration script renaming existing store files
+  - [ ] DB already holds hash + format for every item; walk rows,
+        rename `{code}.{ext}` to `{hash_full}.{ext}`
+
+### Durable ingest ordering (Branch: `ft/durable-ingest`)
+
+Rung 2. The guarantee: a returned shortcode is a promise the content is
+stored under it (policy deletions excepted). Achieved by sealing the file
+before the DB row exists, so no crash interleaving can produce a durable
+code without its durable content. Costs three fsyncs per upload: well
+under a millisecond on NVMe, low single-digit ms on SATA SSD. Slower IO
+servers are a supported target, and per-upload fsync stays acceptable
+there; it is sustained aggregate ingress that slower drives bound, not
+request latency. In-flight loss stays cheap and acceptable: a client
+that never got a 201 knows it failed.
+
+- [ ] `FilesystemStorage.put` seals instead of bare-writing
+  - [ ] Write to `{store_root}/.incoming/{random}` (same filesystem
+        as the store root so the rename stays atomic; never `/tmp`,
+        which is tmpfs and forces a cross-device copy)
+  - [ ] `fsync` file, rename to `{hash_full}.{ext}`, `fsync` dir
+- [ ] Reorder orchestrator: store file first, then repo insert
+  - [ ] Delete-on-storage-failure rollback in `ingest` goes away;
+        worst crash case is an orphan hash-named file, never a row
+        without its file
+- [ ] `PRAGMA synchronous = FULL` in `init_db` (WAL stays)
+  - [ ] NORMAL lets recent commits vanish on power loss, which is
+        exactly the broken-promise case
+- [ ] GC sweep, startup or cron
+  - [ ] `.incoming/` files older than N hours: delete (crashed
+        mid-stream uploads)
+  - [ ] Hash-named files with no matching row and old mtime: delete
+        (crash between seal and commit)
+
 ### Manual Testing
 
 - Manual route testing with posting collections saved to repo
